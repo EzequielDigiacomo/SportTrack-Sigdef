@@ -48,7 +48,20 @@ namespace SportTrack_Sigdef.Controladores.Auth
 
             Console.WriteLine($"USUARIO ENCONTRADO. Verificando hash para: {cleanUsername}");
 
-            if (!BCrypt.Net.BCrypt.Verify(cleanPassword, user.PasswordHash))
+            var passwordValid = false;
+            if (!string.IsNullOrEmpty(user.PasswordHash))
+            {
+                try
+                {
+                    passwordValid = BCrypt.Net.BCrypt.Verify(cleanPassword, user.PasswordHash);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Hash inválido para {cleanUsername}: {ex.Message}");
+                }
+            }
+
+            if (!passwordValid)
             {
                 user.IntentosFallidos++;
                 var intentosRestantes = 5 - user.IntentosFallidos;
