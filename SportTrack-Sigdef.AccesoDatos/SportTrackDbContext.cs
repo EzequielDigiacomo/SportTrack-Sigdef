@@ -830,7 +830,7 @@ namespace SportTrack_Sigdef.AccesoDatos
                 new Usuario { 
                     IdUsuario = 1, 
                     Username = "admin", 
-                    PasswordHash = "$2a$12$R9h/lSAbvI125hcnyqvQDu9fAKDLn6Y8yK/.Vz0uI3492M0h0mY3.", // admin123
+                    PasswordHash = "$2a$12$6ET.51wRwWnd/mscg3c8l.DcgbMBbQmVSqJ/pHpUcpNAPe4mzxoOS", // admin123
                     Email = "admin@sporttrack.com", 
                     RolFederacion = "SuperAdmin",
                     FechaCreacion = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
