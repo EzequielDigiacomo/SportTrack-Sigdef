@@ -1,0 +1,31 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using SportTrack_Sigdef.Entidades.Enums;
+
+namespace SportTrack_Sigdef.Entidades.Entidades
+{
+    public class EventoPrueba
+    {
+        public int IdEventoPrueba { get; set; }
+        public int IdEvento { get; set; }
+        public int IdPrueba { get; set; }
+        public DateTime FechaHora { get; set; }
+        public int MaxParticipantes { get; set; } = 0;
+        public string? Pista { get; set; }
+        public EstadoEventoEnum Estado { get; set; } = EstadoEventoEnum.Programada; // Usando enum
+        
+        // Progression Traceability
+        public string? PlanProgresionAsignado { get; set; }
+        public decimal? PrecioCategoria { get; set; } = 0;
+
+        // Navigation properties
+        public Evento Evento { get; set; } = null!;
+        public Prueba Prueba { get; set; } = null!;
+        public ICollection<Inscripcion> Inscripciones { get; set; } = new List<Inscripcion>();
+        public ICollection<Etapa> Etapas { get; set; } = new List<Etapa>();
+        public ICollection<ReglaProgresion> ReglasProgresion { get; set; } = new List<ReglaProgresion>();
+    }
+}
