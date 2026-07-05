@@ -74,15 +74,15 @@ namespace SportTrack_Sigdef.Controladores.Auth
                     await _context.SaveChangesAsync();
                     
                     await _auditService.RegistrarAccionAsync("ACCOUNT_LOCKED", $"Cuenta '{cleanUsername}' bloqueada por 5 intentos fallidos.", cleanUsername, "Auth");
-                    throw new UnauthorizedException("Tu cuenta ha sido deshabilitada por superar el lÃ­mite de intentos. ContactÃ¡ al administrador (desarrollador) para habilitarla. Se recomienda cambiar la contraseÃ±a.");
+                    throw new UnauthorizedException("Tu cuenta ha sido deshabilitada por superar el límite de intentos. Contactá al administrador (desarrollador) para habilitarla. Se recomienda cambiar la contraseña.");
                 }
 
                 _context.Usuarios.Update(user);
                 await _context.SaveChangesAsync();
 
-                Console.WriteLine($"CONTRASEÃ‘A INCORRECTA para: {cleanUsername}. Quedan {intentosRestantes} intentos.");
-                await _auditService.RegistrarAccionAsync("LOGIN_FAILED", $"ContraseÃ±a incorrecta para '{cleanUsername}'. Quedan {intentosRestantes} intentos.", cleanUsername, "Auth");
-                throw new UnauthorizedException($"ContraseÃ±a incorrecta. Te quedan {intentosRestantes} intentos antes del bloqueo.");
+                Console.WriteLine($"CONTRASEÑA INCORRECTA para: {cleanUsername}. Quedan {intentosRestantes} intentos.");
+                await _auditService.RegistrarAccionAsync("LOGIN_FAILED", $"Contraseña incorrecta para '{cleanUsername}'. Quedan {intentosRestantes} intentos.", cleanUsername, "Auth");
+                throw new UnauthorizedException($"Contraseña incorrecta. Te quedan {intentosRestantes} intentos antes del bloqueo.");
             }
 
             // Si el login fue exitoso, reseteamos el contador
@@ -93,12 +93,12 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 await _context.SaveChangesAsync();
             }
 
-            // Verificar que la cuenta estÃ© habilitada
+            // Verificar que la cuenta esté habilitada
             if (!user.EstaActivo)
             {
                 Console.WriteLine($"CUENTA DESHABILITADA: {cleanUsername}");
-                await _auditService.RegistrarAccionAsync("LOGIN_BLOCKED", $"Acceso bloqueado: cuenta '{cleanUsername}' estÃ¡ deshabilitada.", cleanUsername, "Auth");
-                throw new UnauthorizedException("Tu cuenta estÃ¡ temporalmente deshabilitada. ContactÃ¡ al administrador.");
+                await _auditService.RegistrarAccionAsync("LOGIN_BLOCKED", $"Acceso bloqueado: cuenta '{cleanUsername}' está deshabilitada.", cleanUsername, "Auth");
+                throw new UnauthorizedException("Tu cuenta está temporalmente deshabilitada. Contactá al administrador.");
             }
 
             // SaaS Enforcement: Verificar si la entidad estÃ¡ activa y pagos
