@@ -25,6 +25,7 @@ using SportTrack_Sigdef.Controladores.Services;
 using SportTrack_Sigdef.Controladores.PagosSIGDEF.Extensions;
 using SportTrack_Sigdef.Controladores.PagosSIGDEF.Services;
 using SIGDEF.API.Services;
+using SportTrack_Sigdef.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -246,6 +247,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure the HTTP request pipeline.
+app.UseMiddleware<ExceptionMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
