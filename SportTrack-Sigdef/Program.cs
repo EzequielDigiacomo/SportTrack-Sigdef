@@ -29,8 +29,19 @@ using SIGDEF.API.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configuración de la base de datos PostgreSQL
+var connectionString = ResolveConnectionString(builder.Configuration);
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    Console.WriteLine("ADVERTENCIA: No hay connection string (DefaultConnection ni DATABASE_URL).");
+}
+else
+{
+    Console.WriteLine("Connection string configurada (origen: " +
+        (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")) ? "DATABASE_URL" : "DefaultConnection") + ").");
+}
+
 builder.Services.AddDbContext<SportTrackDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
 // SignalR para tiempo real
 builder.Services.AddSignalR();
@@ -207,16 +218,30 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<SportTrackDbContext>();
-        if (context.Database.GetPendingMigrations().Any())
+        if (!await context.Database.CanConnectAsync())
         {
-            Console.WriteLine("Aplicando migraciones pendientes...");
-            context.Database.Migrate();
-            Console.WriteLine("Migraciones aplicadas con éxito.");
+            Console.WriteLine("ERROR: No se pudo conectar a PostgreSQL. Revisá ConnectionStrings__DefaultConnection o DATABASE_URL.");
+        }
+        else
+        {
+            var pending = (await context.Database.GetPendingMigrationsAsync()).ToList();
+            if (pending.Count > 0)
+            {
+                Console.WriteLine($"Aplicando {pending.Count} migración(es) pendiente(s)...");
+                await context.Database.MigrateAsync();
+                Console.WriteLine("Migraciones aplicadas con éxito.");
+            }
+            else
+            {
+                Console.WriteLine("Base de datos al día (sin migraciones pendientes).");
+            }
         }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Error al aplicar migraciones automáticas al iniciar: {ex.Message}");
+        Console.WriteLine($"ERROR al aplicar migraciones: {ex.Message}");
+        if (ex.InnerException != null)
+            Console.WriteLine($"  Inner: {ex.InnerException.Message}");
     }
 }
 
@@ -238,3 +263,20 @@ app.MapControllers();
 app.MapHub<TimingHub>("/hubs/timing");
 
 app.Run();
+
+static string? ResolveConnectionString(IConfiguration configuration)
+{
+    var fromConfig = configuration.GetConnectionString("DefaultConnection");
+    if (!string.IsNullOrWhiteSpace(fromConfig))
+        return fromConfig;
+
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    if (string.IsNullOrWhiteSpace(databaseUrl))
+        return null;
+
+    // Render puede entregar postgres:// — Npgsql 8 acepta postgresql://
+    if (databaseUrl.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase))
+        databaseUrl = "postgresql://" + databaseUrl["postgres://".Length..];
+
+    return databaseUrl;
+}
