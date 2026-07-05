@@ -1,0 +1,159 @@
+﻿using Microsoft.EntityFrameworkCore;
+using SportTrack_Sigdef.AccesoDatos;
+using SportTrack_Sigdef.Entidades.Entidades;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace SportTrack_Sigdef.Controladores.Participante
+{
+    public class ParticipanteRepository : IParticipanteRepository
+    {
+        private readonly SportTrackDbContext _context;
+
+        public ParticipanteRepository(SportTrackDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<IEnumerable<Entidades.Entidades.Participante>> GetAllAsync()
+        {
+            var list = await _context.Participantes
+                .Include(p => p.Sexo)
+                .Include(p => p.Categoria)
+                .Include(p => p.Club)
+                .AsNoTracking()
+                .ToListAsync();
+
+            // CorrecciÃ³n al vuelo para atletas afectados por el hueco de edad (36-39)
+            foreach (var p in list)
+            {
+                if (p.CategoriaId == 11 && p.Edad >= 36 && p.Edad <= 39)
+                {
+                    p.Categoria = new Entidades.Entidades.Categoria { Id = 7, Nombre = "Senior" };
+                }
+            }
+            return list;
+        }
+
+        public async Task<Entidades.Entidades.Participante?> GetByIdAsync(int id)
+        {
+            var p = await _context.Participantes
+                .Include(p => p.Sexo)
+                .Include(p => p.Categoria)
+                .Include(p => p.Club)
+                .FirstOrDefaultAsync(p => p.ParticipanteId == id);
+
+            if (p != null && p.CategoriaId == 11 && p.Edad >= 36 && p.Edad <= 39)
+            {
+                p.Categoria = new Entidades.Entidades.Categoria { Id = 7, Nombre = "Senior" };
+            }
+            return p;
+        }
+
+        public async Task<IEnumerable<Entidades.Entidades.Participante>> GetByClubIdAsync(int clubId)
+        {
+            var list = await _context.Participantes
+                .Include(p => p.Sexo)
+                .Include(p => p.Categoria)
+                .Include(p => p.Club)
+                .Where(p => p.IdClub == clubId)
+                .AsNoTracking()
+                .ToListAsync();
+
+            // CorrecciÃ³n al vuelo para la grilla
+            foreach (var p in list)
+            {
+                if (p.CategoriaId == 11 && p.Edad >= 36 && p.Edad <= 39)
+                {
+                    p.Categoria = new Entidades.Entidades.Categoria { Id = 7, Nombre = "Senior" };
+                }
+            }
+            return list;
+        }
+
+        public async Task<IEnumerable<Entidades.Entidades.Participante>> GetByFederationIdAsync(int federationId)
+        {
+            // Obtener IDs de todos los clubes que pertenecen a esta federaciÃ³n
+            var clubIds = await _context.Clubes
+                .Where(c => c.IdFederacion == federationId)
+                .Select(c => c.IdClub)
+                .ToListAsync();
+
+            var list = await _context.Participantes
+                .Include(p => p.Sexo)
+                .Include(p => p.Categoria)
+                .Include(p => p.Club)
+                .Where(p => !p.IdClub.HasValue || clubIds.Contains(p.IdClub.Value))
+                .AsNoTracking()
+                .ToListAsync();
+
+            // CorrecciÃ³n al vuelo para la grilla
+            foreach (var p in list)
+            {
+                if (p.CategoriaId == 11 && p.Edad >= 36 && p.Edad <= 39)
+                {
+                    p.Categoria = new Entidades.Entidades.Categoria { Id = 7, Nombre = "Senior" };
+                }
+            }
+            return list;
+        }
+
+        public async Task<Entidades.Entidades.Participante> CreateAsync(Entidades.Entidades.Participante participante)
+        {
+            var edad = DateTime.UtcNow.Year - participante.FechaNacimiento.Year;
+            var categoria = await _context.Categorias
+                .Where(c => c.Nombre != "Control")
+                .FirstOrDefaultAsync(c => 
+                    (c.EdadMin == null || edad >= c.EdadMin) && 
+                    (c.EdadMax == null || edad <= c.EdadMax));
+            
+            if (categoria != null)
+            {
+                participante.CategoriaId = categoria.Id;
+            }
+
+            _context.Participantes.Add(participante);
+            await _context.SaveChangesAsync();
+            return participante;
+        }
+
+        public async Task<Entidades.Entidades.Participante> UpdateAsync(Entidades.Entidades.Participante participante)
+        {
+            var edad = DateTime.UtcNow.Year - participante.FechaNacimiento.Year;
+            var categoria = await _context.Categorias
+                .Where(c => c.Nombre != "Control")
+                .FirstOrDefaultAsync(c => 
+                    (c.EdadMin == null || edad >= c.EdadMin) && 
+                    (c.EdadMax == null || edad <= c.EdadMax));
+            
+            if (categoria != null)
+            {
+                participante.CategoriaId = categoria.Id;
+            }
+
+            _context.Entry(participante).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return participante;
+        }
+
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var participante = await _context.Participantes.FindAsync(id);
+            if (participante == null) return false;
+            _context.Participantes.Remove(participante);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> ExistsAsync(int id)
+        {
+            return await _context.Participantes.AnyAsync(p => p.ParticipanteId == id);
+        }
+
+        public async Task<int> CountByClubIdAsync(int clubId)
+        {
+            return await _context.Participantes.CountAsync(p => p.IdClub == clubId);
+        }
+    }
+}
