@@ -7,6 +7,6 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
         int? GetFederacionId();
         int? GetClubId();
         string GetRol();
-        ClaimsPrincipal GetUser();
+        ClaimsPrincipal? GetUser();
     }
 }
