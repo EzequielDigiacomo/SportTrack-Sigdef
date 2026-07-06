@@ -16,7 +16,8 @@ namespace SportTrack_Sigdef.Controladores.Auth
 
         public TokenService(IConfiguration config)
         {
-            var tokenKey = config["TokenKey"] ?? "SuperSecretKeyQueDeberiaSerMasLargaParaProduccion123456";
+            // Debe coincidir con la clave usada en Program.cs para JwtBearer
+            var tokenKey = config["TokenKey"] ?? "SportTrackSuperSecretKey2026!ForEducationalPurposeOnly_LongEnoughToBeSecure";
             _key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey));
         }
 
