@@ -59,6 +59,13 @@ namespace SportTrack_Sigdef.Controllers
             return Ok(fases);
         }
 
+        [HttpGet("ProgresionAudit/{eventoPruebaId}")]
+        public async Task<ActionResult<IEnumerable<ProgressionAuditDto>>> GetProgresionAudit(int eventoPruebaId)
+        {
+            var audit = await _faseService.GetProgressionAuditAsync(eventoPruebaId);
+            return Ok(audit);
+        }
+
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(int id)
         {
