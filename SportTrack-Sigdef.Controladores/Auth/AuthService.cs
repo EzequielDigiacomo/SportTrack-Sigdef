@@ -104,7 +104,7 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 throw new UnauthorizedException("Tu cuenta está temporalmente deshabilitada. Contactá al administrador.");
             }
 
-            // SaaS Enforcement: Verificar si la entidad estÃ¡ activa y pagos
+            // SaaS Enforcement: Verificar si la entidad está activa y pagos
             if (user.RolFederacion != "SuperAdmin" && (user.Club != null || user.Federacion != null))
             {
                 bool activo = user.Federacion?.Activo ?? user.Club?.Activo ?? true;
@@ -115,22 +115,22 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 if (!activo)
                 {
                     Console.WriteLine($"ENTIDAD SUSPENDIDA: {nombreInst} para usuario {cleanUsername}");
-                    await _auditService.RegistrarAccionAsync("LOGIN_BLOCKED", $"Acceso bloqueado: '{nombreInst}' estÃ¡ suspendida.", cleanUsername, "Auth");
-                    throw new UnauthorizedException("El acceso de tu instituciÃ³n ha sido suspendido temporalmente por el administrador del sistema.");
+                    await _auditService.RegistrarAccionAsync("LOGIN_BLOCKED", $"Acceso bloqueado: '{nombreInst}' está suspendida.", cleanUsername, "Auth");
+                    throw new UnauthorizedException("El acceso de tu institución ha sido suspendido temporalmente por el administrador del sistema.");
                 }
 
                 if (bloqueado)
                 {
                     Console.WriteLine($"ENTIDAD BLOQUEADA POR PAGO: {nombreInst} para usuario {cleanUsername}");
-                    await _auditService.RegistrarAccionAsync("LOGIN_BLOCKED", $"Acceso bloqueado: '{nombreInst}' estÃ¡ bloqueada por falta de pago.", cleanUsername, "Auth");
-                    throw new UnauthorizedException("El acceso de tu instituciÃ³n se encuentra bloqueado por falta de pago. Por favor, regularice su situaciÃ³n.");
+                    await _auditService.RegistrarAccionAsync("LOGIN_BLOCKED", $"Acceso bloqueado: '{nombreInst}' está bloqueada por falta de pago.", cleanUsername, "Auth");
+                    throw new UnauthorizedException("El acceso de tu institución se encuentra bloqueado por falta de pago. Por favor, regularice su situación.");
                 }
 
                 if (vencimiento.HasValue && vencimiento.Value.Date < DateTime.UtcNow.Date)
                 {
                     Console.WriteLine($"ENTIDAD VENCIDA: {nombreInst} para usuario {cleanUsername}");
-                    await _auditService.RegistrarAccionAsync("LOGIN_BLOCKED", $"Acceso bloqueado: la suscripciÃ³n de '{nombreInst}' se encuentra vencida.", cleanUsername, "Auth");
-                    throw new UnauthorizedException("La suscripciÃ³n de tu instituciÃ³n ha vencido. Por favor, regularice el pago para reactivar el acceso.");
+                    await _auditService.RegistrarAccionAsync("LOGIN_BLOCKED", $"Acceso bloqueado: la suscripción de '{nombreInst}' se encuentra vencida.", cleanUsername, "Auth");
+                    throw new UnauthorizedException("La suscripción de tu institución ha vencido. Por favor, regularice el pago para reactivar el acceso.");
                 }
             }
 
@@ -140,7 +140,7 @@ namespace SportTrack_Sigdef.Controladores.Auth
             
             PlanSaaS? planSaaSAsignado = user.Federacion?.PlanSaaS ?? user.Club?.PlanSaaS;
             
-            // Si el club no tiene plan, hereda de la federaciÃ³n
+            // Si el club no tiene plan, hereda de la federación
             if (planSaaSAsignado == null && user.Club?.IdFederacion != null)
             {
                 var parentFed = await _context.Federaciones
@@ -188,7 +188,7 @@ namespace SportTrack_Sigdef.Controladores.Auth
 
             response.Token = _tokenService.CreateToken(user);
             
-            await _auditService.RegistrarAccionAsync("LOGIN_SUCCESS", $"Usuario '{user.Username}' iniciÃ³ sesiÃ³n correctamente.", user.Username, "Auth");
+            await _auditService.RegistrarAccionAsync("LOGIN_SUCCESS", $"Usuario '{user.Username}' inició sesión correctamente.", user.Username, "Auth");
 
             return response;
         }
@@ -232,8 +232,8 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 var requester = await _context.Usuarios.FirstOrDefaultAsync(u => u.Username == requesterUsername.ToLower());
                 if (requester != null && requester.RolFederacion == "Admin" && requester.IdFederacion.HasValue)
                 {
-                    // Un Admin de FederaciÃ³n solo ve:
-                    // 1. Usuarios de su propia FederaciÃ³n
+                    // Un Admin de Federación solo ve:
+                    // 1. Usuarios de su propia Federación
                     // 2. Usuarios de sus Clubes Afiliados
                     var fedId = requester.IdFederacion.Value;
                     query = query.Where(u => u.IdFederacion == fedId || (u.Club != null && u.Club.IdFederacion == fedId));
@@ -290,12 +290,12 @@ namespace SportTrack_Sigdef.Controladores.Auth
 
                 if (!activo)
                 {
-                    throw new UnauthorizedException("El acceso de tu instituciÃ³n ha sido suspendido.");
+                    throw new UnauthorizedException("El acceso de tu institución ha sido suspendido.");
                 }
 
                 if (bloqueado || (vencimiento.HasValue && vencimiento.Value.Date < DateTime.UtcNow.Date))
                 {
-                    throw new UnauthorizedException("La suscripciÃ³n de tu instituciÃ³n ha vencido o estÃ¡ bloqueada por falta de pago.");
+                    throw new UnauthorizedException("La suscripción de tu institución ha vencido o está bloqueada por falta de pago.");
                 }
             }
 

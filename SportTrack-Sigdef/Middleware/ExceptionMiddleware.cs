@@ -27,8 +27,17 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, ex.Message);
-            await auditService.RegistrarErrorAsync(ex, context.Request.Path);
+            var isExpectedBusinessError = ex is UnauthorizedException or BadRequestException or NotFoundException;
+
+            if (isExpectedBusinessError)
+            {
+                _logger.LogWarning(ex, ex.Message);
+            }
+            else
+            {
+                _logger.LogError(ex, ex.Message);
+                await auditService.RegistrarErrorAsync(ex, context.Request.Path);
+            }
 
             ApplyCorsHeaders(context);
 
