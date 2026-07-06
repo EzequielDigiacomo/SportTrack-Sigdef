@@ -2,6 +2,7 @@
 using SportTrack_Sigdef.Controladores.Fase.Dtos;
 using SportTrack_Sigdef.Controladores.Inscripcion;
 using SportTrack_Sigdef.Controladores.Evento;
+using SportTrack_Sigdef.Controladores.Fase.Progression;
 using SportTrack_Sigdef.Entidades.Entidades;
 using Microsoft.AspNetCore.SignalR;
 using System;
@@ -25,6 +26,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
         Task BatchUpdateFasesAsync(List<FaseBatchUpdateDto> dto);
         Task<IEnumerable<FaseDto>> GenerarFasesManualAsync(int eventoPruebaId, List<ManualPlacementDto> placements);
         Task UpdateResultadoStatusAsync(int resultadoId, string status);
+        Task<IEnumerable<ProgressionAuditDto>> GetProgressionAuditAsync(int eventoPruebaId);
     }
 
     public class FaseService : IFaseService
@@ -187,10 +189,8 @@ namespace SportTrack_Sigdef.Controladores.Fase
 
         private async Task PreGenerarSiguientesEtapasAsync(int eventoPruebaId, int inscriptosCount, int numSeries, DateTime nextTime)
         {
-            int numSemis = 0;
-            if (numSeries == 2) numSemis = 1;
-            else if (numSeries == 3) numSemis = 2;
-            else if (numSeries >= 4) numSemis = 3;
+            int numSemis = GetSemifinalCount(numSeries);
+            int numFinales = GetFinalCount(numSeries);
 
             if (numSemis > 0)
             {
@@ -210,10 +210,9 @@ namespace SportTrack_Sigdef.Controladores.Fase
                         NombreFase = numSemis > 1 ? $"Semifinal {i + 1}" : "Semifinal",
                         NumeroFase = i + 1,
                         Estado = "Programada",
-                        FechaHoraProgramada = nextTime.AddMinutes(40)
+                        FechaHoraProgramada = nextTime.AddMinutes(40 + i * 10)
                     };
                     await _faseRepository.CreateAsync(faseSemi);
-                    nextTime = nextTime.AddMinutes(10);
                 }
             }
 
@@ -225,45 +224,40 @@ namespace SportTrack_Sigdef.Controladores.Fase
             };
             await _etapaRepository.CreateAsync(etapaFinal);
 
-            var faseFinalA = new Entidades.Entidades.Fase
+            var finalNames = new[] { "Final A", "Final B", "Final C" };
+            for (int i = 0; i < numFinales; i++)
             {
-                EtapaId = etapaFinal.Id,
-                NombreFase = "Final A",
-                NumeroFase = 1,
-                Estado = "Programada",
-                FechaHoraProgramada = nextTime.AddMinutes(80)
-            };
-            await _faseRepository.CreateAsync(faseFinalA);
-
-            if (numSeries >= 3)
-            {
-                var faseFinalB = new Entidades.Entidades.Fase
+                await _faseRepository.CreateAsync(new Entidades.Entidades.Fase
                 {
                     EtapaId = etapaFinal.Id,
-                    NombreFase = "Final B",
-                    NumeroFase = 2,
+                    NombreFase = finalNames[i],
+                    NumeroFase = i + 1,
                     Estado = "Programada",
-                    FechaHoraProgramada = nextTime.AddMinutes(90)
-                };
-                await _faseRepository.CreateAsync(faseFinalB);
+                    FechaHoraProgramada = nextTime.AddMinutes(80 + i * 10)
+                });
             }
         }
  
         private string DeterminarPlanProgresion(int count)
         {
-            // La elecciÃ³n entre la variante 1 y 2 es aleatoria (ej: A1 o A2)
-            string variant = new Random().Next(1, 3).ToString(); 
-
-            if (count >= 10 && count <= 18) return $"Plan A{variant}";
-            if (count >= 19 && count <= 27) return $"Plan B{variant}";
-            if (count >= 28 && count <= 36) return $"Plan C{variant}";
-            if (count >= 37 && count <= 45) return $"Plan D{variant}";
-            if (count >= 46 && count <= 54) return $"Plan E{variant}";
-            if (count >= 55 && count <= 63) return $"Plan F{variant}";
-            if (count >= 64 && count <= 72) return $"Plan G{variant}";
-            
-            return null; // Directo a final u otra excepciÃ³n
+            return ProgressionPlanRegistry.ResolveDefaultPlan(count);
         }
+
+        private static int GetSemifinalCount(int numHeats) => numHeats switch
+        {
+            2 => 1,
+            3 => 2,
+            4 or 5 or 6 => 3,
+            7 or 8 => 4,
+            _ => Math.Max(1, (int)Math.Ceiling(numHeats / 2.0))
+        };
+
+        private static int GetFinalCount(int numHeats) => numHeats switch
+        {
+            <= 2 => 1,
+            3 or 4 => 2,
+            _ => 3
+        };
 
         private Entidades.Entidades.Fase CrearFaseConResultados(int etapaId, string nombreFase, int numeroFase, List<Entidades.Entidades.Inscripcion> inscripcionesBase, DateTime? fechaHora = null)
         {
@@ -328,284 +322,320 @@ namespace SportTrack_Sigdef.Controladores.Fase
 
         public async Task<IEnumerable<FaseDto>> PromoverFasesAsync(int eventoPruebaId)
         {
-            // 1. Obtener todas las fases con sus resultados e inscripciones (usando el repo de fases que es mÃ¡s completo)
             var todasLasFases = (await _faseRepository.GetByEventoPruebaIdAsync(eventoPruebaId)).ToList();
             if (!todasLasFases.Any()) return new List<FaseDto>();
 
-            // Reconstruir la lista de etapas a partir de las fases para asegurar integridad de datos cargados
             var etapas = todasLasFases.GroupBy(f => f.EtapaId)
-                                      .Select(g => g.First().Etapa)
-                                      .OrderBy(e => e.Orden)
-                                      .ToList();
+                .Select(g => g.First().Etapa)
+                .OrderBy(e => e.Orden)
+                .ToList();
 
-            // 2. Encontrar la etapa mÃ¡s alta que tenga resultados (tiempo o posiciÃ³n)
             var etapaCandidata = etapas.OrderByDescending(e => e.Orden)
-                                       .Where(e => e.Tipo != SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Final)
-                                       .FirstOrDefault(e => {
-                                           var fasesDeEsaEtapa = todasLasFases.Where(f => f.EtapaId == e.Id);
-                                           return fasesDeEsaEtapa.Any(f => f.Resultados.Any(r => r.TiempoOficial.HasValue || r.Posicion.HasValue));
-                                       });
+                .Where(e => e.Tipo != SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Final)
+                .FirstOrDefault(e =>
+                {
+                    var fasesDeEsaEtapa = todasLasFases.Where(f => f.EtapaId == e.Id);
+                    return fasesDeEsaEtapa.Any(f => f.Resultados.Any(r => r.TiempoOficial.HasValue || r.Posicion.HasValue));
+                });
 
             if (etapaCandidata == null)
             {
-                etapaCandidata = etapas.OrderBy(e => e.Orden)
-                                       .Where(e => e.Tipo != SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Final)
-                                       .FirstOrDefault();
+                etapaCandidata = etapas
+                    .Where(e => e.Tipo != SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Final)
+                    .OrderBy(e => e.Orden)
+                    .FirstOrDefault();
             }
 
             if (etapaCandidata == null)
-            {
-                throw new InvalidOperationException("No se encontrÃ³ ninguna etapa con fases para promover.");
-            }
+                throw new InvalidOperationException("No se encontró ninguna etapa con fases para promover.");
 
             var etapaActual = etapaCandidata;
-
-            // 3. Verificar si estÃ¡ completa usando la lista plana de fases
             var fasesDeLaEtapa = todasLasFases.Where(f => f.EtapaId == etapaActual.Id).ToList();
+
             var fasesIncompletas = fasesDeLaEtapa
-                .Where(f => !f.Resultados.Any() || !f.Resultados.Any(r => r.TiempoOficial.HasValue || r.Posicion.HasValue))
+                .Where(f => !f.Resultados.Any() || !f.Resultados.All(r => r.TiempoOficial.HasValue || r.Posicion.HasValue))
                 .Select(f => f.NombreFase)
                 .ToList();
 
             if (fasesIncompletas.Any())
             {
-                string listaFases = string.Join(", ", fasesIncompletas);
-                throw new InvalidOperationException($"No se puede promover la etapa '{etapaActual.Nombre}' porque faltan resultados en: {listaFases}. AsegÃºrate de cargar y GUARDAR los tiempos de todas las series.");
+                throw new InvalidOperationException(
+                    $"No se puede promover la etapa '{etapaActual.Nombre}' porque faltan resultados en: {string.Join(", ", fasesIncompletas)}. " +
+                    "Asegúrate de cargar y GUARDAR los tiempos de todas las series.");
             }
 
-            // 2. Borrar etapas de orden superior (futuras) SOLO SI no tienen resultados ya cargados.
             var etapasAEliminar = etapas
                 .Where(e => e.Orden > etapaActual.Orden)
                 .Where(e => !e.Fases.Any(f => f.Resultados.Any(r => r.TiempoOficial.HasValue)))
                 .ToList();
 
-            foreach(var e in etapasAEliminar) await _etapaRepository.DeleteAsync(e.Id); 
-            
-            // Re-obtener fases y etapas para tener la lista fresca despuÃ©s del borrado
+            foreach (var e in etapasAEliminar)
+                await _etapaRepository.DeleteAsync(e.Id);
+
             todasLasFases = (await _faseRepository.GetByEventoPruebaIdAsync(eventoPruebaId)).ToList();
             etapas = todasLasFases.GroupBy(f => f.EtapaId).Select(g => g.First().Etapa).OrderBy(e => e.Orden).ToList();
             etapaActual = etapas.First(e => e.Id == etapaActual.Id);
-            fasesDeLaEtapa = todasLasFases.Where(f => f.EtapaId == etapaActual.Id).ToList();
+            fasesDeLaEtapa = todasLasFases.Where(f => f.EtapaId == etapaActual.Id).OrderBy(f => f.NumeroFase).ToList();
 
-            // 3. Obtener resultados de la etapa actual
-            var resultadosEtapa = fasesDeLaEtapa.SelectMany(f => f.Resultados)
-                                    .Where(r => r.TiempoOficial.HasValue)
-                                    .ToList();
+            var ep = await _eventoRepository.GetEventoPruebaByIdAsync(eventoPruebaId);
+            var inscriptos = await _inscripcionRepository.GetByEventoPruebaIdAsync(eventoPruebaId);
+            var inscriptosCount = inscriptos.Count();
+            var planId = ProgressionEngine.NormalizePlanId(ep?.PlanProgresionAsignado, inscriptosCount);
+            var plan = ProgressionPlanRegistry.Get(planId);
 
-            if (!resultadosEtapa.Any()) return await GetFasesPorEventoPruebaAsync(eventoPruebaId);
+            if (ep != null && string.IsNullOrWhiteSpace(ep.PlanProgresionAsignado))
+            {
+                ep.PlanProgresionAsignado = planId;
+                await _eventoRepository.UpdateEventoPruebaAsync(ep);
+            }
 
-            // Determinar horario de inicio de la siguiente etapa (40m despuÃ©s de la Ãºltima fase de la etapa actual)
-            var lastFaseTime = fasesDeLaEtapa.Max(f => f.FechaHoraProgramada) ?? DateTime.UtcNow;
-            DateTime nextTime = lastFaseTime.AddMinutes(40);
-
-            var finalistsA = new List<Entidades.Entidades.Inscripcion>();
-            var finalistsB = new List<Entidades.Entidades.Inscripcion>();
-            var finalistsC = new List<Entidades.Entidades.Inscripcion>();
-            var nextSemis = new List<Entidades.Entidades.Inscripcion>();
-
-            var phasesRanked = fasesDeLaEtapa
-                                .Select(f => f.Resultados
-                                    .Where(r => r.TiempoOficial.HasValue)
-                                    .OrderBy(r => r.TiempoOficial!.Value)
-                                    .Select(r => r.Inscripcion!)
-                                    .ToList())
-                                .ToList();
-
-            int numHeats = phasesRanked.Count;
+            var ctx = ProgressionEngine.BuildContext(fasesDeLaEtapa, f => f.Resultados);
+            ProgressionResult progression;
 
             if (etapaActual.Tipo == SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Eliminatoria)
-            {
-                if (numHeats == 1) 
-                {
-                    finalistsA.AddRange(phasesRanked[0].Take(9));
-                }
-                else if (numHeats == 2)
-                {
-                    // 1-3 direct to Final A
-                    foreach (var s in phasesRanked) finalistsA.AddRange(s.Take(3));
-                    // 4-7 to SF
-                    foreach (var s in phasesRanked) nextSemis.AddRange(s.Skip(3).Take(4));
-                    // + 1x8th BT to SF
-                    var eighths = phasesRanked
-                        .Select(s => s.Count >= 8 ? s[7] : null)
-                        .Where(i => i != null)
-                        .Select(i => new { Insc = i!, Tiempo = etapaActual.Fases.SelectMany(f => f.Resultados).First(r => r.InscripcionId == i!.IdInscripcion).TiempoOficial })
-                        .OrderBy(x => x.Tiempo)
-                        .ToList();
-                    if (eighths.Any()) nextSemis.Add(eighths[0].Insc);
-                }
-                else if (numHeats == 3)
-                {
-                    // 1st direct to Final A
-                    foreach (var s in phasesRanked) finalistsA.Add(s.First());
-                    // 2-7 to SF (18 total)
-                    foreach (var s in phasesRanked) nextSemis.AddRange(s.Skip(1).Take(6));
-                }
-                else if (numHeats == 4)
-                {
-                    // 1-6 + 3x7th BT to SF (27 total)
-                    foreach (var s in phasesRanked) nextSemis.AddRange(s.Take(6));
-                    var sevenths = phasesRanked
-                        .Select(s => s.Count >= 7 ? s[6] : null)
-                        .Where(i => i != null)
-                        .Select(i => new { Insc = i!, Tiempo = etapaActual.Fases.SelectMany(f => f.Resultados).First(r => r.InscripcionId == i!.IdInscripcion).TiempoOficial })
-                        .OrderBy(x => x.Tiempo)
-                        .ToList();
-                    nextSemis.AddRange(sevenths.Take(3).Select(x => x.Insc));
-                }
-                else if (numHeats == 5)
-                {
-                    // 1-5 + 2x6th BT to SF (27 total)
-                    foreach (var s in phasesRanked) nextSemis.AddRange(s.Take(5));
-                    var sixths = phasesRanked
-                        .Select(s => s.Count >= 6 ? s[5] : null)
-                        .Where(i => i != null)
-                        .Select(i => new { Insc = i!, Tiempo = etapaActual.Fases.SelectMany(f => f.Resultados).First(r => r.InscripcionId == i!.IdInscripcion).TiempoOficial })
-                        .OrderBy(x => x.Tiempo)
-                        .ToList();
-                    nextSemis.AddRange(sixths.Take(2).Select(x => x.Insc));
-                }
-            }
+                progression = ProgressionEngine.PromoteFromEliminatoria(plan, ctx);
             else if (etapaActual.Tipo == SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Semifinal)
-            {
-                // 1. Recuperar finalistas directos de Eliminatorias para sumarlos a la Final A
-                var etapaE = etapas.FirstOrDefault(e => e.Tipo == SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Eliminatoria);
-                if (etapaE != null)
-                {
-                    // Obtener TODAS las fases de esa etapa de eliminatorias
-                    var todasFasesPrueba = await _faseRepository.GetByEventoPruebaIdAsync(eventoPruebaId);
-                    var fasesElim = todasFasesPrueba
-                                    .Where(f => f.EtapaId == etapaE.Id)
-                                    .OrderBy(f => f.NumeroFase)
-                                    .ToList();
+                progression = ProgressionEngine.PromoteFromSemifinal(plan, ctx);
+            else
+                throw new InvalidOperationException($"No se puede promover desde la etapa '{etapaActual.Nombre}'.");
 
-                    List<List<Entidades.Entidades.Inscripcion>> elimRanked = fasesElim
-                        .Select(f => f.Resultados
-                            .Where(r => r.TiempoOficial.HasValue)
-                            .OrderBy(r => r.TiempoOficial!.Value)
-                            .Select(r => r.Inscripcion!)
-                            .ToList())
-                        .ToList();
-                    
-                    int countElim = elimRanked.Count;
-                    if (countElim == 2) {
-                        // 1-3 direct to Final A (6 total)
-                        foreach (var s in elimRanked) finalistsA.AddRange(s.Take(3));
-                    }
-                    else if (countElim == 3) {
-                        // 1st direct to Final A (3 total)
-                        foreach (var s in elimRanked) finalistsA.Add(s.First());
-                    }
-                }
+            var lastFaseTime = fasesDeLaEtapa.Max(f => f.FechaHoraProgramada) ?? DateTime.UtcNow;
+            var nextTime = lastFaseTime.AddMinutes(40);
 
-                // 2. ClasificaciÃ³n desde las Semifinales actuales
-                if (numHeats == 1) // Caso 2 Heats -> 1 Semi
-                {
-                    // 1-3 to Final A
-                    finalistsA.AddRange(phasesRanked[0].Take(3));
-                }
-                else if (numHeats == 2) // Caso 3 Heats -> 2 Semis
-                {
-                    // 1-3 to Final A
-                    foreach (var s in phasesRanked) finalistsA.AddRange(s.Take(3));
-                    // 4-7 + 1x8th BT to Final B
-                    foreach (var s in phasesRanked) finalistsB.AddRange(s.Skip(3).Take(4));
-                    
-                    var eighths = phasesRanked
-                        .Select(s => s.Count >= 8 ? s[7] : null)
-                        .Where(i => i != null)
-                        .Select(i => new { Insc = i!, Tiempo = etapaActual.Fases.SelectMany(f => f.Resultados).First(r => r.InscripcionId == i!.IdInscripcion).TiempoOficial })
-                        .OrderBy(x => x.Tiempo)
-                        .ToList();
-                    if (eighths.Count > 0) finalistsB.Add(eighths[0].Insc);
-                }
-                else if (numHeats == 3) // Caso 4 o 5 Heats -> 3 Semis
-                {
-                    // 1-3 to Final A
-                    foreach (var s in phasesRanked) finalistsA.AddRange(s.Take(3));
-                    // 4-6 to Final B
-                    foreach (var s in phasesRanked) finalistsB.AddRange(s.Skip(3).Take(3));
-                    
-                    // Si venimos de 5 Heats, hay Final C
-                    if (etapaE != null)
-                    {
-                        var todasFases = await _faseRepository.GetByEventoPruebaIdAsync(eventoPruebaId);
-                        int numElims = todasFases.Count(f => f.EtapaId == etapaE.Id);
-                        if (numElims == 5)
-                        {
-                            // 7-9 to Final C
-                            foreach (var s in phasesRanked) finalistsC.AddRange(s.Skip(6).Take(3));
-                        }
-                    }
-                }
-            }
+            await AplicarProgresionIcfAsync(
+                eventoPruebaId,
+                etapaActual,
+                progression,
+                nextTime,
+                todasLasFases,
+                etapas,
+                etapaActual.Tipo == SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Eliminatoria);
 
-            // CREAR SIGUIENTE ETAPA(S) - Solo si no existen ya
-            DateTime tempNextTime = nextTime;
-
-            if (nextSemis.Any() && !etapas.Any(e => e.Tipo == SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Semifinal && e.Orden > etapaActual.Orden))
-            {
-                var etapaSemi = new Etapa { EventoPruebaId = eventoPruebaId, Nombre = "Semifinales", Tipo = SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Semifinal, Orden = etapaActual.Orden + 1 };
-                await _etapaRepository.CreateAsync(etapaSemi);
-                
-                int numNextSemis = (int)Math.Ceiling(nextSemis.Count / 9.0);
-                for(int i=0; i<numNextSemis; i++) {
-                    var batch = nextSemis.Where((res, index) => index % numNextSemis == i).ToList();
-                    await _faseRepository.CreateAsync(CrearFaseConResultados(etapaSemi.Id, $"Semifinal {i+1}", i+1, batch, tempNextTime));
-                    tempNextTime = tempNextTime.AddMinutes(10); 
-                }
-
-                tempNextTime = tempNextTime.AddMinutes(30); 
-            }
-
-            if (finalistsA.Any() || finalistsB.Any())
-            {
-                // Buscar si ya existe la etapa de Finales
-                var etapaFinal = etapas.FirstOrDefault(e => e.Tipo == SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Final && e.Orden > etapaActual.Orden);
-                
-                if (etapaFinal == null)
-                {
-                    int ordenFinal = etapaActual.Orden + (nextSemis.Any() ? 2 : 1);
-                    etapaFinal = new Etapa { EventoPruebaId = eventoPruebaId, Nombre = "Finales", Tipo = SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Final, Orden = ordenFinal };
-                    await _etapaRepository.CreateAsync(etapaFinal);
-                }
-
-                // Procesar Final A
-                if (finalistsA.Any()) 
-                {
-                    // Buscar en TODAS las fases de la prueba para borrar cualquier Final A previa (incompleta)
-                    var faseFinalA = todasLasFases.FirstOrDefault(f => f.EtapaId == etapaFinal.Id && f.NombreFase == "Final A");
-                    if (faseFinalA != null) await _faseRepository.DeleteAsync(faseFinalA.Id);
-                    
-                    await _faseRepository.CreateAsync(CrearFaseConResultados(etapaFinal.Id, "Final A", 1, finalistsA, tempNextTime));
-                    tempNextTime = tempNextTime.AddMinutes(10);
-                }
-                
-                // Procesar Final B
-                if (finalistsB.Any()) 
-                {
-                    var faseFinalB = todasLasFases.FirstOrDefault(f => f.EtapaId == etapaFinal.Id && f.NombreFase == "Final B");
-                    if (faseFinalB != null) await _faseRepository.DeleteAsync(faseFinalB.Id);
-                    
-                    await _faseRepository.CreateAsync(CrearFaseConResultados(etapaFinal.Id, "Final B", 2, finalistsB, tempNextTime));
-                    tempNextTime = tempNextTime.AddMinutes(10);
-                }
-
-                // Procesar Final C
-                if (finalistsC.Any()) 
-                {
-                    var faseFinalC = todasLasFases.FirstOrDefault(f => f.EtapaId == etapaFinal.Id && f.NombreFase == "Final C");
-                    if (faseFinalC != null) await _faseRepository.DeleteAsync(faseFinalC.Id);
-                    
-                    await _faseRepository.CreateAsync(CrearFaseConResultados(etapaFinal.Id, "Final C", 3, finalistsC, tempNextTime));
-                }
-            }
-
-            // Auditoria
-            await _auditService.RegistrarAccionAsync("PROMOTE_STAGE", 
-                $"PromociÃ³n de etapa ejecutada para la Prueba ID {eventoPruebaId}. Etapa actual: {etapaActual.Nombre}", null, "Competencia");
+            await _auditService.RegistrarAccionAsync("PROMOTE_STAGE",
+                $"Promoción ICF ({planId}) ejecutada para Prueba ID {eventoPruebaId}. Etapa: {etapaActual.Nombre}. " +
+                $"Destinos: {string.Join(", ", progression.Destinos.Keys)}",
+                null, "Competencia");
 
             return await GetFasesPorEventoPruebaAsync(eventoPruebaId);
+        }
+
+        private async Task AplicarProgresionIcfAsync(
+            int eventoPruebaId,
+            Etapa etapaActual,
+            ProgressionResult progression,
+            DateTime nextTime,
+            List<Entidades.Entidades.Fase> todasLasFases,
+            List<Etapa> etapas,
+            bool reemplazarDestinos)
+        {
+            var destinosOrdenados = progression.Destinos.Keys
+                .OrderBy(k => k.StartsWith("SF") ? 0 : 1)
+                .ThenBy(k => k)
+                .ToList();
+
+            DateTime tempTime = nextTime;
+            Etapa? etapaSemi = null;
+            Etapa? etapaFinal = null;
+
+            foreach (var destKey in destinosOrdenados)
+            {
+                var laneMap = progression.Destinos[destKey];
+                if (!laneMap.Any()) continue;
+
+                if (destKey.StartsWith("SF"))
+                {
+                    var sfNum = int.Parse(destKey[2..]);
+                    etapaSemi ??= await ObtenerOCrearEtapaAsync(
+                        eventoPruebaId, etapas, todasLasFases,
+                        SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Semifinal,
+                        "Semifinales", etapaActual.Orden + 1);
+
+                    var nombre = laneMap.Count > 0 && progression.Destinos.Keys.Count(k => k.StartsWith("SF")) > 1
+                        ? $"Semifinal {sfNum}" : "Semifinal";
+
+                    await ReemplazarFaseConCarrilesAsync(
+                        etapaSemi.Id, nombre, sfNum, laneMap, tempTime, todasLasFases);
+                    tempTime = tempTime.AddMinutes(10);
+                }
+                else
+                {
+                    var finalName = destKey switch { "FA" => "Final A", "FB" => "Final B", "FC" => "Final C", _ => destKey };
+                    var finalNum = destKey switch { "FA" => 1, "FB" => 2, "FC" => 3, _ => 1 };
+
+                    etapaFinal ??= await ObtenerOCrearEtapaAsync(
+                        eventoPruebaId, etapas, todasLasFases,
+                        SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Final,
+                        "Finales", etapaActual.Orden + (etapaSemi != null ? 2 : 1));
+
+                    if (reemplazarDestinos)
+                    {
+                        await ReemplazarFaseConCarrilesAsync(
+                            etapaFinal.Id, finalName, finalNum, laneMap, tempTime, todasLasFases);
+                    }
+                    else
+                    {
+                        await FusionarCarrilesEnFaseAsync(
+                            etapaFinal.Id, finalName, finalNum, laneMap, tempTime, todasLasFases);
+                    }
+                    tempTime = tempTime.AddMinutes(10);
+                }
+            }
+        }
+
+        private async Task<Etapa> ObtenerOCrearEtapaAsync(
+            int eventoPruebaId,
+            List<Etapa> etapas,
+            List<Entidades.Entidades.Fase> todasLasFases,
+            SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum tipo,
+            string nombre,
+            int orden)
+        {
+            var existente = etapas.FirstOrDefault(e => e.Tipo == tipo && e.Orden >= orden);
+            if (existente != null) return existente;
+
+            var etapa = new Etapa
+            {
+                EventoPruebaId = eventoPruebaId,
+                Nombre = nombre,
+                Tipo = tipo,
+                Orden = orden
+            };
+            await _etapaRepository.CreateAsync(etapa);
+            etapas.Add(etapa);
+            return etapa;
+        }
+
+        private async Task ReemplazarFaseConCarrilesAsync(
+            int etapaId,
+            string nombreFase,
+            int numeroFase,
+            Dictionary<int, Entidades.Entidades.Inscripcion> laneMap,
+            DateTime? fechaHora,
+            List<Entidades.Entidades.Fase> todasLasFases)
+        {
+            var existente = todasLasFases.FirstOrDefault(f => f.EtapaId == etapaId && f.NombreFase == nombreFase);
+            if (existente != null)
+            {
+                await _faseRepository.DeleteAsync(existente.Id);
+                todasLasFases.Remove(existente);
+            }
+
+            var fase = CrearFaseConCarriles(etapaId, nombreFase, numeroFase, laneMap, fechaHora);
+            await _faseRepository.CreateAsync(fase);
+            todasLasFases.Add(fase);
+        }
+
+        private async Task FusionarCarrilesEnFaseAsync(
+            int etapaId,
+            string nombreFase,
+            int numeroFase,
+            Dictionary<int, Entidades.Entidades.Inscripcion> laneMap,
+            DateTime? fechaHora,
+            List<Entidades.Entidades.Fase> todasLasFases)
+        {
+            var existente = todasLasFases.FirstOrDefault(f => f.EtapaId == etapaId && f.NombreFase == nombreFase);
+
+            if (existente == null)
+            {
+                var fase = CrearFaseConCarriles(etapaId, nombreFase, numeroFase, laneMap, fechaHora);
+                await _faseRepository.CreateAsync(fase);
+                todasLasFases.Add(fase);
+                return;
+            }
+
+            foreach (var (carril, insc) in laneMap)
+            {
+                var resExistente = existente.Resultados.FirstOrDefault(r => r.Carril == carril);
+                if (resExistente != null)
+                {
+                    resExistente.InscripcionId = insc.IdInscripcion;
+                    resExistente.TiempoOficial = null;
+                    resExistente.Posicion = null;
+                    resExistente.Estado = SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.Pendiente;
+                }
+                else
+                {
+                    existente.Resultados.Add(new Entidades.Entidades.Resultado
+                    {
+                        InscripcionId = insc.IdInscripcion,
+                        Carril = carril,
+                        Estado = SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.Pendiente
+                    });
+                }
+            }
+
+            await _faseRepository.UpdateAsync(existente);
+        }
+
+        private static Entidades.Entidades.Fase CrearFaseConCarriles(
+            int etapaId,
+            string nombreFase,
+            int numeroFase,
+            Dictionary<int, Entidades.Entidades.Inscripcion> laneMap,
+            DateTime? fechaHora)
+        {
+            var fase = new Entidades.Entidades.Fase
+            {
+                EtapaId = etapaId,
+                NombreFase = nombreFase,
+                NumeroFase = numeroFase,
+                FechaHoraProgramada = fechaHora,
+                Estado = "Programada"
+            };
+
+            foreach (var (carril, insc) in laneMap.OrderBy(x => x.Key))
+            {
+                fase.Resultados.Add(new Entidades.Entidades.Resultado
+                {
+                    InscripcionId = insc.IdInscripcion,
+                    Carril = carril,
+                    Estado = SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.Pendiente
+                });
+            }
+
+            return fase;
+        }
+
+        public async Task<IEnumerable<ProgressionAuditDto>> GetProgressionAuditAsync(int eventoPruebaId)
+        {
+            var todasLasFases = (await _faseRepository.GetByEventoPruebaIdAsync(eventoPruebaId)).ToList();
+            var ep = await _eventoRepository.GetEventoPruebaByIdAsync(eventoPruebaId);
+            var inscriptosCount = (await _inscripcionRepository.GetByEventoPruebaIdAsync(eventoPruebaId)).Count();
+            var planId = ProgressionEngine.NormalizePlanId(ep?.PlanProgresionAsignado, inscriptosCount);
+
+            var audit = new Dictionary<int, ProgressionAuditDto>();
+
+            foreach (var fase in todasLasFases.Where(f => f.Resultados.Any(r => r.Inscripcion != null)))
+            {
+                var etapaTipo = fase.Etapa?.Tipo.ToString() ?? "";
+                foreach (var res in fase.Resultados.Where(r => r.Inscripcion != null))
+                {
+                    var inscId = res.InscripcionId;
+                    if (!audit.TryGetValue(inscId, out var row))
+                    {
+                        var p = res.Inscripcion?.Participante;
+                        audit[inscId] = new ProgressionAuditDto
+                        {
+                            Atleta = p != null ? $"{p.Nombre} {p.Apellido}" : $"Inscripción {inscId}",
+                            Plan = planId
+                        };
+                    }
+
+                    var pos = res.Posicion ?? 0;
+                    var label = pos > 0
+                        ? $"{pos}/{fase.NombreFase} 👉 L{res.Carril}"
+                        : $"{fase.NombreFase} 👉 L{res.Carril}";
+
+                    if (etapaTipo.Contains("Eliminatoria", StringComparison.OrdinalIgnoreCase) || fase.NombreFase.StartsWith("Serie"))
+                        audit[inscId].Eliminatoria = label;
+                    else if (etapaTipo.Contains("Semifinal", StringComparison.OrdinalIgnoreCase))
+                        audit[inscId].Semifinal = label;
+                    else
+                        audit[inscId].Final = label;
+                }
+            }
+
+            return audit.Values.OrderBy(a => a.Atleta).ToList();
         }
         public async Task<FaseDto> IniciarFaseAsync(int id, DateTime? manualStartTime = null)
         {
