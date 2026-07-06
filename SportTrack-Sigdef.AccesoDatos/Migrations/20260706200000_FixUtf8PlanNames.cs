@@ -11,12 +11,12 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql("""
-                UPDATE "PlanesSaaS" SET "Nombre" = 'Pack Dúo (S)' WHERE "Id" = 7;
-                UPDATE "PlanesSaaS" SET "Nombre" = 'Pack Dúo (M)' WHERE "Id" = 8;
-                UPDATE "PlanesSaaS" SET "Nombre" = 'Pack Dúo (L)' WHERE "Id" = 9;
-                UPDATE "PlanesSaaS" SET "Nombre" = 'Pack Dúo (S)' WHERE "Nombre" LIKE 'Pack D%o (S)';
-                UPDATE "PlanesSaaS" SET "Nombre" = 'Pack Dúo (M)' WHERE "Nombre" LIKE 'Pack D%o (M)';
-                UPDATE "PlanesSaaS" SET "Nombre" = 'Pack Dúo (L)' WHERE "Nombre" LIKE 'Pack D%o (L)';
+                UPDATE catalogos."PlanesSaaS" SET "Nombre" = 'Pack Dúo (S)' WHERE "Id" = 7;
+                UPDATE catalogos."PlanesSaaS" SET "Nombre" = 'Pack Dúo (M)' WHERE "Id" = 8;
+                UPDATE catalogos."PlanesSaaS" SET "Nombre" = 'Pack Dúo (L)' WHERE "Id" = 9;
+                UPDATE catalogos."PlanesSaaS" SET "Nombre" = 'Pack Dúo (S)' WHERE "Nombre" LIKE 'Pack D%o (S)';
+                UPDATE catalogos."PlanesSaaS" SET "Nombre" = 'Pack Dúo (M)' WHERE "Nombre" LIKE 'Pack D%o (M)';
+                UPDATE catalogos."PlanesSaaS" SET "Nombre" = 'Pack Dúo (L)' WHERE "Nombre" LIKE 'Pack D%o (L)';
                 """);
         }
 
