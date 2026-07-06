@@ -23,7 +23,7 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public Participante? Participante { get; set; }
         public ICollection<InscripcionTripulante> Tripulantes { get; set; } = new List<InscripcionTripulante>();
         
-        // RelaciÃ³n con el historial deportivo (todas sus bajadas en heats/finales)
+        // Relación con el historial deportivo (todas sus bajadas en heats/finales)
         public ICollection<Resultado> Resultados { get; set; } = new List<Resultado>();
     }
 }

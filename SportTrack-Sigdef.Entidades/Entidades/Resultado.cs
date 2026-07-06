@@ -15,7 +15,7 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         // Tiempos
         public TimeSpan? TiempoOficial { get; set; }
 
-        // PosiciÃ³n y mÃ©tricas
+        // Posición y métricas
         public int? Posicion { get; set; }
         public decimal? Puntos { get; set; }
         public decimal? VelocidadMedia { get; set; }
@@ -23,14 +23,14 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         // Estado del resultado
         public Enums.EstadoResultadoEnum Estado { get; set; } = Enums.EstadoResultadoEnum.Pendiente;
 
-        // InformaciÃ³n adicional
+        // Información adicional
         public string? Observaciones { get; set; }
 
         // Progression Traceability
         public int? FaseOrigenId { get; set; }
         public string? ReglaClasificacionAplicada { get; set; }
 
-        // AuditorÃ­a
+        // Auditoría
         public DateTime FechaRegistro { get; set; } = DateTime.UtcNow;
         public DateTime? FechaActualizacion { get; set; }
         public string? UsuarioRegistro { get; set; }

@@ -23,7 +23,7 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public int IntentosFallidos { get; set; } = 0;
         public DateTime? UltimoAcceso { get; set; }
 
-        // Datos personales â€” para identificaciÃ³n y auditorÃ­a de jueces
+        // Datos personales — para identificación y auditoría de jueces
         public string? Nombre { get; set; }
         public string? Apellido { get; set; }
         public string? Dni { get; set; }

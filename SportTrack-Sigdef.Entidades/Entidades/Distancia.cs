@@ -16,7 +16,7 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         // Propiedad calculada para los metros
         public int Metros => (int)DistanciaRegata;
 
-        // Propiedad calculada para descripciÃ³n
+        // Propiedad calculada para descripción
         public string Descripcion => DistanciaRegata.GetDisplayName();
 
         // Navigation property

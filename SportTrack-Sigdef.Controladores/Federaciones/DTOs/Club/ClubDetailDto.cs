@@ -21,7 +21,7 @@ namespace SportTrack_Sigdef.Entidades.DTOs.Club
         public int? IdFederacion { get; set; }
         public Enums.EstadoPago EstadoMatricula { get; set; }
 
-        // InformaciÃ³n relacionada
+        // Información relacionada
         public List<AtletaDto>? AtletasFederados { get; set; }
         public List<EntrenadorDto>? Entrenadores { get; set; }
         public List<DelegadoClubDto>? Representantes { get; set; }

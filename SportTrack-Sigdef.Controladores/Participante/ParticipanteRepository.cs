@@ -25,7 +25,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
                 .AsNoTracking()
                 .ToListAsync();
 
-            // CorrecciÃ³n al vuelo para atletas afectados por el hueco de edad (36-39)
+            // Corrección al vuelo para atletas afectados por el hueco de edad (36-39)
             foreach (var p in list)
             {
                 if (p.CategoriaId == 11 && p.Edad >= 36 && p.Edad <= 39)
@@ -61,7 +61,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
                 .AsNoTracking()
                 .ToListAsync();
 
-            // CorrecciÃ³n al vuelo para la grilla
+            // Corrección al vuelo para la grilla
             foreach (var p in list)
             {
                 if (p.CategoriaId == 11 && p.Edad >= 36 && p.Edad <= 39)
@@ -74,7 +74,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
 
         public async Task<IEnumerable<Entidades.Entidades.Participante>> GetByFederationIdAsync(int federationId)
         {
-            // Obtener IDs de todos los clubes que pertenecen a esta federaciÃ³n
+            // Obtener IDs de todos los clubes que pertenecen a esta federación
             var clubIds = await _context.Clubes
                 .Where(c => c.IdFederacion == federationId)
                 .Select(c => c.IdClub)
@@ -88,7 +88,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
                 .AsNoTracking()
                 .ToListAsync();
 
-            // CorrecciÃ³n al vuelo para la grilla
+            // Corrección al vuelo para la grilla
             foreach (var p in list)
             {
                 if (p.CategoriaId == 11 && p.Edad >= 36 && p.Edad <= 39)

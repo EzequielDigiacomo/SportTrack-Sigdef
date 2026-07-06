@@ -12,8 +12,8 @@ using SportTrack_Sigdef.AccesoDatos;
 namespace SportTrack_Sigdef.AccesoDatos.Migrations
 {
     [DbContext(typeof(SportTrackDbContext))]
-    [Migration("20260705201940_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260706200000_FixUtf8PlanNames")]
+    partial class FixUtf8PlanNames
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -1203,6 +1203,11 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.HasKey("ParticipanteId");
 
                     b.HasIndex("CategoriaId");
+
+                    b.HasIndex("Documento")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Participantes_Documento")
+                        .HasFilter("\"Documento\" IS NOT NULL AND \"Documento\" <> ''");
 
                     b.HasIndex("Email")
                         .IsUnique()

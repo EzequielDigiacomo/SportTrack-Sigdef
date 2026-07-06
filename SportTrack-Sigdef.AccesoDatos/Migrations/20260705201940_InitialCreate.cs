@@ -1040,9 +1040,9 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     { 4, false, 500, 5, "SportTrack (S)", 40m, false, false },
                     { 5, false, 2000, 20, "SportTrack (M)", 90m, false, false },
                     { 6, true, -1, -1, "SportTrack (L)", 190m, true, true },
-                    { 7, true, 500, 5, "Pack DÃºo (S)", 75m, true, true },
-                    { 8, true, 2000, 20, "Pack DÃºo (M)", 170m, true, true },
-                    { 9, true, -1, -1, "Pack DÃºo (L)", 350m, true, true }
+                    { 7, true, 500, 5, "Pack Dúo (S)", 75m, true, true },
+                    { 8, true, 2000, 20, "Pack Dúo (M)", 170m, true, true },
+                    { 9, true, -1, -1, "Pack Dúo (L)", 350m, true, true }
                 });
 
             migrationBuilder.InsertData(

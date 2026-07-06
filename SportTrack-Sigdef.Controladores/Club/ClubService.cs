@@ -61,7 +61,7 @@ namespace SportTrack_Sigdef.Controladores.Club
             var existing = await _clubRepository.GetByIdAsync(id);
             if (existing == null) throw new NotFoundException($"Club con ID {id} no encontrado");
             
-            // Capturar valores anteriores para auditorÃ­a
+            // Capturar valores anteriores para auditoría
             var oldVencimiento = existing.FechaVencimientoPlan;
             var oldBloqueado = existing.BloqueadoPorFaltaDePago;
             var oldActivo = existing.Activo;
@@ -69,7 +69,7 @@ namespace SportTrack_Sigdef.Controladores.Club
             _mapper.Map(clubDto, existing);
             var result = await _clubRepository.UpdateAsync(existing);
 
-            // Registrar auditorÃ­a
+            // Registrar auditoría
             if (existing.FechaVencimientoPlan != oldVencimiento && existing.FechaVencimientoPlan > oldVencimiento)
             {
                 string freq = existing.FrecuenciaPago ?? "Mensual";
@@ -86,7 +86,7 @@ namespace SportTrack_Sigdef.Controladores.Club
                 string accion = existing.BloqueadoPorFaltaDePago ? "BLOCK_CLUB" : "UNBLOCK_CLUB";
                 string detalle = existing.BloqueadoPorFaltaDePago 
                     ? $"Club '{existing.Nombre}' bloqueado por falta de pago." 
-                    : $"Club '{existing.Nombre}' desbloqueado por pago al dÃ­a.";
+                    : $"Club '{existing.Nombre}' desbloqueado por pago al día.";
                 await _auditService.RegistrarAccionAsync(accion, detalle, modulo: "SaaS");
             }
             

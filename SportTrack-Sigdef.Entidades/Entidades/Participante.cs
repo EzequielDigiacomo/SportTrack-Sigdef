@@ -31,7 +31,7 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public Categoria? Categoria { get; set; }
         public ICollection<Inscripcion> Inscripciones { get; set; } = new List<Inscripcion>();
 
-        // Relaciones de FederaciÃ³n (SIGDEF)
+        // Relaciones de Federación (SIGDEF)
         public virtual DelegadoFederacionClub? DelegadoFederacionClub { get; set; }
         public virtual EntrenadorFederacion? EntrenadorFederacion { get; set; }
         public virtual TutorFederacion? TutorFederacion { get; set; }

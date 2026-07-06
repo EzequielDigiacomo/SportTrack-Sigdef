@@ -27,7 +27,7 @@ namespace SportTrack_Sigdef.Controladores.SaaS.Dtos
         public bool PlanAlDia { get; set; }
         public bool Activo { get; set; }
         
-        // Nuevos campos de suscripciÃ³n
+        // Nuevos campos de suscripción
         public string FrecuenciaPago { get; set; }
         public DateTime? FechaAltaPlan { get; set; }
         public DateTime? FechaVencimientoPlan { get; set; }

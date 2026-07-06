@@ -61,7 +61,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
 
             // Auditoria
             await _auditService.RegistrarAccionAsync("CREATE_EVENT", 
-                $"Evento creado: {result.Nombre} (UbicaciÃ³n: {result.Ubicacion}, Fecha: {result.Fecha:dd/MM/yyyy})", null, "Eventos");
+                $"Evento creado: {result.Nombre} (Ubicación: {result.Ubicacion}, Fecha: {result.Fecha:dd/MM/yyyy})", null, "Eventos");
 
             return _mapper.Map<EventoDto>(fullEvento);
         }
@@ -71,10 +71,10 @@ namespace SportTrack_Sigdef.Controladores.Evento
             var existing = await _eventoRepository.GetByIdAsync(id);
             if (existing == null) throw new NotFoundException($"Evento con ID {id} no encontrado");
             
-            // VerificaciÃ³n de propiedad (si es un Club)
+            // Verificación de propiedad (si es un Club)
             if (clubId.HasValue && existing.IdClub != clubId.Value)
             {
-                throw new UnauthorizedAccessException("No tenÃ©s permisos para modificar un evento de otro club.");
+                throw new UnauthorizedAccessException("No tenés permisos para modificar un evento de otro club.");
             }
             
             _mapper.Map(eventoDto, existing);
@@ -106,10 +106,10 @@ namespace SportTrack_Sigdef.Controladores.Evento
             var existing = await _eventoRepository.GetByIdAsync(id);
             if (existing == null) throw new NotFoundException($"Evento con ID {id} no encontrado");
             
-            // VerificaciÃ³n de propiedad (si es un Club)
+            // Verificación de propiedad (si es un Club)
             if (clubId.HasValue && existing.IdClub != clubId.Value)
             {
-                throw new UnauthorizedAccessException("No tenÃ©s permisos para eliminar un evento de otro club.");
+                throw new UnauthorizedAccessException("No tenés permisos para eliminar un evento de otro club.");
             }
             
             var res = await _eventoRepository.DeleteAsync(id);
@@ -136,7 +136,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
 
         public async Task<EventoPruebaDto> AssignPruebaToEventoAsync(int eventoId, EventoPruebaCreateDto assignDto)
         {
-            // 1. Buscar si la prueba tÃ©cnica ya existe por sus IDs
+            // 1. Buscar si la prueba técnica ya existe por sus IDs
             var prueba = await _eventoRepository.GetPruebaAsync(assignDto.CategoriaId, assignDto.BoteId, assignDto.DistanciaId, assignDto.SexoId);
 
             if (prueba == null)
@@ -179,9 +179,9 @@ namespace SportTrack_Sigdef.Controladores.Evento
         public async Task<EventoPruebaDto> UpdateEventoPruebaAsync(int eventoPruebaId, EventoPruebaCreateDto updateDto)
         {
             var existing = await _eventoRepository.GetEventoPruebaByIdAsync(eventoPruebaId);
-            if (existing == null) throw new NotFoundException($"AsignaciÃ³n {eventoPruebaId} no encontrada");
+            if (existing == null) throw new NotFoundException($"Asignación {eventoPruebaId} no encontrada");
 
-            // 1. Buscar/Crear la prueba tÃ©cnica si cambiaron los parÃ¡metros
+            // 1. Buscar/Crear la prueba técnica si cambiaron los parámetros
             var prueba = await _eventoRepository.GetPruebaAsync(updateDto.CategoriaId, updateDto.BoteId, updateDto.DistanciaId, updateDto.SexoId);
             if (prueba == null)
             {
@@ -196,7 +196,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
                 prueba = await _eventoRepository.CreatePruebaAsync(prueba);
             }
 
-            // 2. Actualizar la asignaciÃ³n
+            // 2. Actualizar la asignación
             existing.IdPrueba = prueba.IdPrueba;
             existing.FechaHora = updateDto.FechaHora ?? existing.FechaHora;
             existing.FechaHora = DateTime.SpecifyKind(existing.FechaHora, DateTimeKind.Utc);

@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- Fuerza UTF-8 en compilación y archivos fuente -->
+    <Charset>utf-8</Charset>
+  </PropertyGroup>
+</Project>
