@@ -27,6 +27,7 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                     .Select(f => new FederacionDto
                     {
                         IdFederacion = f.IdFederacion,
+                        Sigla = f.Sigla,
                         Nombre = f.Nombre,
                         Cuit = f.Cuit,
                         Email = f.Email,
@@ -63,6 +64,7 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                     .Select(f => new FederacionDto
                     {
                         IdFederacion = f.IdFederacion,
+                        Sigla = f.Sigla,
                         Nombre = f.Nombre,
                         Cuit = f.Cuit,
                         Email = f.Email,

@@ -9,6 +9,7 @@ namespace SportTrack_Sigdef.Entidades.DTOs.Federacion
     public class FederacionDto
     {
         public int IdFederacion { get; set; }
+        public string? Sigla { get; set; }
         public string Nombre { get; set; } = string.Empty;
         public string Cuit { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
