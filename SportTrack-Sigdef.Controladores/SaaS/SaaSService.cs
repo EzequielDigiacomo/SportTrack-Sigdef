@@ -25,17 +25,7 @@ namespace SportTrack_Sigdef.Controladores.SaaS
         public async Task<IEnumerable<PlanSaaSDto>> GetPlanesAsync()
         {
             var planes = await _context.PlanesSaaS.ToListAsync();
-            return planes.Select(p => new PlanSaaSDto
-            {
-                Id = p.Id,
-                Nombre = p.Nombre,
-                Precio = p.Precio,
-                MaxAtletas = p.MaxAtletas,
-                MaxTorneosActivos = p.MaxTorneosActivos,
-                ResultadosTiempoReal = p.ResultadosTiempoReal,
-                ExportacionExcel = p.ExportacionExcel,
-                SoportePrioritario = p.SoportePrioritario
-            });
+            return planes.Select(PlanSaaSAccessHelper.FromEntity);
         }
 
         public async Task<PlanSaaSDto> GetPlanByIdAsync(int id)
@@ -43,17 +33,7 @@ namespace SportTrack_Sigdef.Controladores.SaaS
             var p = await _context.PlanesSaaS.FindAsync(id);
             if (p == null) return null;
 
-            return new PlanSaaSDto
-            {
-                Id = p.Id,
-                Nombre = p.Nombre,
-                Precio = p.Precio,
-                MaxAtletas = p.MaxAtletas,
-                MaxTorneosActivos = p.MaxTorneosActivos,
-                ResultadosTiempoReal = p.ResultadosTiempoReal,
-                ExportacionExcel = p.ExportacionExcel,
-                SoportePrioritario = p.SoportePrioritario
-            };
+            return PlanSaaSAccessHelper.FromEntity(p);
         }
 
         public async Task AsignarPlanAClubAsync(int federacionId, int planId)

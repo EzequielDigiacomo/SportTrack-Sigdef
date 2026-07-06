@@ -22,7 +22,8 @@ namespace SportTrack_Sigdef.Controllers.Auth
         [HttpPost("login")]
         public async Task<ActionResult<AuthResponseDto>> Login(LoginDto loginDto)
         {
-            var result = await _authService.LoginAsync(loginDto);
+            var clientApp = Request.Headers["X-Client-App"].FirstOrDefault();
+            var result = await _authService.LoginAsync(loginDto, clientApp);
             
             // Configurar la Cookie HttpOnly
             var cookieOptions = new CookieOptions
@@ -98,7 +99,8 @@ namespace SportTrack_Sigdef.Controllers.Auth
             var username = User.Identity?.Name;
             if (string.IsNullOrEmpty(username)) return Unauthorized();
 
-            var result = await _authService.GetMeAsync(username);
+            var clientApp = Request.Headers["X-Client-App"].FirstOrDefault();
+            var result = await _authService.GetMeAsync(username, clientApp);
             return Ok(result);
         }
     }

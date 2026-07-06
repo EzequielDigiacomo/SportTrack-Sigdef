@@ -140,7 +140,8 @@ namespace SportTrack_Sigdef.Controladores.Mappings
                 .ForMember(dest => dest.Estado, opt => opt.MapFrom(src => src.Estado.ToString()))
                 .ForMember(dest => dest.CantidadInscritos, opt => opt.MapFrom(src => src.Inscripciones != null ? src.Inscripciones.Count : 0));
             // Mapeos de SaaS
-            CreateMap<PlanSaaS, SportTrack_Sigdef.Controladores.SaaS.Dtos.PlanSaaSDto>();
+            CreateMap<PlanSaaS, SportTrack_Sigdef.Controladores.SaaS.Dtos.PlanSaaSDto>()
+                .AfterMap((_, dest) => SportTrack_Sigdef.Controladores.SaaS.PlanSaaSAccessHelper.ApplyAccessFlags(dest));
         }
     }
 }
