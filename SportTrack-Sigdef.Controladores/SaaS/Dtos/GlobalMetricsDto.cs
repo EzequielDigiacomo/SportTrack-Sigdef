@@ -8,8 +8,12 @@ namespace SportTrack_Sigdef.Controladores.SaaS.Dtos
         public int TotalClubesAfiliados { get; set; }
         public int TotalAtletasGlobales { get; set; }
         public int TorneosActivosGlobales { get; set; }
+        public decimal IngresosMensuales { get; set; }
+        public int FederacionesFacturando { get; set; }
+        public decimal PorcentajeCrecimientoAtletas { get; set; }
         public List<MonthlyGrowthDto> CrecimientoMensual { get; set; } = new();
         public List<FederacionMetricDto> TopFederaciones { get; set; } = new();
+        public List<PlanDistributionDto> DistribucionPlanes { get; set; } = new();
     }
 
     public class MonthlyGrowthDto
@@ -23,5 +27,12 @@ namespace SportTrack_Sigdef.Controladores.SaaS.Dtos
         public string Nombre { get; set; } = string.Empty;
         public int AtletasCount { get; set; }
         public int ClubesCount { get; set; }
+    }
+
+    public class PlanDistributionDto
+    {
+        public string Nombre { get; set; } = string.Empty;
+        public int Cantidad { get; set; }
+        public decimal Precio { get; set; }
     }
 }

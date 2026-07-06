@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -229,19 +230,63 @@ namespace SportTrack_Sigdef.Controladores.SaaS
 
         public async Task<GlobalMetricsDto> GetGlobalMetricsAsync()
         {
-            var federaciones = await _context.Federaciones.ToListAsync();
+            var federaciones = await _context.Federaciones
+                .Include(f => f.PlanSaaS)
+                .ToListAsync();
             var totalAtletas = await _context.Participantes.CountAsync();
             var totalClubes = await _context.Clubes.CountAsync();
             var torneosActivos = await _context.Eventos.CountAsync(e => e.Estado != EstadoEventoEnum.Finalizado);
 
-            var crecimiento = new List<MonthlyGrowthDto>
-            {
-                new MonthlyGrowthDto { Mes = "Ene", Cantidad = 5 },
-                new MonthlyGrowthDto { Mes = "Feb", Cantidad = 8 },
-                new MonthlyGrowthDto { Mes = "Mar", Cantidad = 12 },
-                new MonthlyGrowthDto { Mes = "Abr", Cantidad = 18 },
-                new MonthlyGrowthDto { Mes = "May", Cantidad = 25 }
-            };
+            var hoy = DateTime.UtcNow.Date;
+            var federacionesActivas = federaciones
+                .Where(f => f.Activo && !f.BloqueadaPorFaltaDePago)
+                .Where(f => !f.FechaVencimientoPlan.HasValue || f.FechaVencimientoPlan.Value.Date >= hoy)
+                .ToList();
+
+            var ingresosMensuales = federacionesActivas
+                .Where(f => f.PlanSaaS != null)
+                .Sum(f => f.PlanSaaS!.Precio);
+
+            var mesesEtiquetas = new[] { "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic" };
+            var inicioVentana = new DateTime(hoy.Year, hoy.Month, 1).AddMonths(-5);
+            var altasPorMes = await _context.AtletasFederados
+                .Where(a => a.FechaCreacion >= inicioVentana)
+                .GroupBy(a => new { a.FechaCreacion.Year, a.FechaCreacion.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Cantidad = g.Count() })
+                .ToListAsync();
+
+            var crecimiento = Enumerable.Range(0, 6)
+                .Select(offset =>
+                {
+                    var mes = inicioVentana.AddMonths(offset);
+                    var count = altasPorMes
+                        .FirstOrDefault(x => x.Year == mes.Year && x.Month == mes.Month)?.Cantidad ?? 0;
+                    return new MonthlyGrowthDto
+                    {
+                        Mes = mesesEtiquetas[mes.Month - 1],
+                        Cantidad = count
+                    };
+                })
+                .ToList();
+
+            var mesActual = new DateTime(hoy.Year, hoy.Month, 1);
+            var mesAnterior = mesActual.AddMonths(-1);
+            var altasMesActual = altasPorMes.FirstOrDefault(x => x.Year == mesActual.Year && x.Month == mesActual.Month)?.Cantidad ?? 0;
+            var altasMesAnterior = altasPorMes.FirstOrDefault(x => x.Year == mesAnterior.Year && x.Month == mesAnterior.Month)?.Cantidad ?? 0;
+            var porcentajeCrecimiento = altasMesAnterior > 0
+                ? Math.Round((decimal)(altasMesActual - altasMesAnterior) / altasMesAnterior * 100, 1)
+                : (altasMesActual > 0 ? 100m : 0m);
+
+            var distribucionPlanes = federaciones
+                .GroupBy(f => f.PlanSaaS?.Nombre ?? "Sin plan")
+                .Select(g => new PlanDistributionDto
+                {
+                    Nombre = g.Key,
+                    Cantidad = g.Count(),
+                    Precio = g.First().PlanSaaS?.Precio ?? 0
+                })
+                .OrderByDescending(p => p.Cantidad)
+                .ToList();
 
             return new GlobalMetricsDto
             {
@@ -249,9 +294,14 @@ namespace SportTrack_Sigdef.Controladores.SaaS
                 TotalClubesAfiliados = totalClubes,
                 TotalAtletasGlobales = totalAtletas,
                 TorneosActivosGlobales = torneosActivos,
+                IngresosMensuales = ingresosMensuales,
+                FederacionesFacturando = federacionesActivas.Count(f => f.PlanSaaS != null),
+                PorcentajeCrecimientoAtletas = porcentajeCrecimiento,
                 CrecimientoMensual = crecimiento,
+                DistribucionPlanes = distribucionPlanes,
                 TopFederaciones = federaciones
-                    .Select(f => new FederacionMetricDto { 
+                    .Select(f => new FederacionMetricDto
+                    {
                         Nombre = f.Nombre,
                         ClubesCount = _context.Clubes.Count(c => c.IdFederacion == f.IdFederacion)
                     })
