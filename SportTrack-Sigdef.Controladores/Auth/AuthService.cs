@@ -2,8 +2,11 @@
 using Microsoft.EntityFrameworkCore;
 using SportTrack_Sigdef.AccesoDatos;
 using SportTrack_Sigdef.Controladores.Auth.Dtos;
+using SportTrack_Sigdef.Controladores.SaaS;
+using SportTrack_Sigdef.Controladores.SaaS.Dtos;
 using SportTrack_Sigdef.Controladores.Exceptions;
 using SportTrack_Sigdef.Entidades.Entidades;
+using System;
 using System.Threading.Tasks;
 
 namespace SportTrack_Sigdef.Controladores.Auth
@@ -23,7 +26,7 @@ namespace SportTrack_Sigdef.Controladores.Auth
             _auditService = auditService;
         }
 
-        public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
+        public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto, string? clientApp = null)
         {
             var cleanUsername = loginDto.Username.Trim().ToLower();
             var cleanPassword = loginDto.Password.Trim();
@@ -148,10 +151,20 @@ namespace SportTrack_Sigdef.Controladores.Auth
 
             if (planSaaSAsignado != null)
             {
-                response.Plan = _mapper.Map<SportTrack_Sigdef.Controladores.SaaS.Dtos.PlanSaaSDto>(planSaaSAsignado);
+                response.Plan = PlanSaaSAccessHelper.FromEntity(planSaaSAsignado);
             }
-            
-            // Usamos las variables unificadas si el plan existe
+
+            // Bloqueo SIGDEF: plan solo SportTrack (o sin plan) no puede usar esta app
+            if (string.Equals(clientApp, "sigdef", StringComparison.OrdinalIgnoreCase)
+                && user.RolFederacion != "SuperAdmin"
+                && (user.Club != null || user.Federacion != null)
+                && (response.Plan == null || !response.Plan.AccesoSigdef))
+            {
+                var planNombre = response.Plan?.Nombre ?? "sin plan asignado";
+                throw new UnauthorizedException(
+                    $"Tu plan actual ({planNombre}) no incluye acceso al sistema SIGDEF. Actualizá a un plan SIGDEF o Pack Dúo.");
+            }
+
             if (user.Federacion != null)
             {
                 response.FechaVencimientoPlan = user.Federacion.FechaVencimientoPlan;
@@ -161,6 +174,7 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 response.FrecuenciaPago = user.Club.FrecuenciaPago;
                 response.FechaVencimientoPlan = user.Club.FechaVencimientoPlan;
             }
+
             response.Token = _tokenService.CreateToken(user);
             
             await _auditService.RegistrarAccionAsync("LOGIN_SUCCESS", $"Usuario '{user.Username}' iniciÃ³ sesiÃ³n correctamente.", user.Username, "Auth");
@@ -242,12 +256,16 @@ namespace SportTrack_Sigdef.Controladores.Auth
             return await _context.SaveChangesAsync() > 0;
         }
 
-        public async Task<UsuarioDto> GetMeAsync(string username)
+        public async Task<UsuarioDto> GetMeAsync(string username, string? clientApp = null)
         {
             var user = await _context.Usuarios
                 .Include(u => u.Federacion)
+                    .ThenInclude(f => f!.PlanSaaS)
                 .Include(u => u.Club)
-                    .ThenInclude(c => c.Federacion)
+                    .ThenInclude(c => c!.PlanSaaS)
+                .Include(u => u.Club)
+                    .ThenInclude(c => c!.Federacion)
+                        .ThenInclude(f => f!.PlanSaaS)
                 .FirstOrDefaultAsync(u => u.Username == username.ToLower());
 
             if (user == null) throw new NotFoundException("Usuario no encontrado");
@@ -272,6 +290,12 @@ namespace SportTrack_Sigdef.Controladores.Auth
 
             var response = _mapper.Map<UsuarioDto>(user);
 
+            PlanSaaS? planSaaSAsignado = user.Federacion?.PlanSaaS ?? user.Club?.PlanSaaS;
+            if (planSaaSAsignado == null && user.Club?.IdFederacion != null)
+            {
+                planSaaSAsignado = user.Club.Federacion?.PlanSaaS;
+            }
+
             if (user.Federacion != null)
             {
                 response.FechaVencimientoPlan = user.Federacion.FechaVencimientoPlan;
@@ -280,6 +304,21 @@ namespace SportTrack_Sigdef.Controladores.Auth
             {
                 response.FrecuenciaPago = user.Club.FrecuenciaPago;
                 response.FechaVencimientoPlan = user.Club.FechaVencimientoPlan;
+            }
+
+            if (planSaaSAsignado != null)
+            {
+                response.Plan = PlanSaaSAccessHelper.FromEntity(planSaaSAsignado);
+            }
+
+            if (string.Equals(clientApp, "sigdef", StringComparison.OrdinalIgnoreCase)
+                && user.RolFederacion != "SuperAdmin"
+                && (user.Club != null || user.Federacion != null)
+                && (response.Plan == null || !response.Plan.AccesoSigdef))
+            {
+                var planNombre = response.Plan?.Nombre ?? "sin plan asignado";
+                throw new UnauthorizedException(
+                    $"Tu plan actual ({planNombre}) no incluye acceso al sistema SIGDEF. Actualizá a un plan SIGDEF o Pack Dúo.");
             }
 
             return response;

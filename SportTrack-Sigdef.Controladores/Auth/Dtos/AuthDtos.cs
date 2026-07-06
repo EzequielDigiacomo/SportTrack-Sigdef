@@ -55,6 +55,7 @@
         // Subscription details for frontend sidebar
         public string? FrecuenciaPago { get; set; }
         public System.DateTime? FechaVencimientoPlan { get; set; }
+        public SportTrack_Sigdef.Controladores.SaaS.Dtos.PlanSaaSDto? Plan { get; set; }
     }
 
     public class UpdatePerfilDto
