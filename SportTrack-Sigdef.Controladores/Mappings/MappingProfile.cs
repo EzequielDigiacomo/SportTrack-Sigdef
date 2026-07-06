@@ -114,9 +114,13 @@ namespace SportTrack_Sigdef.Controladores.Mappings
 
             // Mapeos de Usuario
             CreateMap<Usuario, AuthResponseDto>()
+                .ForMember(dest => dest.ClubId, opt => opt.MapFrom(src => src.IdClub))
+                .ForMember(dest => dest.FederacionId, opt => opt.MapFrom(src => src.IdFederacion))
                 .ForMember(dest => dest.ClubNombre, opt => opt.MapFrom(src => src.Club != null ? src.Club.Nombre : null));
             CreateMap<RegisterDto, Usuario>();
             CreateMap<Usuario, UsuarioDto>()
+                .ForMember(dest => dest.ClubId, opt => opt.MapFrom(src => src.IdClub))
+                .ForMember(dest => dest.FederacionId, opt => opt.MapFrom(src => src.IdFederacion))
                 .ForMember(dest => dest.ClubNombre, opt => opt.MapFrom(src => src.Club != null ? src.Club.Nombre : null));
 
             // Mapeos de Participante
