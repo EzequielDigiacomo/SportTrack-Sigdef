@@ -28,7 +28,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
                 {
                     int federationId = clubActual.IdFederacion ?? clubActual.IdClub;
 
-                    // Si el rol es uno de administraciÃ³n de competencias, ve toda la federaciÃ³n
+                    // Si el rol es uno de administración de competencias, ve toda la federación
                     var rolesAdministrativos = new[] { "Admin", "Largador", "Cronometrista", "JuezControl", "Control" };
                     if (rolesAdministrativos.Any(r => r.Equals(rol?.Trim(), StringComparison.OrdinalIgnoreCase)))
                     {

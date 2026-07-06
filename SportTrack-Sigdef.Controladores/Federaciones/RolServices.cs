@@ -378,13 +378,13 @@ namespace SportTrack_Sigdef.Controladores.Services
             return tipo switch
             {
                 RolTipo.Administrador => "Acceso total al sistema",
-                RolTipo.PresidenteFederacion => "MÃ¡xima autoridad de una federaciÃ³n",
+                RolTipo.PresidenteFederacion => "Máxima autoridad de una federación",
                 RolTipo.DelegadoClub => "Representante oficial de un club",
                 RolTipo.Entrenador => "EntrenadorFederacion de club",
-                RolTipo.EntrenadorSeleccion => "EntrenadorFederacion de selecciÃ³n nacional",
+                RolTipo.EntrenadorSeleccion => "EntrenadorFederacion de selección nacional",
                 RolTipo.Atleta => "Deportista registrado",
                 RolTipo.Secretario => "Personal administrativo",
-                _ => "Sin descripciÃ³n"
+                _ => "Sin descripción"
             };
         }
     }

@@ -16,7 +16,7 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public string? Ubicacion { get; set; }
         public bool Activo { get; set; } = true;
         
-        // RelaciÃ³n con la FederaciÃ³n a la que pertenece
+        // Relación con la Federación a la que pertenece
         public int? IdFederacion { get; set; }
         public Federacion? Federacion { get; set; }
         

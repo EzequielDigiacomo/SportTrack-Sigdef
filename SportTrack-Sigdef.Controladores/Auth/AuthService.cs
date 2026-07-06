@@ -138,16 +138,7 @@ namespace SportTrack_Sigdef.Controladores.Auth
 
             var response = _mapper.Map<AuthResponseDto>(user);
             
-            PlanSaaS? planSaaSAsignado = user.Federacion?.PlanSaaS ?? user.Club?.PlanSaaS;
-            
-            // Si el club no tiene plan, hereda de la federación
-            if (planSaaSAsignado == null && user.Club?.IdFederacion != null)
-            {
-                var parentFed = await _context.Federaciones
-                    .Include(f => f.PlanSaaS)
-                    .FirstOrDefaultAsync(f => f.IdFederacion == user.Club.IdFederacion);
-                planSaaSAsignado = parentFed?.PlanSaaS;
-            }
+            var planSaaSAsignado = await ResolvePlanForUserAsync(user);
 
             if (planSaaSAsignado != null)
             {
@@ -301,11 +292,7 @@ namespace SportTrack_Sigdef.Controladores.Auth
 
             var response = _mapper.Map<UsuarioDto>(user);
 
-            PlanSaaS? planSaaSAsignado = user.Federacion?.PlanSaaS ?? user.Club?.PlanSaaS;
-            if (planSaaSAsignado == null && user.Club?.IdFederacion != null)
-            {
-                planSaaSAsignado = user.Club.Federacion?.PlanSaaS;
-            }
+            PlanSaaS? planSaaSAsignado = await ResolvePlanForUserAsync(user);
 
             if (user.Federacion != null)
             {
@@ -387,6 +374,36 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 $"Perfil actualizado para el usuario '{user.Username}'", null, "Auth");
 
             return result;
+        }
+
+        private async Task<PlanSaaS?> ResolvePlanForUserAsync(Usuario user)
+        {
+            PlanSaaS? plan = user.Federacion?.PlanSaaS ?? user.Club?.PlanSaaS;
+
+            if (plan == null && user.Club?.IdFederacion != null)
+            {
+                var parentFed = user.Club.Federacion ?? await _context.Federaciones
+                    .Include(f => f.PlanSaaS)
+                    .FirstOrDefaultAsync(f => f.IdFederacion == user.Club.IdFederacion);
+                plan = parentFed?.PlanSaaS;
+                if (plan == null && parentFed?.PlanSaaSId is int fedPlanId)
+                    plan = await _context.PlanesSaaS.FindAsync(fedPlanId);
+            }
+
+            if (plan == null && user.IdFederacion.HasValue)
+            {
+                var fed = user.Federacion ?? await _context.Federaciones
+                    .Include(f => f.PlanSaaS)
+                    .FirstOrDefaultAsync(f => f.IdFederacion == user.IdFederacion.Value);
+                plan = fed?.PlanSaaS;
+                if (plan == null && fed?.PlanSaaSId is int planId)
+                    plan = await _context.PlanesSaaS.FindAsync(planId);
+            }
+
+            if (plan == null && user.Club?.PlanSaaSId is int clubPlanId)
+                plan = await _context.PlanesSaaS.FindAsync(clubPlanId);
+
+            return plan;
         }
     }
 }

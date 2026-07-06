@@ -17,7 +17,7 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public bool ExportacionExcel { get; set; }
         public bool SoportePrioritario { get; set; }
 
-        // NavegaciÃ³n
+        // Navegación
         public ICollection<Club> Clubes { get; set; } = new List<Club>();
         public ICollection<Federacion> Federaciones { get; set; } = new List<Federacion>();
     }

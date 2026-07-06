@@ -4,7 +4,7 @@ namespace SportTrack_Sigdef.Controladores.SaaS.Dtos
 {
     public class SaaSCreateFederacionDto
     {
-        // Datos de la FederaciÃ³n
+        // Datos de la Federación
         [Required]
         public string Nombre { get; set; } = string.Empty;
         public string? Sigla { get; set; }

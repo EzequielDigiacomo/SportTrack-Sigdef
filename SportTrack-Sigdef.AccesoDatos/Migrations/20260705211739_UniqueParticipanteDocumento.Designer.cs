@@ -1398,7 +1398,7 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                             ExportacionExcel = true,
                             MaxAtletas = 500,
                             MaxTorneosActivos = 5,
-                            Nombre = "Pack DÃºo (S)",
+                            Nombre = "Pack Dúo (S)",
                             Precio = 75m,
                             ResultadosTiempoReal = true,
                             SoportePrioritario = true
@@ -1409,7 +1409,7 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                             ExportacionExcel = true,
                             MaxAtletas = 2000,
                             MaxTorneosActivos = 20,
-                            Nombre = "Pack DÃºo (M)",
+                            Nombre = "Pack Dúo (M)",
                             Precio = 170m,
                             ResultadosTiempoReal = true,
                             SoportePrioritario = true
@@ -1420,7 +1420,7 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                             ExportacionExcel = true,
                             MaxAtletas = -1,
                             MaxTorneosActivos = -1,
-                            Nombre = "Pack DÃºo (L)",
+                            Nombre = "Pack Dúo (L)",
                             Precio = 350m,
                             ResultadosTiempoReal = true,
                             SoportePrioritario = true

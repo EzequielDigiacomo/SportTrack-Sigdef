@@ -361,8 +361,8 @@ namespace SportTrack_Sigdef.Controladores.Services
                     return new NotFoundResult();
                 }
 
-                // Generar clave aleatoria (8 caracteres alfanumÃ©ricos)
-                const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Evitamos O, I, 0, 1 por confusiÃ³n
+                // Generar clave aleatoria (8 caracteres alfanuméricos)
+                const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Evitamos O, I, 0, 1 por confusión
                 var random = new Random();
                 var newPassword = new string(Enumerable.Repeat(chars, 8)
                     .Select(s => s[random.Next(s.Length)]).ToArray());

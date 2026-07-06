@@ -40,7 +40,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
             }
             else if (rol == "Admin" && clubId.HasValue)
             {
-                // En este sistema, 'Admin' es el rol de la FederaciÃ³n (como FACA)
+                // En este sistema, 'Admin' es el rol de la Federación (como FACA)
                 participantes = await _participanteRepository.GetByFederationIdAsync(clubId.Value);
             }
             else if (clubId.HasValue)
@@ -71,7 +71,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
 
         public async Task<ParticipanteDto> CreateParticipanteAsync(ParticipanteCreateDto participanteDto)
         {
-            // SaaS Enforcement: Verificar lÃ­mites del plan
+            // SaaS Enforcement: Verificar límites del plan
             if (participanteDto.ClubId.HasValue)
             {
                 var clubId = participanteDto.ClubId.Value;
@@ -82,7 +82,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
                     var count = await _participanteRepository.CountByClubIdAsync(clubId);
                     if (club.PlanSaaS.MaxAtletas != -1 && count >= club.PlanSaaS.MaxAtletas)
                     {
-                        throw new BadRequestException($"Has alcanzado el lÃ­mite de {club.PlanSaaS.MaxAtletas} atletas permitidos en tu plan {club.PlanSaaS.Nombre}.");
+                        throw new BadRequestException($"Has alcanzado el límite de {club.PlanSaaS.MaxAtletas} atletas permitidos en tu plan {club.PlanSaaS.Nombre}.");
                     }
                 }
             }

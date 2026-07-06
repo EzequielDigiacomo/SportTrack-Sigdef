@@ -192,7 +192,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                     var federacionExists = await _context.Federaciones.AnyAsync(f => f.IdFederacion == delegadoClubCreateDto.IdFederacion.Value);
                     if (!federacionExists)
                     {
-                        return new BadRequestObjectResult(new { message = "FederaciÃ³n no encontrada." });
+                        return new BadRequestObjectResult(new { message = "Federación no encontrada." });
                     }
                 }
 
@@ -289,7 +289,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                     var federacionExists = await _context.Federaciones.AnyAsync(f => f.IdFederacion == delegadoClubCreateDto.IdFederacion.Value);
                     if (!federacionExists)
                     {
-                        return new BadRequestObjectResult(new { message = "FederaciÃ³n no encontrada." });
+                        return new BadRequestObjectResult(new { message = "Federación no encontrada." });
                     }
                 }
 

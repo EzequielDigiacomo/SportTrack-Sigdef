@@ -162,10 +162,10 @@ namespace SportTrack_Sigdef.Controladores.Hubs
             await base.OnDisconnectedAsync(exception);
         }
 
-        // Acciones crÃ­ticas vÃ­a WebSocket para mÃ­nima latencia
+        // Acciones críticas vía WebSocket para mínima latencia
         public async Task RequestStartRace(int faseId, DateTime startTime)
         {
-            // Ejecutamos la lÃ³gica de inicio en el servicio (DB update, etc)
+            // Ejecutamos la lógica de inicio en el servicio (DB update, etc)
             // Pasamos la hora de inicio capturada por el largador
             var fase = await _faseService.IniciarFaseAsync(faseId, startTime);
         }
@@ -176,7 +176,7 @@ namespace SportTrack_Sigdef.Controladores.Hubs
             // El servicio emite "RaceReset"
         }
 
-        // Notificaciones y SincronizaciÃ³n
+        // Notificaciones y Sincronización
         public DateTime GetServerTime()
         {
             return DateTime.UtcNow;

@@ -13,7 +13,7 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
         Task<bool> DeleteAsync(int id);
         Task<bool> ExistsAsync(int id);
         
-        // MÃ©todo solicitado para contabilizar inscripciones
+        // Método solicitado para contabilizar inscripciones
         Task<int> CountByEventoPruebaIdAsync(int eventoPruebaId);
         
         Task<IEnumerable<Entidades.Entidades.Inscripcion>> GetByEventoPruebaIdAsync(int eventoPruebaId);

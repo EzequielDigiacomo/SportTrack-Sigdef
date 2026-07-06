@@ -51,7 +51,7 @@ namespace SportTrack_Sigdef.Controladores.SaaS
                     string planNombre = plan?.Nombre ?? $"Plan ID {planId}";
                     await _auditService.RegistrarAccionAsync(
                         "ASSIGN_PLAN",
-                        $"Asignado Plan '{planNombre}' a la federaciÃ³n '{fed.Nombre}'.",
+                        $"Asignado Plan '{planNombre}' a la federación '{fed.Nombre}'.",
                         modulo: "SaaS"
                     );
                 }
@@ -72,7 +72,7 @@ namespace SportTrack_Sigdef.Controladores.SaaS
                     .ThenInclude(c => c.Usuarios)
                 .ToListAsync();
 
-            // Buscamos todos los torneos activos para agruparlos por federaciÃ³n madre
+            // Buscamos todos los torneos activos para agruparlos por federación madre
             var eventosActivos = await _context.Eventos
                 .Where(e => (e.Estado == Entidades.Enums.EstadoEventoEnum.Programada || e.Estado == Entidades.Enums.EstadoEventoEnum.EnCurso) && e.IdFederacion.HasValue)
                 .Select(e => new { e.IdFederacion, Id = e.IdEvento, e.Nombre, e.Fecha, Estado = e.Estado.ToString() })
@@ -140,7 +140,7 @@ namespace SportTrack_Sigdef.Controladores.SaaS
                 string accion = fed.Activo ? "ACTIVATE_FEDERATION" : "SUSPEND_FEDERATION";
                 await _auditService.RegistrarAccionAsync(
                     accion,
-                    $"Acceso a la federaciÃ³n '{fed.Nombre}' {status} manualmente.",
+                    $"Acceso a la federación '{fed.Nombre}' {status} manualmente.",
                     modulo: "SaaS"
                 );
             }
@@ -193,18 +193,18 @@ namespace SportTrack_Sigdef.Controladores.SaaS
                 if (innerMsg.Contains("23505") || innerMsg.Contains("duplicate key"))
                 {
                     if (innerMsg.Contains("IX_Usuarios_Username"))
-                        userFriendlyMessage = "El nombre de usuario administrador ya estÃ¡ en uso. Por favor, elige otro.";
+                        userFriendlyMessage = "El nombre de usuario administrador ya está en uso. Por favor, elige otro.";
                     else if (innerMsg.Contains("IX_Usuarios_Email"))
-                        userFriendlyMessage = "El email del administrador ya estÃ¡ registrado en otra cuenta. Debe ser Ãºnico.";
+                        userFriendlyMessage = "El email del administrador ya está registrado en otra cuenta. Debe ser único.";
                     else if (innerMsg.Contains("IX_Federaciones_Nombre") || innerMsg.Contains("IX_Clubes_Nombre"))
-                        userFriendlyMessage = "Ya existe una federaciÃ³n o club con ese nombre.";
+                        userFriendlyMessage = "Ya existe una federación o club con ese nombre.";
                     else
                         userFriendlyMessage = "Un dato ingresado ya existe en el sistema y no puede duplicarse.";
                         
                     throw new Exception(userFriendlyMessage);
                 }
 
-                throw new Exception($"Error al crear la federaciÃ³n: {ex.Message}");
+                throw new Exception($"Error al crear la federación: {ex.Message}");
             }
         }
 

@@ -368,7 +368,7 @@ namespace SportTrack_Sigdef.Controladores.Services
         }
 
         // -------------------------------------------------
-        // POST: Registro AtÃ³mico de AtletaFederacion (incluye TutorFederacion si es menor)
+        // POST: Registro Atómico de AtletaFederacion (incluye TutorFederacion si es menor)
         // -------------------------------------------------
         public async Task<ActionResult<AtletaDto>> PostAtletaFull(AtletaFullCreateDto dto)
         {
@@ -406,7 +406,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                         tutor = new TutorFederacion 
                         { 
                             ParticipanteId = idPersonaTutor, 
-                            TipoTutor = "Registrado vÃ­a AtletaFederacion" 
+                            TipoTutor = "Registrado vía AtletaFederacion" 
                         };
                         _context.Tutores.Add(tutor);
                         await _context.SaveChangesAsync();
@@ -435,7 +435,7 @@ namespace SportTrack_Sigdef.Controladores.Services
 
                 await transaction.CommitAsync();
 
-                // Reutilizar lÃ³gica de respuesta de GetAtleta por consistencia
+                // Reutilizar lógica de respuesta de GetAtleta por consistencia
                 var response = await GetAtleta(AtletaFederacion.ParticipanteId);
                 
                 // Mapear AtletaDetailDto a AtletaDto para coincidir con la firma
@@ -459,7 +459,7 @@ namespace SportTrack_Sigdef.Controladores.Services
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                return new ObjectResult(new { error = "Fallo el registro atÃ³mico", detail = ex.Message }) { StatusCode = 500 };
+                return new ObjectResult(new { error = "Fallo el registro atómico", detail = ex.Message }) { StatusCode = 500 };
             }
         }
 
@@ -491,7 +491,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                     }
                 }
 
-                // Convertir fecha apto mÃ©dico a UTC
+                // Convertir fecha apto médico a UTC
                 DateTime? fechaAptoMedicoUtc = null;
                 if (atletaCreateDto.FechaAptoMedico.HasValue)
                 {
@@ -612,7 +612,7 @@ namespace SportTrack_Sigdef.Controladores.Services
         }
 
         // -------------------------------------------------
-        // MÃ©todos auxiliares
+        // Métodos auxiliares
         // -------------------------------------------------
         private async Task<bool> AtletaExistsAsync(int id)
         {

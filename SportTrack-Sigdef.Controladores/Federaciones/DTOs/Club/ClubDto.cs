@@ -16,7 +16,7 @@ namespace SportTrack_Sigdef.Entidades.DTOs.Club
         public int? IdFederacion { get; set; }
         public SportTrack_Sigdef.Entidades.Enums.EstadoPago EstadoMatricula { get; set; }
         public bool TieneDelegado { get; set; }
-        // EstadÃ­sticas para mostrar en listas
+        // Estadísticas para mostrar en listas
         public int CantidadAtletas { get; set; }
         public int CantidadEntrenadores { get; set; }
         public int CantidadRepresentantes { get; set; }

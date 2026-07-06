@@ -67,7 +67,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
 
         public async Task<IEnumerable<FaseDto>> GenerarFasesAutoAsync(int eventoPruebaId)
         {
-            // VerificaciÃ³n de seguridad: No permitir re-sortear si ya hay resultados oficiales
+            // Verificación de seguridad: No permitir re-sortear si ya hay resultados oficiales
             var fasesExistentes = await _faseRepository.GetByEventoPruebaIdAsync(eventoPruebaId);
             if (fasesExistentes.Any(f => f.Resultados.Any(r => r.TiempoOficial.HasValue)))
             {
@@ -86,7 +86,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
             
             var ep = await _eventoRepository.GetEventoPruebaByIdAsync(eventoPruebaId);
             
-            // Asignar Plan de ProgresiÃ³n AutomÃ¡ticamente
+            // Asignar Plan de Progresión Automáticamente
             if (ep != null)
             {
                 ep.PlanProgresionAsignado = DeterminarPlanProgresion(inscriptosCount);
@@ -182,7 +182,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
             
             // Auditoria
             await _auditService.RegistrarAccionAsync("GENERATE_HEATS_AUTO", 
-                $"Sorteo automÃ¡tico generado para la Prueba ID {eventoPruebaId}. Se crearon {numSeries} series.", null, "Competencia");
+                $"Sorteo automático generado para la Prueba ID {eventoPruebaId}. Se crearon {numSeries} series.", null, "Competencia");
 
             return await GetFasesPorEventoPruebaAsync(eventoPruebaId);
         }
@@ -655,7 +655,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
             // Notificar por SignalR
             await _hubContext.Clients.Group($"race_{id}").SendAsync("RaceStarted", id, fase.FechaHoraInicioReal);
             
-            // NotificaciÃ³n Global (para usuarios fuera de la regata especÃ­fica, como el Cronometrista en su Dashboard)
+            // Notificación Global (para usuarios fuera de la regata específica, como el Cronometrista en su Dashboard)
             await _hubContext.Clients.All.SendAsync("globalRaceStarted", id, fase.FechaHoraInicioReal);
 
             return _mapper.Map<FaseDto>(fase);
@@ -672,7 +672,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
             // Al finalizar oficialmente, marcamos todos los resultados como Oficiales
             if (fase.Resultados != null && fase.Resultados.Any())
             {
-                // Ordenamos por tiempo para asignar posiciones automÃ¡ticamente
+                // Ordenamos por tiempo para asignar posiciones automáticamente
                 var conTiempo = fase.Resultados
                                     .Where(r => r.TiempoOficial != null)
                                     .OrderBy(r => r.TiempoOficial)
@@ -715,7 +715,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
             fase.FechaHoraFinReal = null;
             fase.Estado = "Programada";
 
-            // 2. Limpiar resultados de cada carril pero conservar la inscripciÃ³n y el carril
+            // 2. Limpiar resultados de cada carril pero conservar la inscripción y el carril
             if (fase.Resultados != null)
             {
                 foreach (var res in fase.Resultados)
@@ -732,7 +732,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
             await _auditService.RegistrarAccionAsync("RESET_RACE", 
                 $"Carrera reiniciada: {fase.NombreFase} (ID: {id}). Se limpiaron los tiempos.", null, "Competencia");
 
-            // 3. Notificar a los clientes SignalR que la carrera se reiniciÃ³
+            // 3. Notificar a los clientes SignalR que la carrera se reinició
             await _hubContext.Clients.Group($"race_{id}").SendAsync("RaceReset", id);
 
             return _mapper.Map<FaseDto>(fase);
@@ -743,10 +743,10 @@ namespace SportTrack_Sigdef.Controladores.Fase
             var fase = await _faseRepository.GetByIdAsync(id);
             if (fase == null) throw new KeyNotFoundException("Fase no encontrada");
 
-            fase.Estado = "Pendiente de ValidaciÃ³n";
+            fase.Estado = "Pendiente de Validación";
             fase.FechaHoraFinReal = DateTime.UtcNow;
 
-            // Al enviar a revisiÃ³n, marcamos los resultados como Preliminares
+            // Al enviar a revisión, marcamos los resultados como Preliminares
             if (fase.Resultados != null)
             {
                 foreach (var res in fase.Resultados)
@@ -762,11 +762,11 @@ namespace SportTrack_Sigdef.Controladores.Fase
             
             // Auditoria
             await _auditService.RegistrarAccionAsync("REVIEW_RACE", 
-                $"Carrera enviada a revisiÃ³n: {fase.NombreFase} (ID: {id})", null, "Competencia");
+                $"Carrera enviada a revisión: {fase.NombreFase} (ID: {id})", null, "Competencia");
 
             Console.WriteLine($"[SignalR-Debug] Emitting GlobalRaceInReview for Fase {fase.Id}: {fase.NombreFase}");
 
-            // Notificar que estÃ¡ en revisiÃ³n (Local a la carrera y Global para el Juez)
+            // Notificar que está en revisión (Local a la carrera y Global para el Juez)
             await _hubContext.Clients.Group($"race_{id}").SendAsync("RaceInReview", id);
             await _hubContext.Clients.All.SendAsync("globalRaceInReview", new { id = fase.Id, nombre = fase.NombreFase });
 
@@ -786,8 +786,8 @@ namespace SportTrack_Sigdef.Controladores.Fase
                 var fase = await _faseRepository.GetByIdAsync(item.Id);
                 if (fase != null)
                 {
-                    // Si el Kind es Utc, lo dejamos como estÃ¡. 
-                    // Si es Unspecified (viene del string sin Z), lo tratamos como UTC para no romper la lÃ³gica de la BD,
+                    // Si el Kind es Utc, lo dejamos como está. 
+                    // Si es Unspecified (viene del string sin Z), lo tratamos como UTC para no romper la lógica de la BD,
                     // pero lo ideal es que el frontend mande el ISO con Z (como acabamos de corregir).
                     fase.FechaHoraProgramada = item.FechaHoraProgramada.Kind == DateTimeKind.Utc 
                         ? item.FechaHoraProgramada 
@@ -801,7 +801,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
         {
             try
             {
-                // Intentar bÃºsqueda estÃ¡ndar
+                // Intentar búsqueda estándar
                 var tz = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
                 var unspecified = DateTime.SpecifyKind(localDateTime, DateTimeKind.Unspecified);
                 return TimeZoneInfo.ConvertTimeToUtc(unspecified, tz);
@@ -813,7 +813,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
                 {
                     return DateTime.SpecifyKind(localDateTime.AddHours(3), DateTimeKind.Utc);
                 }
-                // Si todo falla, asumimos que ya es UTC para evitar desvÃ­os indeterminados
+                // Si todo falla, asumimos que ya es UTC para evitar desvíos indeterminados
                 return DateTime.SpecifyKind(localDateTime, DateTimeKind.Utc);
             }
         }
@@ -821,7 +821,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
         public async Task<IEnumerable<FaseDto>> GenerarFasesManualAsync(int eventoPruebaId, List<ManualPlacementDto> placements)
         {
             if (placements == null || !placements.Any())
-                throw new ArgumentException("Debe proporcionar al menos una ubicaciÃ³n para generar las fases.");
+                throw new ArgumentException("Debe proporcionar al menos una ubicación para generar las fases.");
 
             // Validar que no haya carriles duplicados dentro de la misma serie
             var agrupadoPorSerieCheck = placements.GroupBy(p => p.Serie);
@@ -833,7 +833,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
                                             .ToList();
                 if (carrilesRepetidos.Any())
                 {
-                    throw new ArgumentException($"El carril {carrilesRepetidos.First()} estÃ¡ repetido en la Serie {grupo.Key}.");
+                    throw new ArgumentException($"El carril {carrilesRepetidos.First()} está repetido en la Serie {grupo.Key}.");
                 }
             }
 
@@ -863,7 +863,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
                 }
             }
 
-            // Asignar Plan de ProgresiÃ³n AutomÃ¡ticamente
+            // Asignar Plan de Progresión Automáticamente
             if (ep != null)
             {
                 int inscriptosCount = placements.Count;
@@ -871,7 +871,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
                 await _eventoRepository.UpdateEventoPruebaAsync(ep);
             }
 
-            // Determinar cuÃ¡ntas series hay
+            // Determinar cuántas series hay
             var numSeries = placements.Max(p => p.Serie);
 
             // Crear Etapa de Eliminatorias (o Finales si es solo 1 serie)
@@ -913,7 +913,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
                 nextTime = nextTime.AddMinutes(10);
             }
 
-            // Si hay mÃ¡s de una serie, pre-generamos las siguientes etapas vacÃ­as (SF/Finales) como en el modo auto
+            // Si hay más de una serie, pre-generamos las siguientes etapas vacías (SF/Finales) como en el modo auto
             if (numSeries > 1)
             {
                 var inscriptosCount = placements.Count;
