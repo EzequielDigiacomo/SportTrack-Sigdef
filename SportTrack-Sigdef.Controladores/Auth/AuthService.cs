@@ -165,6 +165,17 @@ namespace SportTrack_Sigdef.Controladores.Auth
                     $"Tu plan actual ({planNombre}) no incluye acceso al sistema SIGDEF. Actualizá a un plan SIGDEF o Pack Dúo.");
             }
 
+            // Bloqueo SportTrack: plan solo SIGDEF no puede usar esta app
+            if (string.Equals(clientApp, "sporttrack", StringComparison.OrdinalIgnoreCase)
+                && user.RolFederacion != "SuperAdmin"
+                && (user.Club != null || user.Federacion != null)
+                && (response.Plan == null || !response.Plan.AccesoSportTrack))
+            {
+                var planNombre = response.Plan?.Nombre ?? "sin plan asignado";
+                throw new UnauthorizedException(
+                    $"Tu plan actual ({planNombre}) no incluye acceso al sistema SportTrack. Actualizá a un plan SportTrack o Pack Dúo.");
+            }
+
             if (user.Federacion != null)
             {
                 response.FechaVencimientoPlan = user.Federacion.FechaVencimientoPlan;
@@ -319,6 +330,16 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 var planNombre = response.Plan?.Nombre ?? "sin plan asignado";
                 throw new UnauthorizedException(
                     $"Tu plan actual ({planNombre}) no incluye acceso al sistema SIGDEF. Actualizá a un plan SIGDEF o Pack Dúo.");
+            }
+
+            if (string.Equals(clientApp, "sporttrack", StringComparison.OrdinalIgnoreCase)
+                && user.RolFederacion != "SuperAdmin"
+                && (user.Club != null || user.Federacion != null)
+                && (response.Plan == null || !response.Plan.AccesoSportTrack))
+            {
+                var planNombre = response.Plan?.Nombre ?? "sin plan asignado";
+                throw new UnauthorizedException(
+                    $"Tu plan actual ({planNombre}) no incluye acceso al sistema SportTrack. Actualizá a un plan SportTrack o Pack Dúo.");
             }
 
             return response;

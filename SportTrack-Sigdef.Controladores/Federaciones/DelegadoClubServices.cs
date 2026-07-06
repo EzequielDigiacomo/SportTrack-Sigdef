@@ -17,21 +17,38 @@ namespace SportTrack_Sigdef.Controladores.Services
     public class DelegadoClubServices : IDelegadoClubServices
     {
         private readonly SportTrackDbContext _context;
+        private readonly ITenantProvider _tenantProvider;
 
-        public DelegadoClubServices(SportTrackDbContext context)
+        public DelegadoClubServices(SportTrackDbContext context, ITenantProvider tenantProvider)
         {
             _context = context;
+            _tenantProvider = tenantProvider;
         }
 
         public async Task<ActionResult<IEnumerable<DelegadoClubDto>>> GetDelegadosClub()
         {
             try
             {
-                var delegados = await _context.DelegadosClub
+                var query = _context.DelegadosClub
                     .Include(d => d.Participante)
                     .Include(d => d.RolFederacion)
                     .Include(d => d.Federacion)
                     .Include(d => d.Club)
+                    .AsQueryable();
+
+                var fedId = _tenantProvider.GetFederacionId();
+                if (fedId.HasValue)
+                {
+                    query = query.Where(d => d.IdFederacion == fedId.Value);
+                }
+
+                var clubId = _tenantProvider.GetClubId();
+                if (clubId.HasValue)
+                {
+                    query = query.Where(d => d.ClubIdClub == clubId.Value);
+                }
+
+                var delegados = await query
                     .Select(d => new DelegadoClubDto
                     {
                         ParticipanteId = d.IdParticipante ?? 0,
