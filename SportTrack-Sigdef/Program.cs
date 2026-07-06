@@ -85,6 +85,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             OnMessageReceived = context =>
             {
+                // Preferir Authorization header (cross-origin: cookie third-party suele bloquearse)
+                var authHeader = context.Request.Headers.Authorization.ToString();
+                if (!string.IsNullOrEmpty(authHeader) &&
+                    authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Token = authHeader["Bearer ".Length..].Trim();
+                    return Task.CompletedTask;
+                }
+
                 var accessToken = context.Request.Query["access_token"];
                 if (string.IsNullOrEmpty(accessToken))
                 {
