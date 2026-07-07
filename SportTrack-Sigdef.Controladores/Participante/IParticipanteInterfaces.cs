@@ -19,7 +19,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
 
     public interface IParticipanteService
     {
-        Task<IEnumerable<ParticipanteDto>> GetAllParticipantesAsync(int? clubId = null, string? rol = null);
+        Task<IEnumerable<ParticipanteDto>> GetAllParticipantesAsync(int? clubId = null, string? rol = null, int? federacionId = null);
         Task<ParticipanteDto> GetParticipanteByIdAsync(int id);
         Task<IEnumerable<ParticipanteDto>> GetParticipantesByClubAsync(int clubId);
         Task<ParticipanteDto> CreateParticipanteAsync(ParticipanteCreateDto participanteDto);

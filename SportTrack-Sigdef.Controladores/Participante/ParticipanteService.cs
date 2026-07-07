@@ -3,6 +3,7 @@ using SportTrack_Sigdef.Controladores.Exceptions;
 using SportTrack_Sigdef.Controladores.Federaciones;
 using SportTrack_Sigdef.Controladores.Participante.Dtos;
 using SportTrack_Sigdef.Entidades.Entidades;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -30,7 +31,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
             _altaAtletaService = altaAtletaService;
         }
 
-        public async Task<IEnumerable<ParticipanteDto>> GetAllParticipantesAsync(int? clubId = null, string? rol = null)
+        public async Task<IEnumerable<ParticipanteDto>> GetAllParticipantesAsync(int? clubId = null, string? rol = null, int? federacionId = null)
         {
             IEnumerable<Entidades.Entidades.Participante> participantes;
 
@@ -38,19 +39,18 @@ namespace SportTrack_Sigdef.Controladores.Participante
             {
                 participantes = await _participanteRepository.GetAllAsync();
             }
-            else if (rol == "Admin" && clubId.HasValue)
+            else if (string.Equals(rol, "Admin", StringComparison.OrdinalIgnoreCase)
+                && federacionId.HasValue && federacionId.Value > 0)
             {
-                // En este sistema, 'Admin' es el rol de la Federación (como FACA)
-                participantes = await _participanteRepository.GetByFederationIdAsync(clubId.Value);
+                participantes = await _participanteRepository.GetByFederationIdAsync(federacionId.Value);
             }
-            else if (clubId.HasValue)
+            else if (clubId.HasValue && clubId.Value > 0)
             {
-                // 'Club' y otros roles ven solo lo de su club
                 participantes = await _participanteRepository.GetByClubIdAsync(clubId.Value);
             }
             else
             {
-                participantes = await _participanteRepository.GetAllAsync();
+                participantes = Array.Empty<Entidades.Entidades.Participante>();
             }
 
             return _mapper.Map<IEnumerable<ParticipanteDto>>(participantes);

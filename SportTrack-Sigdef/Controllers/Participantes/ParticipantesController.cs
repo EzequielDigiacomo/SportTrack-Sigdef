@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SportTrack_Sigdef.Controladores.Participante;
 using SportTrack_Sigdef.Controladores.Participante.Dtos;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace SportTrack_Sigdef.Controllers.Participantes
@@ -18,15 +19,20 @@ namespace SportTrack_Sigdef.Controllers.Participantes
             _participanteService = participanteService;
         }
 
+        private static int? ParseClaimId(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            return int.TryParse(value, out var id) && id > 0 ? id : null;
+        }
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ParticipanteDto>>> GetParticipantes()
         {
-            var clubIdClaim = User.FindFirst("ClubId")?.Value;
-            var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            var clubId = ParseClaimId(User.FindFirst("ClubId")?.Value);
+            var federacionId = ParseClaimId(User.FindFirst("FederacionId")?.Value);
+            var roleClaim = User.FindFirst(ClaimTypes.Role)?.Value;
 
-            int? clubId = string.IsNullOrEmpty(clubIdClaim) ? null : int.Parse(clubIdClaim);
-
-            var result = await _participanteService.GetAllParticipantesAsync(clubId, roleClaim);
+            var result = await _participanteService.GetAllParticipantesAsync(clubId, roleClaim, federacionId);
             return Ok(result);
         }
 
@@ -69,4 +75,3 @@ namespace SportTrack_Sigdef.Controllers.Participantes
         }
     }
 }
-
