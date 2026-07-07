@@ -9,7 +9,7 @@ using SportTrack_Sigdef.Entidades.Enums;
 namespace SIGDEF.Controllers
 {
     [ApiController]
-    [Route("api/eventos/{idEvento}/pruebas")]
+    [Route("api/legacy/eventos/{idEvento}/pruebas")]
     public class EventoPruebaController : ControllerBase
     {
         private readonly SportTrackDbContext _context;

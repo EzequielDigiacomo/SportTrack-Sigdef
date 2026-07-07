@@ -141,8 +141,13 @@ namespace SportTrack_Sigdef.Controladores.Mappings
             // Mapeos de Prueba y EventoPrueba
             CreateMap<Sexo, SexoDto>();
             CreateMap<Prueba, PruebaDto>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.IdPrueba))
+                .ForMember(dest => dest.SexoId, opt => opt.MapFrom(src => src.SexoCompetencia))
                 .ForMember(dest => dest.SexoNombre, opt => opt.MapFrom(src => src.Sexo != null ? src.Sexo.Nombre : "Mixto"));
             CreateMap<EventoPrueba, EventoPruebaDto>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.IdEventoPrueba))
+                .ForMember(dest => dest.EventoId, opt => opt.MapFrom(src => src.IdEvento))
+                .ForMember(dest => dest.PruebaId, opt => opt.MapFrom(src => src.IdPrueba))
                 .ForMember(dest => dest.Estado, opt => opt.MapFrom(src => src.Estado.ToString()))
                 .ForMember(dest => dest.CantidadInscritos, opt => opt.MapFrom(src => src.Inscripciones != null ? src.Inscripciones.Count : 0));
             // Mapeos de SaaS
