@@ -12,43 +12,54 @@ namespace SportTrack_Sigdef.Controladores.Evento
     {
         private readonly SportTrackDbContext _context;
 
+        private static readonly string[] RolesAdministrativos =
+            { "Admin", "Largador", "Cronometrista", "JuezControl", "Control" };
+
         public EventoRepository(SportTrackDbContext context)
         {
             _context = context;
+        }
+
+        private static bool IsSuperAdmin(string? rol) =>
+            string.Equals(rol?.Trim(), "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsRolAdministrativo(string? rol) =>
+            RolesAdministrativos.Any(r => r.Equals(rol?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// scopeId puede ser IdClub o IdFederacion (admin de federación sin fila club con ese IdClub).
+        /// </summary>
+        private async Task<IQueryable<Entidades.Entidades.Evento>> ApplyScopeFilterAsync(
+            IQueryable<Entidades.Entidades.Evento> query,
+            int scopeId,
+            string? rol)
+        {
+            var clubActual = await _context.Clubes.FirstOrDefaultAsync(c => c.IdClub == scopeId);
+            int federationId = clubActual?.IdFederacion ?? scopeId;
+
+            var clubIds = await _context.Clubes
+                .Where(c => c.IdClub == federationId || c.IdFederacion == federationId)
+                .Select(c => c.IdClub)
+                .ToListAsync();
+
+            if (clubActual == null || IsRolAdministrativo(rol))
+            {
+                return query.Where(e =>
+                    e.IdFederacion == federationId ||
+                    (e.IdClub.HasValue && clubIds.Contains(e.IdClub.Value)));
+            }
+
+            return query.Where(e =>
+                e.IdClub == scopeId || e.IdFederacion == federationId);
         }
 
         public async Task<IEnumerable<Entidades.Entidades.Evento>> GetAllAsync(int? clubId = null, string? rol = null)
         {
             var query = _context.Eventos.AsQueryable();
             
-            if (rol != "SuperAdmin" && clubId.HasValue)
+            if (!IsSuperAdmin(rol) && clubId.HasValue)
             {
-                var clubActual = await _context.Clubes.FirstOrDefaultAsync(c => c.IdClub == clubId.Value);
-                if (clubActual != null)
-                {
-                    int federationId = clubActual.IdFederacion ?? clubActual.IdClub;
-
-                    // Si el rol es uno de administración de competencias, ve toda la federación
-                    var rolesAdministrativos = new[] { "Admin", "Largador", "Cronometrista", "JuezControl", "Control" };
-                    if (rolesAdministrativos.Any(r => r.Equals(rol?.Trim(), StringComparison.OrdinalIgnoreCase)))
-                    {
-                        var clubIds = await _context.Clubes
-                            .Where(c => c.IdClub == federationId || c.IdFederacion == federationId)
-                            .Select(c => c.IdClub)
-                            .ToListAsync();
-                        
-                        query = query.Where(e => (e.IdClub.HasValue && clubIds.Contains(e.IdClub.Value)) || e.IdFederacion == federationId);
-                    }
-                    else
-                    {
-                        query = query.Where(e => e.IdClub == clubId.Value || e.IdFederacion == federationId);
-                    }
-                }
-                else
-                {
-                    // If club is invalid/0, don't return any events
-                    query = query.Where(e => e.IdEvento == -1);
-                }
+                query = await ApplyScopeFilterAsync(query, clubId.Value, rol);
             }
 
             return await query
@@ -100,33 +111,9 @@ namespace SportTrack_Sigdef.Controladores.Evento
             var query = _context.Eventos
                 .Where(e => e.Fecha >= DateTime.UtcNow.Date);
 
-            if (rol != "SuperAdmin" && clubId.HasValue)
+            if (!IsSuperAdmin(rol) && clubId.HasValue)
             {
-                var clubActual = await _context.Clubes.FirstOrDefaultAsync(c => c.IdClub == clubId.Value);
-                if (clubActual != null)
-                {
-                    int federationId = clubActual.IdFederacion ?? clubActual.IdClub;
-
-                    var rolesAdministrativos = new[] { "Admin", "Largador", "Cronometrista", "JuezControl", "Control" };
-                    if (rolesAdministrativos.Any(r => r.Equals(rol?.Trim(), StringComparison.OrdinalIgnoreCase)))
-                    {
-                        var clubIds = await _context.Clubes
-                            .Where(c => c.IdClub == federationId || c.IdFederacion == federationId)
-                            .Select(c => c.IdClub)
-                            .ToListAsync();
-                        
-                        query = query.Where(e => (e.IdClub.HasValue && clubIds.Contains(e.IdClub.Value)) || e.IdFederacion == federationId);
-                    }
-                    else // Club normal
-                    {
-                        query = query.Where(e => e.IdClub == clubId.Value || e.IdFederacion == federationId);
-                    }
-                }
-                else
-                {
-                    // Invalid club, return empty
-                    query = query.Where(e => e.IdEvento == -1);
-                }
+                query = await ApplyScopeFilterAsync(query, clubId.Value, rol);
             }
 
             return await query
