@@ -74,6 +74,7 @@ namespace SportTrack_Sigdef.Controladores.Mappings
             CreateMap<Entidades.Entidades.Evento, EventoDto>()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.IdEvento))
                 .ForMember(dest => dest.ClubId, opt => opt.MapFrom(src => src.IdClub))
+                .ForMember(dest => dest.FederacionId, opt => opt.MapFrom(src => src.IdFederacion))
                 .ForMember(dest => dest.Estado, opt => opt.MapFrom(src => src.Estado.ToString()))
                 .ForMember(dest => dest.ClubNombre, opt => opt.MapFrom(src => src.Club != null ? src.Club.Nombre : "Federación"))
                 .ForMember(dest => dest.HoraInicioEvento, opt => opt.MapFrom(src => src.HoraInicioEvento.ToString(@"hh\:mm")))
@@ -83,6 +84,7 @@ namespace SportTrack_Sigdef.Controladores.Mappings
 
             CreateMap<EventoCreateDto, Entidades.Entidades.Evento>()
                 .ForMember(dest => dest.IdClub, opt => opt.MapFrom(src => src.ClubId))
+                .ForMember(dest => dest.IdFederacion, opt => opt.MapFrom(src => src.FederacionId))
                 .ForMember(dest => dest.HoraInicioEvento, opt => opt.MapFrom(src => TimeSpan.Parse(src.HoraInicioEvento)))
                 .ForMember(dest => dest.HoraInicioReceso, opt => opt.MapFrom(src => TimeSpan.Parse(src.HoraInicioReceso)))
                 .ForMember(dest => dest.HoraFinReceso, opt => opt.MapFrom(src => TimeSpan.Parse(src.HoraFinReceso)))

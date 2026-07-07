@@ -175,11 +175,35 @@ namespace SportTrack_Sigdef.Controllers.Eventos
         [HttpPost]
         public async Task<ActionResult<EventoDto>> CreateEvento(EventoCreateDto eventoDto)
         {
-            var role = User.FindFirst(ClaimTypes.Role)?.Value;
-            if (role == "Club" || role == "Admin")
+            var username = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                           ?? User.FindFirst(ClaimTypes.Name)?.Value;
+
+            if (!string.IsNullOrEmpty(username))
             {
-                var clubIdClaim = User.FindFirst("ClubId")?.Value;
-                if (int.TryParse(clubIdClaim, out int id) && id > 0) eventoDto.ClubId = id;
+                try
+                {
+                    var userDb = await _authService.GetMeAsync(username);
+                    if (userDb.FederacionId.HasValue && userDb.FederacionId.Value > 0)
+                    {
+                        eventoDto.FederacionId = userDb.FederacionId;
+                    }
+                    if (userDb.ClubId.HasValue && userDb.ClubId.Value > 0)
+                    {
+                        eventoDto.ClubId = userDb.ClubId;
+                    }
+                }
+                catch
+                {
+                    var role = User.FindFirst(ClaimTypes.Role)?.Value;
+                    if (role == "Club" || role == "Admin")
+                    {
+                        var clubIdClaim = User.FindFirst("ClubId")?.Value;
+                        if (int.TryParse(clubIdClaim, out int id) && id > 0) eventoDto.ClubId = id;
+
+                        var fedIdClaim = User.FindFirst("FederacionId")?.Value;
+                        if (int.TryParse(fedIdClaim, out int fedId) && fedId > 0) eventoDto.FederacionId = fedId;
+                    }
+                }
             }
 
             var result = await _eventoService.CreateEventoAsync(eventoDto);
