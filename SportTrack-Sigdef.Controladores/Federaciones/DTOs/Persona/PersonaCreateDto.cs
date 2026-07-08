@@ -1,4 +1,4 @@
-﻿using SportTrack_Sigdef.Entidades.Entidades;
+using SportTrack_Sigdef.Entidades.Entidades;
 using SportTrack_Sigdef.Entidades.Enums;
 using System;
 using System.Collections.Generic;
@@ -36,7 +36,7 @@ namespace SportTrack_Sigdef.Entidades.DTOs.Participante
         [MaxLength(200, ErrorMessage = "La dirección no puede exceder 200 caracteres")]
         public string Direccion { get; set; } = string.Empty;
 
-        public Sexo Sexo { get; set; } // NUEVO
+        public Sexo? Sexo { get; set; } // NUEVO
         /// <summary>Preferido por el front (1=M, 2=F). Si viene, tiene prioridad sobre Sexo.</summary>
         public int SexoId { get; set; }
         public string SexoDisplay { get; set; } = string.Empty; // Para mostrar en UI

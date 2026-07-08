@@ -105,12 +105,14 @@ namespace SportTrack_Sigdef.Controladores.Auth
             }
 
             // SaaS Enforcement: Verificar si la entidad está activa y pagos
+            // Club afiliado hereda estado SaaS de la federación padre.
             if (user.RolFederacion != "SuperAdmin" && (user.Club != null || user.Federacion != null))
             {
-                bool activo = user.Federacion?.Activo ?? user.Club?.Activo ?? true;
-                bool bloqueado = user.Federacion?.BloqueadaPorFaltaDePago ?? user.Club?.BloqueadoPorFaltaDePago ?? false;
-                DateTime? vencimiento = user.Federacion?.FechaVencimientoPlan ?? user.Club?.FechaVencimientoPlan;
-                string nombreInst = user.Federacion?.Nombre ?? user.Club?.Nombre ?? "";
+                var fedScope = user.Federacion ?? user.Club?.Federacion;
+                bool activo = fedScope?.Activo ?? user.Club?.Activo ?? true;
+                bool bloqueado = fedScope?.BloqueadaPorFaltaDePago ?? user.Club?.BloqueadoPorFaltaDePago ?? false;
+                DateTime? vencimiento = fedScope?.FechaVencimientoPlan ?? user.Club?.FechaVencimientoPlan;
+                string nombreInst = fedScope?.Nombre ?? user.Club?.Nombre ?? "";
 
                 if (!activo)
                 {
@@ -275,9 +277,10 @@ namespace SportTrack_Sigdef.Controladores.Auth
             // SaaS Enforcement en tiempo real
             if (user.RolFederacion != "SuperAdmin" && (user.Club != null || user.Federacion != null))
             {
-                bool activo = user.Federacion?.Activo ?? user.Club?.Activo ?? true;
-                bool bloqueado = user.Federacion?.BloqueadaPorFaltaDePago ?? user.Club?.BloqueadoPorFaltaDePago ?? false;
-                DateTime? vencimiento = user.Federacion?.FechaVencimientoPlan ?? user.Club?.FechaVencimientoPlan;
+                var fedScope = user.Federacion ?? user.Club?.Federacion;
+                bool activo = fedScope?.Activo ?? user.Club?.Activo ?? true;
+                bool bloqueado = fedScope?.BloqueadaPorFaltaDePago ?? user.Club?.BloqueadoPorFaltaDePago ?? false;
+                DateTime? vencimiento = fedScope?.FechaVencimientoPlan ?? user.Club?.FechaVencimientoPlan;
 
                 if (!activo)
                 {
@@ -297,6 +300,11 @@ namespace SportTrack_Sigdef.Controladores.Auth
             if (user.Federacion != null)
             {
                 response.FechaVencimientoPlan = user.Federacion.FechaVencimientoPlan;
+            }
+            else if (user.Club?.Federacion != null)
+            {
+                response.FechaVencimientoPlan = user.Club.Federacion.FechaVencimientoPlan;
+                response.FrecuenciaPago = user.Club.FrecuenciaPago;
             }
             else if (user.Club != null)
             {
@@ -376,34 +384,40 @@ namespace SportTrack_Sigdef.Controladores.Auth
             return result;
         }
 
+        /// <summary>
+        /// Plan SaaS siempre vive en la federación.
+        /// Admin → plan de su federación. Club → plan de la federación a la que pertenece.
+        /// </summary>
         private async Task<PlanSaaS?> ResolvePlanForUserAsync(Usuario user)
         {
-            PlanSaaS? plan = user.Federacion?.PlanSaaS ?? user.Club?.PlanSaaS;
+            int? federacionId = user.IdFederacion
+                ?? user.Federacion?.IdFederacion
+                ?? user.Club?.IdFederacion;
 
-            if (plan == null && user.Club?.IdFederacion != null)
+            if (!federacionId.HasValue && user.IdClub.HasValue)
             {
-                var parentFed = user.Club.Federacion ?? await _context.Federaciones
-                    .Include(f => f.PlanSaaS)
-                    .FirstOrDefaultAsync(f => f.IdFederacion == user.Club.IdFederacion);
-                plan = parentFed?.PlanSaaS;
-                if (plan == null && parentFed?.PlanSaaSId is int fedPlanId)
-                    plan = await _context.PlanesSaaS.FindAsync(fedPlanId);
+                var club = user.Club ?? await _context.Clubes
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.IdClub == user.IdClub.Value);
+                federacionId = club?.IdFederacion;
             }
 
-            if (plan == null && user.IdFederacion.HasValue)
-            {
-                var fed = user.Federacion ?? await _context.Federaciones
+            if (!federacionId.HasValue)
+                return null;
+
+            var fed = (user.Federacion?.IdFederacion == federacionId.Value ? user.Federacion : null)
+                ?? (user.Club?.Federacion?.IdFederacion == federacionId.Value ? user.Club.Federacion : null)
+                ?? await _context.Federaciones
                     .Include(f => f.PlanSaaS)
-                    .FirstOrDefaultAsync(f => f.IdFederacion == user.IdFederacion.Value);
-                plan = fed?.PlanSaaS;
-                if (plan == null && fed?.PlanSaaSId is int planId)
-                    plan = await _context.PlanesSaaS.FindAsync(planId);
-            }
+                    .FirstOrDefaultAsync(f => f.IdFederacion == federacionId.Value);
 
-            if (plan == null && user.Club?.PlanSaaSId is int clubPlanId)
-                plan = await _context.PlanesSaaS.FindAsync(clubPlanId);
+            if (fed?.PlanSaaS != null)
+                return fed.PlanSaaS;
 
-            return plan;
+            if (fed?.PlanSaaSId is int planId)
+                return await _context.PlanesSaaS.FindAsync(planId);
+
+            return null;
         }
     }
 }
