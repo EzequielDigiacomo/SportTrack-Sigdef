@@ -41,16 +41,15 @@ namespace SportTrack_Sigdef.Controladores.Club
         {
             var club = _mapper.Map<Entidades.Entidades.Club>(clubDto);
 
+            club.IdFederacion = club.IdFederacion
+                ?? _tenantProvider.GetFederacionId()
+                ?? clubDto.FederacionId;
+
             if (!club.IdFederacion.HasValue)
-            {
-                club.IdFederacion = _tenantProvider.GetFederacionId() ?? clubDto.FederacionId;
-            }
-            
-            // Asignar plan por defecto (Bronce = 1) si no tiene uno
-            if (club.PlanSaaSId == null || club.PlanSaaSId == 0)
-            {
-                club.PlanSaaSId = 1; 
-            }
+                throw new BadRequestException("Todo club debe pertenecer a una federación.");
+
+            // El plan SaaS siempre proviene de la federación (nunca del club).
+            club.PlanSaaSId = null;
 
             var result = await _clubRepository.CreateAsync(club);
             return _mapper.Map<ClubDto>(result);
