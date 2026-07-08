@@ -16,9 +16,20 @@ namespace SportTrack_Sigdef.Controladores.Participante
             _context = context;
         }
 
+        /// <summary>
+        /// SportTrack y listados de atletas: excluir roles exclusivos de SIGDEF (entrenador, delegado, tutor).
+        /// </summary>
+        private IQueryable<Entidades.Entidades.Participante> SoloAtletas(IQueryable<Entidades.Entidades.Participante> query)
+        {
+            return query.Where(p =>
+                !_context.Entrenadores.Any(e => e.ParticipanteId == p.ParticipanteId)
+                && !_context.DelegadosClub.Any(d => d.IdParticipante == p.ParticipanteId)
+                && !_context.Tutores.Any(t => t.ParticipanteId == p.ParticipanteId));
+        }
+
         public async Task<IEnumerable<Entidades.Entidades.Participante>> GetAllAsync()
         {
-            var list = await _context.Participantes
+            var list = await SoloAtletas(_context.Participantes)
                 .Include(p => p.Sexo)
                 .Include(p => p.Categoria)
                 .Include(p => p.Club)
@@ -53,7 +64,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
 
         public async Task<IEnumerable<Entidades.Entidades.Participante>> GetByClubIdAsync(int clubId)
         {
-            var list = await _context.Participantes
+            var list = await SoloAtletas(_context.Participantes)
                 .Include(p => p.Sexo)
                 .Include(p => p.Categoria)
                 .Include(p => p.Club)
@@ -80,7 +91,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
                 .Select(c => c.IdClub)
                 .ToListAsync();
 
-            var list = await _context.Participantes
+            var list = await SoloAtletas(_context.Participantes)
                 .Include(p => p.Sexo)
                 .Include(p => p.Categoria)
                 .Include(p => p.Club)
@@ -153,7 +164,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
 
         public async Task<int> CountByClubIdAsync(int clubId)
         {
-            return await _context.Participantes.CountAsync(p => p.IdClub == clubId);
+            return await SoloAtletas(_context.Participantes).CountAsync(p => p.IdClub == clubId);
         }
     }
 }
