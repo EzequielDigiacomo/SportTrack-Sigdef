@@ -173,6 +173,11 @@ namespace SportTrack_Sigdef.Controladores.Auth
             {
                 response.FechaVencimientoPlan = user.Federacion.FechaVencimientoPlan;
             }
+            else if (user.Club?.Federacion != null)
+            {
+                response.FechaVencimientoPlan = user.Club.Federacion.FechaVencimientoPlan;
+                response.FrecuenciaPago = user.Club.FrecuenciaPago;
+            }
             else if (user.Club != null)
             {
                 response.FrecuenciaPago = user.Club.FrecuenciaPago;
@@ -191,17 +196,45 @@ namespace SportTrack_Sigdef.Controladores.Auth
             if (await UserExistsAsync(registerDto.Username))
                 throw new BadRequestException("El nombre de usuario ya existe");
 
+            var rol = (registerDto.RolFederacion ?? "Club").Trim();
+            var isClubRole = string.Equals(rol, "Club", StringComparison.OrdinalIgnoreCase);
+
+            if (isClubRole && (!registerDto.ClubId.HasValue || registerDto.ClubId.Value <= 0))
+                throw new BadRequestException("Un usuario con rol Club debe estar vinculado a un club.");
+
+            int? clubId = registerDto.ClubId is > 0 ? registerDto.ClubId : null;
+            int? federacionId = registerDto.FederacionId is > 0 ? registerDto.FederacionId : null;
+
+            // Siempre alinear IdFederacion con el club (fuente de verdad)
+            if (clubId.HasValue)
+            {
+                var club = await _context.Clubes.AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.IdClub == clubId.Value)
+                    ?? throw new BadRequestException($"El club con ID {clubId} no existe.");
+
+                if (!club.IdFederacion.HasValue)
+                    throw new BadRequestException("El club debe pertenecer a una federación.");
+
+                federacionId = club.IdFederacion;
+            }
+
+            if (isClubRole && !federacionId.HasValue)
+                throw new BadRequestException("No se pudo resolver la federación del club para el login.");
+
             var user = _mapper.Map<Usuario>(registerDto);
-            user.Username = registerDto.Username.ToLower();
+            user.Username = registerDto.Username.ToLower().Trim();
+            user.RolFederacion = rol;
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
-            
+            user.IdClub = clubId;
+            user.IdFederacion = federacionId;
+
             _context.Usuarios.Add(user);
             var res = await _context.SaveChangesAsync() > 0;
 
             if (res)
             {
-                await _auditService.RegistrarAccionAsync("REGISTER_USER", 
-                    $"Nuevo usuario registrado: '{user.Username}' (RolFederacion: {user.RolFederacion})", null, "Auth");
+                await _auditService.RegistrarAccionAsync("REGISTER_USER",
+                    $"Nuevo usuario registrado: '{user.Username}' (Rol: {user.RolFederacion}, ClubId: {user.IdClub}, FedId: {user.IdFederacion})", null, "Auth");
             }
 
             return res;

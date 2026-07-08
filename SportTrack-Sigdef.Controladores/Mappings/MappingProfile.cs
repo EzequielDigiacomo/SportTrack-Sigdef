@@ -119,7 +119,13 @@ namespace SportTrack_Sigdef.Controladores.Mappings
                 .ForMember(dest => dest.ClubId, opt => opt.MapFrom(src => src.IdClub))
                 .ForMember(dest => dest.FederacionId, opt => opt.MapFrom(src => src.IdFederacion))
                 .ForMember(dest => dest.ClubNombre, opt => opt.MapFrom(src => src.Club != null ? src.Club.Nombre : null));
-            CreateMap<RegisterDto, Usuario>();
+            CreateMap<RegisterDto, Usuario>()
+                .ForMember(dest => dest.IdClub, opt => opt.MapFrom(src => src.ClubId))
+                .ForMember(dest => dest.IdFederacion, opt => opt.MapFrom(src => src.FederacionId))
+                .ForMember(dest => dest.IdUsuario, opt => opt.Ignore())
+                .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())
+                .ForMember(dest => dest.Club, opt => opt.Ignore())
+                .ForMember(dest => dest.Federacion, opt => opt.Ignore());
             CreateMap<Usuario, UsuarioDto>()
                 .ForMember(dest => dest.ClubId, opt => opt.MapFrom(src => src.IdClub))
                 .ForMember(dest => dest.FederacionId, opt => opt.MapFrom(src => src.IdFederacion))
