@@ -62,7 +62,41 @@ public static class ProgressionPlanRegistry
             _plans[$"Plan{kv.Key}"] = kv.Value;
     }
 
-    private static void Register(PlanDefinition plan) => _plans[plan.PlanId] = plan;
+    private static void Register(PlanDefinition plan)
+    {
+        ValidatePlan(plan);
+        _plans[plan.PlanId] = plan;
+    }
+
+    private static void ValidatePlan(PlanDefinition plan)
+    {
+        ValidateStaticSlots(plan, plan.ElimToSemi, "ElimToSemi");
+        ValidateStaticSlots(plan, plan.ElimToFinalA, "ElimToFinalA");
+        ValidateStaticSlots(plan, plan.ElimToFinalB, "ElimToFinalB");
+        ValidateStaticSlots(plan, plan.ElimToSemi.Concat(plan.ElimToFinalA).Concat(plan.ElimToFinalB), "PromoteFromEliminatoria");
+        ValidateStaticSlots(plan, plan.SemiToFinalA, "SemiToFinalA");
+        ValidateStaticSlots(plan, plan.SemiToFinalB, "SemiToFinalB");
+        ValidateStaticSlots(plan, plan.SemiToFinalC, "SemiToFinalC");
+        ValidateStaticSlots(plan, plan.SemiToFinalA.Concat(plan.SemiToFinalB).Concat(plan.SemiToFinalC), "PromoteFromSemifinal");
+    }
+
+    private static void ValidateStaticSlots(PlanDefinition plan, IEnumerable<SlotRule> rules, string context)
+    {
+        var lanes = new Dictionary<string, HashSet<int>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in rules)
+        {
+            if (!lanes.TryGetValue(r.Destino, out var set))
+            {
+                set = new HashSet<int>();
+                lanes[r.Destino] = set;
+            }
+            if (!set.Add(r.Carril))
+            {
+                throw new InvalidOperationException(
+                    $"Plan {plan.PlanId} ({context}): carril {r.Carril} duplicado en {r.Destino} (H{r.Heat} P{r.Position})");
+            }
+        }
+    }
 
     private static SlotRule S(int h, int p, string d, int l) => new(h, p, d, l);
     private static BtSlotRule B(int pos, int rank, string d, int l) => new(pos, rank, d, l);
@@ -112,9 +146,9 @@ public static class ProgressionPlanRegistry
             S(1,2,"SF1",5), S(1,4,"SF1",7), S(1,6,"SF1",1),
             S(2,3,"SF1",4), S(2,5,"SF1",2), S(2,7,"SF1",9),
             S(3,3,"SF1",6), S(3,4,"SF1",3), S(3,6,"SF1",8),
-            S(1,3,"SF2",6), S(1,5,"SF2",2), S(1,7,"SF2",9),
+            S(1,3,"SF2",6), S(1,5,"SF2",7), S(1,7,"SF2",1),
             S(2,2,"SF2",5), S(2,4,"SF2",3), S(2,6,"SF2",8),
-            S(3,2,"SF2",4), S(3,5,"SF2",2), S(3,7,"SF2",1)
+            S(3,2,"SF2",4), S(3,5,"SF2",2), S(3,7,"SF2",9)
         },
         SemiToFinalA =
         {
@@ -138,7 +172,7 @@ public static class ProgressionPlanRegistry
             S(1,3,"SF1",6), S(1,5,"SF1",2), S(1,6,"SF1",9),
             S(2,3,"SF1",4), S(2,4,"SF1",7), S(2,6,"SF1",8),
             S(3,2,"SF1",5), S(3,4,"SF1",3), S(3,7,"SF1",1),
-            S(1,2,"SF2",5), S(1,4,"SF2",7), S(1,7,"SF2",1),
+            S(1,2,"SF2",5), S(1,4,"SF2",3), S(1,7,"SF2",9),
             S(2,2,"SF2",4), S(2,5,"SF2",7), S(2,7,"SF2",1),
             S(3,3,"SF2",6), S(3,5,"SF2",2), S(3,6,"SF2",8)
         },
