@@ -353,7 +353,19 @@ namespace SportTrack_Sigdef.Controladores.Fase
             var fasesDeLaEtapa = todasLasFases.Where(f => f.EtapaId == etapaActual.Id).ToList();
 
             var fasesIncompletas = fasesDeLaEtapa
-                .Where(f => !f.Resultados.Any() || !f.Resultados.All(r => r.TiempoOficial.HasValue || r.Posicion.HasValue))
+                .Where(f =>
+                {
+                    var ocupados = f.Resultados.Where(r => r.InscripcionId != null && r.InscripcionId != 0).ToList();
+                    if (!ocupados.Any()) return true;
+                    var excluidos = new[]
+                    {
+                        SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.Descalificado,
+                        SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.DNS,
+                        SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.DNF
+                    };
+                    return !ocupados.All(r =>
+                        r.TiempoOficial.HasValue || r.Posicion.HasValue || excluidos.Contains(r.Estado));
+                })
                 .Select(f => f.NombreFase)
                 .ToList();
 
@@ -672,9 +684,21 @@ namespace SportTrack_Sigdef.Controladores.Fase
             // Al finalizar oficialmente, marcamos todos los resultados como Oficiales
             if (fase.Resultados != null && fase.Resultados.Any())
             {
-                // Ordenamos por tiempo para asignar posiciones automáticamente
+                var excluidos = new[]
+                {
+                    SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.Descalificado,
+                    SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.DNS,
+                    SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.DNF
+                };
+
+                foreach (var res in fase.Resultados.Where(r => excluidos.Contains(r.Estado) || r.TiempoOficial == null))
+                {
+                    res.Posicion = null;
+                }
+
+                // Ordenamos por tiempo para asignar posiciones automáticamente (solo dentro de esta serie)
                 var conTiempo = fase.Resultados
-                                    .Where(r => r.TiempoOficial != null)
+                                    .Where(r => r.TiempoOficial != null && !excluidos.Contains(r.Estado))
                                     .OrderBy(r => r.TiempoOficial)
                                     .ToList();
 
