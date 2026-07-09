@@ -21,6 +21,7 @@ using SportTrack_Sigdef.Controladores.Participante;
 using SportTrack_Sigdef.Controladores.Resultado;
 using SportTrack_Sigdef.Controladores.SaaS;
 using SportTrack_Sigdef.Controladores.Federaciones;
+using SportTrack_Sigdef.Controladores.Mensajes;
 using SportTrack_Sigdef.Controladores.Services;
 using SportTrack_Sigdef.Controladores.PagosSIGDEF.Extensions;
 using SportTrack_Sigdef.Controladores.PagosSIGDEF.Services;
@@ -144,6 +145,9 @@ builder.Services.AddScoped<ISaaSService, SaaSService>();
 // Auditoria
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuditService, AuditService>();
+// Mensajería privada
+builder.Services.AddScoped<IMensajeRepository, MensajeRepository>();
+builder.Services.AddScoped<IMensajeService, MensajeService>();
 // Pagos
 builder.Services.AddScoped<IPagoService, PagoService>();
 
