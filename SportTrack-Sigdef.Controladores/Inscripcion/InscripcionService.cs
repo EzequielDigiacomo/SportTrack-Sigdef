@@ -40,6 +40,12 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
 
         public async Task<InscripcionDto> CreateInscripcionAsync(InscripcionCreateDto inscripcionDto)
         {
+            if (inscripcionDto.EventoPruebaId <= 0)
+                throw new BadRequestException("Debe indicar la prueba del evento (eventoPruebaId).");
+
+            if (!inscripcionDto.ParticipanteId.HasValue || inscripcionDto.ParticipanteId <= 0)
+                throw new BadRequestException("Debe indicar el participante titular de la inscripción.");
+
             var inscripcion = _mapper.Map<Entidades.Entidades.Inscripcion>(inscripcionDto);
             var createdInscripcion = await _inscripcionRepository.CreateAsync(inscripcion);
             
