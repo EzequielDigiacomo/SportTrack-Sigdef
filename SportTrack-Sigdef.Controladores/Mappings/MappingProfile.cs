@@ -54,6 +54,9 @@ namespace SportTrack_Sigdef.Controladores.Mappings
             CreateMap<InscripcionTripulanteCreateDto, InscripcionTripulante>();
 
             CreateMap<Entidades.Entidades.Inscripcion, InscripcionDto>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.IdInscripcion))
+                .ForMember(dest => dest.EventoPruebaId, opt => opt.MapFrom(src => src.IdEventoPrueba))
+                .ForMember(dest => dest.ParticipanteId, opt => opt.MapFrom(src => src.IdParticipante))
                 .ForMember(dest => dest.Estado, opt => opt.MapFrom(src => src.Estado.ToString()))
                 .ForMember(dest => dest.ParticipanteNombreCompleto, opt => opt.MapFrom(src => src.Participante != null ? $"{src.Participante.Nombre} {src.Participante.Apellido}" : null))
                 .ForMember(dest => dest.ClubNombre, opt => opt.MapFrom(src => src.Participante != null && src.Participante.Club != null ? src.Participante.Club.Nombre : null))
@@ -66,7 +69,9 @@ namespace SportTrack_Sigdef.Controladores.Mappings
                     ? $"{src.EventoPrueba.Prueba.Categoria.Nombre} {src.EventoPrueba.Prueba.Bote.Tipo} {src.EventoPrueba.Prueba.Distancia.Descripcion} {(src.EventoPrueba.Prueba.Sexo != null ? src.EventoPrueba.Prueba.Sexo.Nombre : "")}".Trim()
                     : null));
             
-            CreateMap<InscripcionCreateDto, Entidades.Entidades.Inscripcion>();
+            CreateMap<InscripcionCreateDto, Entidades.Entidades.Inscripcion>()
+                .ForMember(dest => dest.IdEventoPrueba, opt => opt.MapFrom(src => src.EventoPruebaId))
+                .ForMember(dest => dest.IdParticipante, opt => opt.MapFrom(src => src.ParticipanteId));
             CreateMap<InscripcionUpdateDto, Entidades.Entidades.Inscripcion>()
                 .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
 

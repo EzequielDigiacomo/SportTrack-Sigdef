@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SportTrack_Sigdef.Controladores.Inscripcion;
+using SportTrack_Sigdef.Controladores.Exceptions;
 
 namespace SportTrack_Sigdef.Controladores.Inscripcion
 {
@@ -68,8 +69,35 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
 
         public async Task<Entidades.Entidades.Inscripcion> CreateAsync(Entidades.Entidades.Inscripcion inscripcion)
         {
+            var eventoPruebaExists = await _context.EventoPruebas
+                .AnyAsync(ep => ep.IdEventoPrueba == inscripcion.IdEventoPrueba);
+            if (!eventoPruebaExists)
+                throw new NotFoundException($"La prueba del evento {inscripcion.IdEventoPrueba} no existe.");
+
+            if (inscripcion.IdParticipante.HasValue)
+            {
+                var participanteExists = await _context.Participantes
+                    .AnyAsync(p => p.ParticipanteId == inscripcion.IdParticipante);
+                if (!participanteExists)
+                    throw new NotFoundException($"El participante {inscripcion.IdParticipante} no existe.");
+
+                var yaInscripto = await _context.Inscripciones.AnyAsync(i =>
+                    i.IdEventoPrueba == inscripcion.IdEventoPrueba &&
+                    i.IdParticipante == inscripcion.IdParticipante);
+                if (yaInscripto)
+                    throw new BadRequestException("El participante ya está inscripto en esta prueba.");
+            }
+
             _context.Inscripciones.Add(inscripcion);
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                throw new BadRequestException(
+                    "No se pudo guardar la inscripción. Verifique los datos enviados.");
+            }
             return inscripcion;
         }
 
