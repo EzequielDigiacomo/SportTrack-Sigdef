@@ -30,6 +30,21 @@ public static class ProgressionEngine
         return result;
     }
 
+    /// <summary>
+    /// Reincorpora a Final A los pases directos desde eliminatorias (p. ej. 1° de cada serie en Plan B).
+    /// Necesario al promover semifinales para completar los 9 carriles de FA.
+    /// </summary>
+    public static void AppendElimDirectToFinalA(
+        PlanDefinition plan,
+        RankedHeatContext elimCtx,
+        ProgressionResult result)
+    {
+        if (!plan.ElimToFinalA.Any()) return;
+
+        var used = new HashSet<int>(result.AuditTrail.Select(a => a.Inscripcion.IdInscripcion));
+        ApplySlots(plan.ElimToFinalA, elimCtx, result, used, "H");
+    }
+
     private static void ApplySlots(
         IEnumerable<SlotRule> rules,
         RankedHeatContext ctx,

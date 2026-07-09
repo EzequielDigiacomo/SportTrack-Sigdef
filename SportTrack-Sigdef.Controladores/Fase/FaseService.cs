@@ -376,13 +376,18 @@ namespace SportTrack_Sigdef.Controladores.Fase
                     "Asegúrate de cargar y GUARDAR los tiempos de todas las series.");
             }
 
-            var etapasAEliminar = etapas
-                .Where(e => e.Orden > etapaActual.Orden)
-                .Where(e => !e.Fases.Any(f => f.Resultados.Any(r => r.TiempoOficial.HasValue)))
-                .ToList();
+            // Solo al promover eliminatorias se resetean etapas futuras sin tiempos guardados.
+            // Al promover semifinales hay que conservar Final A (ganadores de serie ya asignados).
+            if (etapaActual.Tipo == SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Eliminatoria)
+            {
+                var etapasAEliminar = etapas
+                    .Where(e => e.Orden > etapaActual.Orden)
+                    .Where(e => !e.Fases.Any(f => f.Resultados.Any(r => r.TiempoOficial.HasValue)))
+                    .ToList();
 
-            foreach (var e in etapasAEliminar)
-                await _etapaRepository.DeleteAsync(e.Id);
+                foreach (var e in etapasAEliminar)
+                    await _etapaRepository.DeleteAsync(e.Id);
+            }
 
             todasLasFases = (await _faseRepository.GetByEventoPruebaIdAsync(eventoPruebaId)).ToList();
             etapas = todasLasFases.GroupBy(f => f.EtapaId).Select(g => g.First().Etapa).OrderBy(e => e.Orden).ToList();
@@ -407,7 +412,21 @@ namespace SportTrack_Sigdef.Controladores.Fase
             if (etapaActual.Tipo == SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Eliminatoria)
                 progression = ProgressionEngine.PromoteFromEliminatoria(plan, ctx);
             else if (etapaActual.Tipo == SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Semifinal)
+            {
                 progression = ProgressionEngine.PromoteFromSemifinal(plan, ctx);
+
+                var etapaElim = etapas.FirstOrDefault(e =>
+                    e.Tipo == SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Eliminatoria);
+                if (etapaElim != null && plan.ElimToFinalA.Count > 0)
+                {
+                    var fasesElim = todasLasFases
+                        .Where(f => f.EtapaId == etapaElim.Id)
+                        .OrderBy(f => f.NumeroFase)
+                        .ToList();
+                    var ctxElim = ProgressionEngine.BuildContext(fasesElim, f => f.Resultados);
+                    ProgressionEngine.AppendElimDirectToFinalA(plan, ctxElim, progression);
+                }
+            }
             else
                 throw new InvalidOperationException($"No se puede promover desde la etapa '{etapaActual.Nombre}'.");
 
@@ -479,7 +498,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
                         SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Final,
                         "Finales", etapaActual.Orden + (etapaSemi != null ? 2 : 1));
 
-                    if (reemplazarDestinos)
+                    if (reemplazarDestinos || destKey != "FA")
                     {
                         await ReemplazarFaseConCarrilesAsync(
                             etapaFinal.Id, finalName, finalNum, laneMap, tempTime, todasLasFases);
