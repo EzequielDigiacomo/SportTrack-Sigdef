@@ -48,6 +48,10 @@ namespace SportTrack_Sigdef.AccesoDatos
         public DbSet<Auditoria> Auditoria { get; set; }
         public DbSet<Pago> Pagos { get; set; }
 
+        // Mensajería privada
+        public DbSet<Hilo> Hilos { get; set; }
+        public DbSet<Mensaje> Mensajes { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -758,6 +762,50 @@ namespace SportTrack_Sigdef.AccesoDatos
                     .HasForeignKey(e => e.InscripcionId)
                     .OnDelete(DeleteBehavior.SetNull)
                     .HasConstraintName("FK_Pagos_Inscripciones");
+            });
+
+            // ============================================
+            // MENSAJERÍA PRIVADA
+            // ============================================
+
+            modelBuilder.Entity<Hilo>(entity =>
+            {
+                entity.ToTable("Hilos", "comunicacion");
+                entity.HasKey(e => e.IdHilo);
+                entity.Property(e => e.Asunto).IsRequired().HasMaxLength(300);
+                entity.Property(e => e.CreadoEn).IsRequired();
+                entity.Property(e => e.UltimoMensajeEn).IsRequired();
+                entity.HasIndex(e => e.UltimoMensajeEn).HasDatabaseName("IX_Hilos_UltimoMensajeEn");
+            });
+
+            modelBuilder.Entity<Mensaje>(entity =>
+            {
+                entity.ToTable("Mensajes", "comunicacion");
+                entity.HasKey(e => e.IdMensaje);
+                entity.Property(e => e.Cuerpo).IsRequired();
+                entity.Property(e => e.EnviadoEn).IsRequired();
+
+                entity.HasOne(e => e.Hilo)
+                    .WithMany(h => h.Mensajes)
+                    .HasForeignKey(e => e.HiloId)
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .HasConstraintName("FK_Mensajes_Hilos");
+
+                entity.HasOne(e => e.Remitente)
+                    .WithMany()
+                    .HasForeignKey(e => e.RemitenteId)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .HasConstraintName("FK_Mensajes_Remitente");
+
+                entity.HasOne(e => e.Destinatario)
+                    .WithMany()
+                    .HasForeignKey(e => e.DestinatarioId)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .HasConstraintName("FK_Mensajes_Destinatario");
+
+                entity.HasIndex(e => e.HiloId).HasDatabaseName("IX_Mensajes_HiloId");
+                entity.HasIndex(e => e.DestinatarioId).HasDatabaseName("IX_Mensajes_DestinatarioId");
+                entity.HasIndex(e => new { e.DestinatarioId, e.LeidoEn }).HasDatabaseName("IX_Mensajes_Destinatario_Leido");
             });
 
             // ============================================
