@@ -261,13 +261,33 @@ namespace SportTrack_Sigdef.Controladores.Auth
                     // Un Admin de Federación solo ve:
                     // 1. Usuarios de su propia Federación
                     // 2. Usuarios de sus Clubes Afiliados
+                    // 3. SuperAdmin (para mensajería)
                     var fedId = requester.IdFederacion.Value;
-                    query = query.Where(u => u.IdFederacion == fedId || (u.Club != null && u.Club.IdFederacion == fedId));
+                    query = query.Where(u =>
+                        u.IdFederacion == fedId
+                        || (u.Club != null && u.Club.IdFederacion == fedId)
+                        || u.RolFederacion == "SuperAdmin");
                 }
                 else if (requester != null && requester.RolFederacion != "SuperAdmin" && requester.RolFederacion != "soporte_tecnico")
                 {
-                    // Otros roles menores solo ven sus propios datos o los de su club/federacion
-                    if (requester.IdClub.HasValue)
+                    // Club: ve usuarios de su club + Admins de su federación (para mensajería)
+                    if (string.Equals(requester.RolFederacion, "Club", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var clubFedId = requester.IdFederacion
+                            ?? (requester.IdClub.HasValue
+                                ? (await _context.Clubes.AsNoTracking()
+                                    .Where(c => c.IdClub == requester.IdClub.Value)
+                                    .Select(c => c.IdFederacion)
+                                    .FirstOrDefaultAsync())
+                                : null);
+
+                        query = query.Where(u =>
+                            (requester.IdClub.HasValue && u.IdClub == requester.IdClub)
+                            || (clubFedId.HasValue
+                                && u.RolFederacion == "Admin"
+                                && u.IdFederacion == clubFedId.Value));
+                    }
+                    else if (requester.IdClub.HasValue)
                         query = query.Where(u => u.IdClub == requester.IdClub);
                     else if (requester.IdFederacion.HasValue)
                         query = query.Where(u => u.IdFederacion == requester.IdFederacion);

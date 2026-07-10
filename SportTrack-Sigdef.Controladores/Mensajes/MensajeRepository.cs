@@ -15,15 +15,27 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
 
         public Task<Usuario?> GetUsuarioByUsernameAsync(string username) =>
             _context.Usuarios
+                .Include(u => u.Club)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Username == username);
 
         public Task<Usuario?> GetUsuarioByIdAsync(int id) =>
             _context.Usuarios
+                .Include(u => u.Club)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.IdUsuario == id);
 
-        public async Task<List<Hilo>> GetHilosVisiblesAsync(int usuarioId, bool esSuperAdmin)
+        public Task<List<Usuario>> GetUsuariosByIdsAsync(IEnumerable<int> ids)
+        {
+            var idList = ids.Distinct().ToList();
+            return _context.Usuarios
+                .Include(u => u.Club)
+                .AsNoTracking()
+                .Where(u => idList.Contains(u.IdUsuario))
+                .ToListAsync();
+        }
+
+        public async Task<List<Hilo>> GetHilosVisiblesAsync(int usuarioId, bool esSuperAdmin, int? campanaId = null)
         {
             var query = _context.Hilos
                 .Include(h => h.Mensajes)
@@ -31,6 +43,9 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 .Include(h => h.Mensajes)
                     .ThenInclude(m => m.Destinatario)
                 .AsQueryable();
+
+            if (campanaId.HasValue)
+                query = query.Where(h => h.IdCampana == campanaId.Value);
 
             if (!esSuperAdmin)
             {
@@ -67,6 +82,31 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
         {
             await _context.Mensajes.AddAsync(mensaje);
         }
+
+        public async Task AddCampanaAsync(CampanaEnvio campana)
+        {
+            await _context.CampanasEnvio.AddAsync(campana);
+        }
+
+        public Task<List<CampanaEnvio>> GetCampanasByRemitenteAsync(int remitenteId) =>
+            _context.CampanasEnvio
+                .Include(c => c.Hilos)
+                    .ThenInclude(h => h.Mensajes)
+                .Where(c => c.RemitenteId == remitenteId)
+                .OrderByDescending(c => c.EnviadoEn)
+                .AsNoTracking()
+                .ToListAsync();
+
+        public Task<CampanaEnvio?> GetCampanaDetalleAsync(int campanaId) =>
+            _context.CampanasEnvio
+                .Include(c => c.Hilos)
+                    .ThenInclude(h => h.Mensajes)
+                        .ThenInclude(m => m.Destinatario)
+                .Include(c => c.Hilos)
+                    .ThenInclude(h => h.Mensajes)
+                        .ThenInclude(m => m.Remitente)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.IdCampana == campanaId);
 
         public Task SaveChangesAsync() => _context.SaveChangesAsync();
     }
