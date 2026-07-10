@@ -12,5 +12,6 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
         Task<CampanaDetalleDto> GetCampanaDetalleAsync(int campanaId, string username);
         Task<HiloDetalleDto> ResponderHiloAsync(int hiloId, ResponderHiloDto dto, string username);
         Task MarcarHiloLeidoAsync(int hiloId, string username);
+        Task<int> GetNoLeidosCountAsync(string username);
     }
 }

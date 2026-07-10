@@ -16,5 +16,6 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
         Task<List<CampanaEnvio>> GetCampanasByRemitenteAsync(int remitenteId);
         Task<CampanaEnvio?> GetCampanaDetalleAsync(int campanaId);
         Task SaveChangesAsync();
+        Task<int> CountNoLeidosAsync(int usuarioId);
     }
 }
