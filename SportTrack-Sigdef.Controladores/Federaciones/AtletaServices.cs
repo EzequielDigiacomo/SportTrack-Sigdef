@@ -175,7 +175,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                         PerteneceSeleccion = a.PerteneceSeleccion,
                         EstadoPago = a.EstadoPago,
                         FechaCreacion = a.FechaCreacion,
-                        CantidadDocumentos = 0,
+                        CantidadDocumentos = a.Participante.Documentacion.Count(),
                         Edad = (DateTime.UtcNow.Year - a.Participante.FechaNacimiento.Year) -
                             (DateTime.UtcNow.DayOfYear < a.Participante.FechaNacimiento.DayOfYear ? 1 : 0),
                         TutorInfo = a.Tutores.Select(t => new TutorListDto
