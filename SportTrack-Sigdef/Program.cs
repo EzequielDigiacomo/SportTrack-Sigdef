@@ -23,6 +23,7 @@ using SportTrack_Sigdef.Controladores.SaaS;
 using SportTrack_Sigdef.Controladores.Federaciones;
 using SportTrack_Sigdef.Controladores.Mensajes;
 using SportTrack_Sigdef.Controladores.Services;
+using SportTrack_Sigdef.Controladores.Documentacion;
 using SportTrack_Sigdef.Controladores.PagosSIGDEF.Extensions;
 using SportTrack_Sigdef.Controladores.PagosSIGDEF.Services;
 using SIGDEF.API.Services;
@@ -167,6 +168,25 @@ builder.Services.AddScoped<IPruebaServices, PruebaServices>();
 builder.Services.AddScoped<IRolServices, RolServices>();
 builder.Services.AddScoped<ITutorServices, TutorServices>();
 builder.Services.AddScoped<IUsuarioServices, UsuarioServices>();
+
+// Documentación (Cloudinary + fallback local)
+builder.Services.Configure<CloudinarySettings>(options =>
+{
+    var section = builder.Configuration.GetSection("CloudinarySettings");
+    options.CloudName = section["CloudName"]
+        ?? builder.Configuration["CLOUDINARY_CLOUD_NAME"]
+        ?? Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME")
+        ?? string.Empty;
+    options.ApiKey = section["ApiKey"]
+        ?? builder.Configuration["CLOUDINARY_API_KEY"]
+        ?? Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY")
+        ?? string.Empty;
+    options.ApiSecret = section["ApiSecret"]
+        ?? builder.Configuration["CLOUDINARY_API_SECRET"]
+        ?? Environment.GetEnvironmentVariable("CLOUDINARY_API_SECRET")
+        ?? string.Empty;
+});
+builder.Services.AddScoped<IDocumentacionService, DocumentacionService>();
 
 // MercadoPago Services
 builder.Services.AddMercadoPagoServices();
