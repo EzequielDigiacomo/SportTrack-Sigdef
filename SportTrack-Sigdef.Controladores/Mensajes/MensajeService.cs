@@ -13,11 +13,11 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             _repository = repository;
         }
 
-        public async Task<List<HiloListItemDto>> GetHilosAsync(string username)
+        public async Task<List<HiloListItemDto>> GetHilosAsync(string username, int? campanaId = null)
         {
             var usuario = await RequireUsuarioAsync(username);
             var esSuperAdmin = EsSuperAdmin(usuario);
-            var hilos = await _repository.GetHilosVisiblesAsync(usuario.IdUsuario, esSuperAdmin);
+            var hilos = await _repository.GetHilosVisiblesAsync(usuario.IdUsuario, esSuperAdmin, campanaId);
 
             return hilos
                 .Select(h => MapHiloListItem(h, usuario.IdUsuario, esSuperAdmin))
@@ -71,6 +71,117 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 ?? throw new NotFoundException("No se pudo recuperar el hilo creado");
 
             return MapHiloDetalle(creado, emisor.IdUsuario, EsSuperAdmin(emisor));
+        }
+
+        public async Task<EnviarMasivoResultDto> EnviarMasivoAsync(EnviarMasivoDto dto, string username)
+        {
+            var emisor = await RequireUsuarioAsync(username);
+
+            if (!EsSuperAdmin(emisor) && !EsAdmin(emisor))
+                throw new UnauthorizedException("Solo SuperAdmin o Admin pueden enviar comunicados masivos");
+
+            ValidarContenido(dto.Asunto, dto.Cuerpo);
+
+            if (dto.DestinatarioIds == null || dto.DestinatarioIds.Count == 0)
+                throw new BadRequestException("Debés seleccionar al menos un destinatario");
+
+            var ids = dto.DestinatarioIds.Distinct().ToList();
+            var destinatarios = await _repository.GetUsuariosByIdsAsync(ids);
+
+            if (destinatarios.Count != ids.Count)
+                throw new BadRequestException("Uno o más destinatarios no existen");
+
+            foreach (var destinatario in destinatarios)
+            {
+                if (!PuedeEscribir(emisor, destinatario))
+                    throw new UnauthorizedException($"No tenés permiso para enviar a {destinatario.Username}");
+            }
+
+            var ahora = DateTime.UtcNow;
+            var tipo = EsSuperAdmin(emisor) ? "SuperAdminMasivo" : "AdminMasivo";
+            var campana = new CampanaEnvio
+            {
+                RemitenteId = emisor.IdUsuario,
+                Asunto = dto.Asunto.Trim(),
+                Cuerpo = dto.Cuerpo.Trim(),
+                EnviadoEn = ahora,
+                CantidadDestinatarios = destinatarios.Count,
+                TipoCampana = tipo
+            };
+
+            await _repository.AddCampanaAsync(campana);
+            await _repository.SaveChangesAsync();
+
+            var hilosPendientes = new List<(Hilo Hilo, Usuario Destinatario)>();
+
+            foreach (var destinatario in destinatarios)
+            {
+                var hilo = new Hilo
+                {
+                    Asunto = campana.Asunto,
+                    IdCampana = campana.IdCampana,
+                    CreadoEn = ahora,
+                    UltimoMensajeEn = ahora
+                };
+
+                var mensaje = new Mensaje
+                {
+                    Hilo = hilo,
+                    RemitenteId = emisor.IdUsuario,
+                    DestinatarioId = destinatario.IdUsuario,
+                    Cuerpo = campana.Cuerpo,
+                    EnviadoEn = ahora
+                };
+
+                await _repository.AddHiloAsync(hilo);
+                await _repository.AddMensajeAsync(mensaje);
+                hilosPendientes.Add((hilo, destinatario));
+            }
+
+            await _repository.SaveChangesAsync();
+
+            var hilosCreados = hilosPendientes.Select(x => new HiloCampanaItemDto
+            {
+                HiloId = x.Hilo.IdHilo,
+                DestinatarioId = x.Destinatario.IdUsuario,
+                DestinatarioNombre = NombreDisplay(x.Destinatario),
+                DestinatarioUsername = x.Destinatario.Username,
+                Leido = false,
+                Respondido = false,
+                UltimoMensajeEn = ahora
+            }).ToList();
+
+            return new EnviarMasivoResultDto
+            {
+                CampanaId = campana.IdCampana,
+                CantidadHilos = hilosCreados.Count,
+                Hilos = hilosCreados
+            };
+        }
+
+        public async Task<List<CampanaListItemDto>> GetCampanasAsync(string username)
+        {
+            var usuario = await RequireUsuarioAsync(username);
+            if (!EsSuperAdmin(usuario) && !EsAdmin(usuario))
+                throw new UnauthorizedException("No tenés acceso a comunicados masivos");
+
+            var campanas = await _repository.GetCampanasByRemitenteAsync(usuario.IdUsuario);
+            return campanas.Select(c => MapCampanaListItem(c, usuario.IdUsuario)).ToList();
+        }
+
+        public async Task<CampanaDetalleDto> GetCampanaDetalleAsync(int campanaId, string username)
+        {
+            var usuario = await RequireUsuarioAsync(username);
+            if (!EsSuperAdmin(usuario) && !EsAdmin(usuario))
+                throw new UnauthorizedException("No tenés acceso a comunicados masivos");
+
+            var campana = await _repository.GetCampanaDetalleAsync(campanaId)
+                ?? throw new NotFoundException("Campaña no encontrada");
+
+            if (campana.RemitenteId != usuario.IdUsuario && !EsSuperAdmin(usuario))
+                throw new UnauthorizedException("No tenés acceso a esta campaña");
+
+            return MapCampanaDetalle(campana, campana.RemitenteId);
         }
 
         public async Task<HiloDetalleDto> ResponderHiloAsync(int hiloId, ResponderHiloDto dto, string username)
@@ -160,15 +271,50 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
         private static bool EsAdmin(Usuario usuario) =>
             string.Equals(usuario.RolFederacion, "Admin", StringComparison.OrdinalIgnoreCase);
 
+        private static bool EsClub(Usuario usuario) =>
+            string.Equals(usuario.RolFederacion, "Club", StringComparison.OrdinalIgnoreCase);
+
+        private static int? ResolverFederacionId(Usuario usuario)
+        {
+            if (usuario.IdFederacion.HasValue && usuario.IdFederacion.Value > 0)
+                return usuario.IdFederacion;
+
+            if (usuario.Club?.IdFederacion.HasValue == true && usuario.Club.IdFederacion.Value > 0)
+                return usuario.Club.IdFederacion;
+
+            return null;
+        }
+
+        private static bool MismaFederacion(Usuario a, Usuario b)
+        {
+            var fedA = ResolverFederacionId(a);
+            var fedB = ResolverFederacionId(b);
+            return fedA.HasValue && fedB.HasValue && fedA.Value == fedB.Value;
+        }
+
+        private static bool PuedeEscribir(Usuario emisor, Usuario destinatario)
+        {
+            if (EsSuperAdmin(emisor) && EsAdmin(destinatario))
+                return true;
+
+            if (EsAdmin(emisor) && EsSuperAdmin(destinatario))
+                return true;
+
+            if (EsAdmin(emisor) && EsClub(destinatario) && MismaFederacion(emisor, destinatario))
+                return true;
+
+            if (EsClub(emisor) && EsAdmin(destinatario) && MismaFederacion(emisor, destinatario))
+                return true;
+
+            return false;
+        }
+
         private static void ValidarNuevoMensaje(Usuario emisor, Usuario destinatario)
         {
             if (!destinatario.EstaActivo)
                 throw new BadRequestException("El destinatario no está activo");
 
-            if (EsSuperAdmin(emisor) && EsAdmin(destinatario))
-                return;
-
-            if (EsAdmin(emisor) && EsSuperAdmin(destinatario))
+            if (PuedeEscribir(emisor, destinatario))
                 return;
 
             throw new UnauthorizedException("No tenés permiso para enviar mensajes a ese destinatario");
@@ -179,12 +325,10 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             if (!destinatario.EstaActivo)
                 throw new BadRequestException("El destinatario no está activo");
 
-            var superAdminAdmin =
-                (EsSuperAdmin(emisor) && EsAdmin(destinatario)) ||
-                (EsAdmin(emisor) && EsSuperAdmin(destinatario));
+            if (PuedeEscribir(emisor, destinatario))
+                return;
 
-            if (!superAdminAdmin)
-                throw new UnauthorizedException("No tenés permiso para responder en este hilo");
+            throw new UnauthorizedException("No tenés permiso para responder en este hilo");
         }
 
         private static void ValidarContenido(string asunto, string cuerpo)
@@ -213,6 +357,12 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 throw new BadRequestException("No se pudo determinar la contraparte del hilo");
 
             return participantes[0];
+        }
+
+        private static string NombreDisplay(Usuario usuario)
+        {
+            var full = $"{usuario.Nombre} {usuario.Apellido}".Trim();
+            return string.IsNullOrWhiteSpace(full) ? usuario.Username : full;
         }
 
         private HiloListItemDto? MapHiloListItem(Hilo hilo, int usuarioId, bool esSuperAdmin)
@@ -255,6 +405,7 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 Asunto = hilo.Asunto,
                 CreadoEn = hilo.CreadoEn,
                 UltimoMensajeEn = hilo.UltimoMensajeEn,
+                IdCampana = hilo.IdCampana,
                 Mensajes = hilo.Mensajes
                     .Where(m => EsMensajeVisible(m, usuarioId, esSuperAdmin))
                     .OrderBy(m => m.EnviadoEn)
@@ -270,6 +421,74 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                         EsPropio = m.RemitenteId == usuarioId
                     })
                     .ToList()
+            };
+        }
+
+        private static CampanaListItemDto MapCampanaListItem(CampanaEnvio campana, int remitenteId)
+        {
+            var hilos = campana.Hilos?.ToList() ?? new List<Hilo>();
+            var leidos = 0;
+            var respondidos = 0;
+
+            foreach (var hilo in hilos)
+            {
+                var mensajes = hilo.Mensajes?.ToList() ?? new List<Mensaje>();
+                var primerMensaje = mensajes.OrderBy(m => m.EnviadoEn).FirstOrDefault(m => m.RemitenteId == remitenteId);
+                if (primerMensaje?.LeidoEn != null) leidos++;
+                if (mensajes.Any(m => m.RemitenteId != remitenteId)) respondidos++;
+            }
+
+            return new CampanaListItemDto
+            {
+                IdCampana = campana.IdCampana,
+                Asunto = campana.Asunto,
+                EnviadoEn = campana.EnviadoEn,
+                CantidadDestinatarios = campana.CantidadDestinatarios,
+                TipoCampana = campana.TipoCampana,
+                CantidadLeidos = leidos,
+                CantidadRespondidos = respondidos
+            };
+        }
+
+        private static CampanaDetalleDto MapCampanaDetalle(CampanaEnvio campana, int remitenteId)
+        {
+            var hilosDto = new List<HiloCampanaItemDto>();
+
+            foreach (var hilo in campana.Hilos ?? new List<Hilo>())
+            {
+                var mensajes = hilo.Mensajes?.OrderBy(m => m.EnviadoEn).ToList() ?? new List<Mensaje>();
+                var primer = mensajes.FirstOrDefault(m => m.RemitenteId == remitenteId);
+                var destinatario = primer?.Destinatario
+                    ?? mensajes.Select(m => m.Destinatario).FirstOrDefault(d => d != null && d.IdUsuario != remitenteId);
+
+                if (destinatario == null && primer != null)
+                {
+                    destinatario = new Usuario { IdUsuario = primer.DestinatarioId, Username = $"#{primer.DestinatarioId}" };
+                }
+
+                if (destinatario == null) continue;
+
+                hilosDto.Add(new HiloCampanaItemDto
+                {
+                    HiloId = hilo.IdHilo,
+                    DestinatarioId = destinatario.IdUsuario,
+                    DestinatarioNombre = NombreDisplay(destinatario),
+                    DestinatarioUsername = destinatario.Username,
+                    Leido = primer?.LeidoEn != null,
+                    Respondido = mensajes.Any(m => m.RemitenteId == destinatario.IdUsuario),
+                    UltimoMensajeEn = hilo.UltimoMensajeEn
+                });
+            }
+
+            return new CampanaDetalleDto
+            {
+                IdCampana = campana.IdCampana,
+                Asunto = campana.Asunto,
+                Cuerpo = campana.Cuerpo,
+                EnviadoEn = campana.EnviadoEn,
+                CantidadDestinatarios = campana.CantidadDestinatarios,
+                TipoCampana = campana.TipoCampana,
+                Hilos = hilosDto
             };
         }
 

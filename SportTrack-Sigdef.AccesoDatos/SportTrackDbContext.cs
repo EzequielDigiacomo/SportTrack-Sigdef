@@ -51,6 +51,7 @@ namespace SportTrack_Sigdef.AccesoDatos
         // Mensajería privada
         public DbSet<Hilo> Hilos { get; set; }
         public DbSet<Mensaje> Mensajes { get; set; }
+        public DbSet<CampanaEnvio> CampanasEnvio { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -776,6 +777,32 @@ namespace SportTrack_Sigdef.AccesoDatos
                 entity.Property(e => e.CreadoEn).IsRequired();
                 entity.Property(e => e.UltimoMensajeEn).IsRequired();
                 entity.HasIndex(e => e.UltimoMensajeEn).HasDatabaseName("IX_Hilos_UltimoMensajeEn");
+                entity.HasIndex(e => e.IdCampana).HasDatabaseName("IX_Hilos_IdCampana");
+
+                entity.HasOne(e => e.Campana)
+                    .WithMany(c => c.Hilos)
+                    .HasForeignKey(e => e.IdCampana)
+                    .OnDelete(DeleteBehavior.SetNull)
+                    .HasConstraintName("FK_Hilos_Campanas");
+            });
+
+            modelBuilder.Entity<CampanaEnvio>(entity =>
+            {
+                entity.ToTable("CampanasEnvio", "comunicacion");
+                entity.HasKey(e => e.IdCampana);
+                entity.Property(e => e.Asunto).IsRequired().HasMaxLength(300);
+                entity.Property(e => e.Cuerpo).IsRequired();
+                entity.Property(e => e.TipoCampana).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.EnviadoEn).IsRequired();
+
+                entity.HasOne(e => e.Remitente)
+                    .WithMany()
+                    .HasForeignKey(e => e.RemitenteId)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .HasConstraintName("FK_Campanas_Remitente");
+
+                entity.HasIndex(e => e.RemitenteId).HasDatabaseName("IX_Campanas_RemitenteId");
+                entity.HasIndex(e => e.EnviadoEn).HasDatabaseName("IX_Campanas_EnviadoEn");
             });
 
             modelBuilder.Entity<Mensaje>(entity =>
