@@ -246,6 +246,12 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             }
         }
 
+        public async Task<int> GetNoLeidosCountAsync(string username)
+        {
+            var usuario = await RequireUsuarioAsync(username);
+            return await _repository.CountNoLeidosAsync(usuario.IdUsuario);
+        }
+
         private async Task<Usuario> RequireUsuarioAsync(string username)
         {
             if (string.IsNullOrWhiteSpace(username))

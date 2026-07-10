@@ -109,5 +109,11 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 .FirstOrDefaultAsync(c => c.IdCampana == campanaId);
 
         public Task SaveChangesAsync() => _context.SaveChangesAsync();
+
+        public Task<int> CountNoLeidosAsync(int usuarioId) =>
+            _context.Mensajes.CountAsync(m =>
+                m.DestinatarioId == usuarioId &&
+                m.LeidoEn == null &&
+                !m.EliminadoPorDestinatario);
     }
 }

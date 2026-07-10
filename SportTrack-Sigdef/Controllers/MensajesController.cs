@@ -66,6 +66,14 @@ namespace SportTrack_Sigdef.Controllers
             return Ok(new { message = "Hilo marcado como leído" });
         }
 
+        [HttpGet("no-leidos/count")]
+        public async Task<IActionResult> GetNoLeidosCount()
+        {
+            var username = User.Identity?.Name;
+            var count = await _mensajeService.GetNoLeidosCountAsync(username!);
+            return Ok(new { count });
+        }
+
         [HttpGet("campanas")]
         [Authorize(Roles = "SuperAdmin,Admin")]
         public async Task<IActionResult> GetCampanas()
