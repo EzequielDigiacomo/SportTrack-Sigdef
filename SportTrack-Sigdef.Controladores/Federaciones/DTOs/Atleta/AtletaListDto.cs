@@ -13,6 +13,10 @@ namespace SportTrack_Sigdef.Entidades.DTOs.AtletaFederacion
         public int? Edad { get; set; }
         public string? NombreClub { get; set; }
         public CategoriaEdad? Categoria { get; set; }
+        /// <summary>FK al catálogo compartido (misma fuente que SportTrack /participantes).</summary>
+        public int? CategoriaId { get; set; }
+        /// <summary>Nombre de categoría desde catalogos.Categorias.</summary>
+        public string? CategoriaNombre { get; set; }
         public bool PerteneceSeleccion { get; set; }
         public EstadoPago EstadoPago { get; set; }
         public DateTime? FechaCreacion { get; set; }

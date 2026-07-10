@@ -19,6 +19,8 @@ namespace SportTrack_Sigdef.Entidades.DTOs.AtletaFederacion
         public EstadoPago EstadoPago { get; set; }
         public bool PerteneceSeleccion { get; set; }
         public CategoriaEdad? Categoria { get; set; }
+        public int? CategoriaId { get; set; }
+        public string? CategoriaNombre { get; set; }
         public bool BecadoEnard { get; set; }
         public bool BecadoSdn { get; set; }
         public decimal MontoBeca { get; set; }
