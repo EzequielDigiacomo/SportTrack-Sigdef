@@ -132,9 +132,11 @@ namespace SportTrack_Sigdef.Controladores.Mappings
                 .ForMember(dest => dest.Club, opt => opt.Ignore())
                 .ForMember(dest => dest.Federacion, opt => opt.Ignore());
             CreateMap<Usuario, UsuarioDto>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.IdUsuario))
                 .ForMember(dest => dest.ClubId, opt => opt.MapFrom(src => src.IdClub))
                 .ForMember(dest => dest.FederacionId, opt => opt.MapFrom(src => src.IdFederacion))
-                .ForMember(dest => dest.ClubNombre, opt => opt.MapFrom(src => src.Club != null ? src.Club.Nombre : null));
+                .ForMember(dest => dest.ClubNombre, opt => opt.MapFrom(src => src.Club != null ? src.Club.Nombre : null))
+                .ForMember(dest => dest.Activo, opt => opt.MapFrom(src => src.EstaActivo));
 
             // Mapeos de Participante
             CreateMap<Entidades.Entidades.Participante, ParticipanteDto>()
