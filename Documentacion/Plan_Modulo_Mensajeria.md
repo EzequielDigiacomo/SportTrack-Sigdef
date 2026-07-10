@@ -1,55 +1,58 @@
-# Módulo de mensajería privada — Plan definitivo
+# Módulo de mensajería privada — Plan (backend)
 
-> Copia de referencia del plan de implementación.  
+> Copia de referencia.  
 > **Versión canónica:** `SportTrack-Front/Documentacion/Plan_Modulo_Mensajeria.md`  
 > Este repo: backend API (`SportTrack-Sigdef`).
 
 ---
 
-## Cómo ejecutar cada fase (chat de Cursor)
+## Estado
 
-1. `Ejecutá Fase 0 del plan de mensajería — solo backend 1:1 SuperAdmin↔Admin`
-2. `Ejecutá Fase 1 — UI SuperAdmin`
-3. `Ejecutá Fase 2 — Admin y Club`
-4. `Ejecutá Fase 3 — envío masivo`
-5. `Ejecutá Fase 4 — badge polling`
+**MVP (fases 0–4) cerrado** — jul 2026.  
+Fases **5–10** = mejoras futuras (ver plan canónico).
 
 ---
 
-## Fases — resumen
+## Cómo retomar (chat de Cursor)
 
-| Fase | Backend (este repo) | Frontend (SportTrack-Front) |
-|------|---------------------|----------------------------|
-| **0** | Hilo, Mensaje, migración, MensajesController, permisos SuperAdmin↔Admin | — |
+1. `Ejecutá Fase 5 del plan de mensajería — búsqueda`
+2. `Ejecutá Fase 6 — reporte de acuse`
+3. `Ejecutá Fase 7 — adjuntos`
+4. `Ejecutá Fase 8 — copia SMTP`
+5. `Ejecutá Fase 9 — UX avanzada`
+6. `Ejecutá Fase 10 — gobernanza y retención`
+
+---
+
+## Fases MVP ✅
+
+| Fase | Backend | Frontend |
+|------|---------|----------|
+| **0** | Hilo, Mensaje, API, SuperAdmin↔Admin | — |
 | **1** | — | Bandeja SuperAdmin |
 | **2** | Permisos Admin↔Club | Bandejas Admin + Club |
-| **3** | CampanaEnvio, POST /hilos/masivo | UI masivo + campañas |
-| **4** | GET /no-leidos/count | Badge polling |
-
-Ver plan completo en: `../reposFront/SportTrack-Front/Documentacion/Plan_Modulo_Mensajeria.md`
+| **3** | CampanaEnvio, masivo | UI masivo + campañas |
+| **4** | `GET /no-leidos/count` | Puntito rojo + polling |
 
 ---
 
-## Archivos a crear en este repo (por fase)
+## Fases futuras (resumen)
 
-### Fase 0
+| Fase | Tema | Backend típico |
+|------|------|----------------|
+| **5** | Búsqueda / filtros | Query params en `/hilos` |
+| **6** | Reporte de acuse | `GET /campanas/{id}/acuse` + export |
+| **7** | Adjuntos | Tabla `Adjuntos` + storage + upload |
+| **8** | Email SMTP | `IEmailService` + config proveedor |
+| **9** | UX / SignalR badge | `MessagingHub` opcional |
+| **10** | Retención / auditoría | Jobs + políticas |
 
-- `SportTrack-Sigdef.Entidades/Entidades/Hilo.cs`
-- `SportTrack-Sigdef.Entidades/Entidades/Mensaje.cs`
-- `SportTrack-Sigdef.AccesoDatos/Migrations/..._AddMensajeria.cs`
-- `SportTrack-Sigdef.Controladores/Mensajes/` (Service, Repository, DTOs)
-- `SportTrack-Sigdef/Controllers/MensajesController.cs`
-- Modificar: `SportTrackDbContext.cs`, `Program.cs`
+---
 
-### Fase 2
+## Archivos clave ya creados
 
-- Extender `MensajeService` — permisos Admin↔Club
-
-### Fase 3
-
-- `CampanaEnvio.cs` + migración
-- Endpoints masivo y campañas
-
-### Fase 4
-
-- Endpoint `no-leidos/count`
+- `Entidades/Hilo.cs`, `Mensaje.cs`, `CampanaEnvio.cs`
+- `Controladores/Mensajes/` (Service, Repository, DTOs)
+- `Controllers/MensajesController.cs`
+- Migraciones: `AddMensajeria`, `AddCampanasEnvio`
+- DI en `Program.cs` + `SportTrackDbContext` (esquema `comunicacion`)

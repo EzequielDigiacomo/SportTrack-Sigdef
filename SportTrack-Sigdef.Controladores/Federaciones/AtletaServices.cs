@@ -64,6 +64,10 @@ namespace SportTrack_Sigdef.Controladores.Services
                         EstadoPago = a.EstadoPago,
                         PerteneceSeleccion = a.PerteneceSeleccion,
                         Categoria = a.Categoria,
+                        CategoriaId = a.Participante.CategoriaId,
+                        CategoriaNombre = a.Participante.Categoria != null
+                            ? a.Participante.Categoria.Nombre
+                            : null,
                         BecadoEnard = a.BecadoEnard,
                         BecadoSdn = a.BecadoSdn,
                         MontoBeca = a.MontoBeca,
@@ -164,6 +168,10 @@ namespace SportTrack_Sigdef.Controladores.Services
                         FechaNacimiento = a.Participante.FechaNacimiento,
                         NombreClub = a.Club != null ? a.Club.Nombre : "Agente Libre",
                         Categoria = a.Categoria,
+                        CategoriaId = a.Participante.CategoriaId,
+                        CategoriaNombre = a.Participante.Categoria != null
+                            ? a.Participante.Categoria.Nombre
+                            : null,
                         PerteneceSeleccion = a.PerteneceSeleccion,
                         EstadoPago = a.EstadoPago,
                         FechaCreacion = a.FechaCreacion,
@@ -219,6 +227,10 @@ namespace SportTrack_Sigdef.Controladores.Services
                         EstadoPago = a.EstadoPago,
                         PerteneceSeleccion = a.PerteneceSeleccion,
                         Categoria = a.Categoria,
+                        CategoriaId = a.Participante.CategoriaId,
+                        CategoriaNombre = a.Participante.Categoria != null
+                            ? a.Participante.Categoria.Nombre
+                            : null,
                         BecadoEnard = a.BecadoEnard,
                         BecadoSdn = a.BecadoSdn,
                         MontoBeca = a.MontoBeca,
