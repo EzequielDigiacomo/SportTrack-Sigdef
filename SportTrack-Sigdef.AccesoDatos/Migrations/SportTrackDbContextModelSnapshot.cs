@@ -604,6 +604,10 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.Property<int?>("IdFederacion")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Licencia")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<decimal?>("MontoBeca")
                         .HasColumnType("numeric");
 
