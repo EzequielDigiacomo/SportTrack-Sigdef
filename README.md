@@ -4,7 +4,12 @@ Backend unificado para **SportTrack** (competencias/regatas) y **SIGDEF** (admin
 
 - ASP.NET Core 8 + PostgreSQL
 - BD compartida: `Participante`, `Club`, `Federacion`, `AtletaFederacion`
-- APIs: `api/Participantes`, `api/Clubes`, `api/Atleta`, `api/Eventos`, etc.
+- APIs: `api/Participantes`, `api/Clubes`, `api/Atleta`, `api/Eventos`, `api/Auth`, etc.
+
+## Documentación
+
+➡️ **Toda la documentación está en [`docs/`](./docs/README.md)**  
+(guías, casos de uso, criterios, cambios, seguridad).
 
 ## Desarrollo local
 
