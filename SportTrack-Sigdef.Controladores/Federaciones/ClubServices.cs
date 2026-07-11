@@ -160,6 +160,8 @@ namespace SportTrack_Sigdef.Controladores.Services
                     {
                         ParticipanteId = a.ParticipanteId,
                         IdClub = a.IdClub,
+                        Documento = a.Participante.Dni,
+                        FechaNacimiento = a.Participante.FechaNacimiento,
                         EstadoPago = a.EstadoPago,
                         PerteneceSeleccion = a.PerteneceSeleccion,
                         Categoria = a.Categoria,

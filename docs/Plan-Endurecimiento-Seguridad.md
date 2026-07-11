@@ -1,0 +1,147 @@
+# Plan de endurecimiento de seguridad (SIGDEF / SportTrack API)
+
+Fecha: 2026-07-11  
+Alcance: `SportTrack-Sigdef` (API) + impacto en FrontSigdef / SportTrack-Front  
+Objetivo: cerrar superficie de ataque **sin romper Live público ni SignalR de espectadores**.
+
+---
+
+## Principio
+
+Separar:
+
+- **Lectura pública** → público Live (sin login)
+- **Escritura crítica** → jueces / admin / federación / club (con JWT + roles)
+
+Hoy el hub `/hubs/timing` está abierto y expone métodos sensibles (`RequestStartRace`, `RequestResetRace`, `SendTime`, etc.) sin auth. Eso se endurece; **escuchar** la carrera no.
+
+---
+
+## Estado actual (resumen)
+
+| Área | Estado |
+|------|--------|
+| SQL injection | Bien mitigado (EF Core + LINQ, sin SQL crudo relevante) |
+| Auth JWT | Existe, pero no hay política global de “autenticado por defecto” |
+| Controllers | Varios CRUD / SIGDEF sin `[Authorize]` |
+| CORS | Muy permisivo (`SetIsOriginAllowed(_ => true)` + credentials) |
+| JWT secret | Fallback hardcodeado si falta config |
+| Live / Eventos | Varios `GET` con `[AllowAnonymous]` (correcto para público) |
+| SignalR `TimingHub` | Conexión + Join públicos; también acciones de juez sin auth (riesgo) |
+
+---
+
+## Lista blanca pública (no romper)
+
+Mantener anónimo de forma **explícita**:
+
+1. **Live / lectura de eventos**
+   - `GET` eventos / fases / próximos ya marcados `[AllowAnonymous]`
+2. **SignalR espectador**
+   - Conectar a `/hubs/timing`
+   - `JoinEventGroup` / `JoinRaceGroup` / `Leave*`
+   - `GetServerTime`
+   - Recibir eventos del servidor (broadcast)
+3. **Health / planes públicos** (si aplica al producto)
+4. Otros endpoints de marketing/soporte que hoy sean intencionalmente públicos
+
+Todo lo demás: autenticado.
+
+---
+
+## Fases
+
+### Fase 0 — Inventario (1–2 días)
+
+- Documentar endpoints públicos vs privados
+- Confirmar pantallas Live y consolas juez en SportTrack-Front
+- Checklist de smoke: Live sin login / juez con login / admin SIGDEF con login
+
+### Fase 1 — Auth por defecto (sin romper Live)
+
+1. Política global: usuario autenticado por defecto (`FallbackPolicy` / `RequireAuthenticatedUser`)
+2. Excepciones solo con `[AllowAnonymous]` en la lista blanca
+3. CORS: orígenes reales de FrontSigdef + SportTrack-Front (prod/staging); quitar `origin => true`
+4. JWT: secret solo por config/env; sin fallback hardcodeado en producción
+5. HTTPS redirect + HSTS en prod
+
+**Impacto Live/SignalR:** nulo si Join*/lectura quedan anónimos.
+
+### Fase 2 — SignalR: espectador vs juez
+
+| Método | Público | Auth + rol |
+|--------|---------|------------|
+| Conectar, Join*, Leave*, GetServerTime | Sí | — |
+| `RequestStartRace`, `RequestResetRace`, `SendTime`, `FinishRace`, `RecordLap` | No | Juez / Admin / roles Live |
+
+- Cliente Live sigue sin token
+- Starter / Finisher mandan JWT (header o `access_token` en query; ya soportado en `Program.cs`)
+
+**Impacto:** Live OK; consolas de jueces deben ir autenticadas.
+
+### Fase 3 — Cerrar API de escritura
+
+- CRUD Atletas, Tutores, Usuarios, Personas, Fases mutables, etc. → `[Authorize]` + roles
+- `POST /Auth/register` restringido (solo admin / invite)
+- Cambio de password: solo propio usuario o SuperAdmin (evitar IDOR)
+- Revisar ownership por club / federación en PUT/DELETE
+- Tenant: validar que un club no mute datos de otro
+
+### Fase 4 — Hardening de producción
+
+- Rate limit en login / register / hub
+- Validar uploads (tipo MIME, tamaño, extensión)
+- Webhook Mercado Pago con firma/secret
+- Auditoría de acciones críticas (ya hay base de audit en varios flujos)
+- Revisar Swagger solo en Development (ya orientado así)
+
+### Fase 5 — Verificación
+
+- [ ] Live sin login abre y recibe updates
+- [ ] Espectador no puede invocar start/reset/sendTime
+- [ ] Juez con token sí puede operar
+- [ ] SIGDEF/admin sin token → 401 en mutaciones
+- [ ] CORS OK desde dominios reales; bloqueado desde origen arbitrario
+- [ ] Register / password change no permiten escalada
+
+---
+
+## ¿Afecta Live / SignalR?
+
+| Escenario | ¿Se rompe? |
+|-----------|------------|
+| Público viendo Live | No, si Join + reads quedan anónimos |
+| Updates server → cliente | No |
+| Consolas juez (start / times) | Solo si hoy operan sin login; el fix es exigir JWT ahí |
+| FrontSigdef admin | Debe usar token (ya lo hace en la práctica) |
+
+---
+
+## Orden de implementación recomendado
+
+1. Lista blanca Live/SignalR  
+2. Auth global + `[AllowAnonymous]` en esa lista  
+3. Proteger métodos del hub de jueces  
+4. Cerrar CRUDs y register  
+5. CORS / JWT secret / HTTPS  
+6. Rate limit, uploads, webhooks  
+
+**Siguiente paso concreto sugerido:** Fase 1 + Fase 2 (auth global + hub espectador/juez), sin tocar aún todo el CRUD.
+
+---
+
+## Archivos clave
+
+- `SportTrack-Sigdef/Program.cs` — auth, CORS, JWT, `MapHub<TimingHub>`
+- `SportTrack-Sigdef.Controladores/Hubs/TimingHub.cs` — Join* vs acciones críticas
+- `SportTrack-Sigdef/Controllers/Eventos/EventosController.cs` — `[AllowAnonymous]` Live
+- Front: `SportTrack-Front/src/services/TimingSignalRService.js`
+- Front admin: `FrontSigdef/src/services/api.js` (Bearer token)
+
+---
+
+## Notas
+
+- SQLi no es el problema principal; el riesgo real es **autorización inconsistente**.
+- No aplicar auth ciega al hub completo: rompería Live.
+- Preferir `[Authorize]` en métodos críticos del hub, no solo en controllers HTTP.
