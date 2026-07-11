@@ -23,5 +23,8 @@ namespace SportTrack_Sigdef.Entidades.DTOs.EntrenadorFederacion
         public string? NombrePersona { get; set; }
         public string? NombreClub { get; set; }
         public string? SiglasClub { get; set; }
+        public string? Documento { get; set; }
+        public string? Email { get; set; }
+        public string? Telefono { get; set; }
     }
 }

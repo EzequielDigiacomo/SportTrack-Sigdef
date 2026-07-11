@@ -51,6 +51,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                     {
                         ParticipanteId = e.ParticipanteId,
                         IdClub = e.IdClub ?? 0,
+                        Licencia = e.Licencia ?? string.Empty,
                         PerteneceSeleccion = e.PerteneceSeleccion == true,
                         CategoriaSeleccion = e.CategoriaSeleccion,
                         BecadoEnard = e.BecadoEnard == true,
@@ -58,8 +59,11 @@ namespace SportTrack_Sigdef.Controladores.Services
                         MontoBeca = e.MontoBeca ?? 0,
                         PresentoAptoMedico = e.PresentoAptoMedico == true,
                         NombrePersona = e.Participante.Nombre + " " + e.Participante.Apellido,
-                        NombreClub = e.Club.Nombre,
-                        SiglasClub = e.Club.Siglas
+                        NombreClub = e.Club != null ? e.Club.Nombre : "Agente Libre",
+                        SiglasClub = e.Club != null ? e.Club.Siglas : "",
+                        Documento = e.Participante.Dni,
+                        Email = e.Participante.Email,
+                        Telefono = e.Participante.Telefono
                     })
                     .ToListAsync();
 
@@ -136,6 +140,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                     {
                         ParticipanteId = e.ParticipanteId,
                         IdClub = e.IdClub ?? 0,
+                        Licencia = e.Licencia ?? string.Empty,
                         PerteneceSeleccion = e.PerteneceSeleccion == true,
                         CategoriaSeleccion = e.CategoriaSeleccion,
                         BecadoEnard = e.BecadoEnard == true,
@@ -144,7 +149,10 @@ namespace SportTrack_Sigdef.Controladores.Services
                         PresentoAptoMedico = e.PresentoAptoMedico == true,
                         NombrePersona = e.Participante.Nombre + " " + e.Participante.Apellido,
                         NombreClub = e.Club != null ? e.Club.Nombre : "Agente Libre",
-                        SiglasClub = e.Club != null ? e.Club.Siglas : ""
+                        SiglasClub = e.Club != null ? e.Club.Siglas : "",
+                        Documento = e.Participante.Dni,
+                        Email = e.Participante.Email,
+                        Telefono = e.Participante.Telefono
                     })
                     .ToListAsync();
 
@@ -180,6 +188,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                     {
                         ParticipanteId = e.ParticipanteId,
                         IdClub = e.IdClub ?? 0,
+                        Licencia = e.Licencia ?? string.Empty,
                         PerteneceSeleccion = e.PerteneceSeleccion == true,
                         CategoriaSeleccion = e.CategoriaSeleccion,
                         BecadoEnard = e.BecadoEnard == true,
@@ -188,7 +197,10 @@ namespace SportTrack_Sigdef.Controladores.Services
                         PresentoAptoMedico = e.PresentoAptoMedico == true,
                         NombrePersona = e.Participante.Nombre + " " + e.Participante.Apellido,
                         NombreClub = e.Club != null ? e.Club.Nombre : "Agente Libre",
-                        SiglasClub = e.Club != null ? e.Club.Siglas : ""
+                        SiglasClub = e.Club != null ? e.Club.Siglas : "",
+                        Documento = e.Participante.Dni,
+                        Email = e.Participante.Email,
+                        Telefono = e.Participante.Telefono
                     })
                     .ToListAsync();
 
@@ -230,6 +242,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                     {
                         ParticipanteId = e.ParticipanteId,
                         IdClub = e.IdClub ?? 0,
+                        Licencia = e.Licencia ?? string.Empty,
                         PerteneceSeleccion = e.PerteneceSeleccion == true,
                         CategoriaSeleccion = e.CategoriaSeleccion,
                         BecadoEnard = e.BecadoEnard == true,
@@ -238,7 +251,10 @@ namespace SportTrack_Sigdef.Controladores.Services
                         PresentoAptoMedico = e.PresentoAptoMedico == true,
                         NombrePersona = e.Participante.Nombre + " " + e.Participante.Apellido,
                         NombreClub = e.Club != null ? e.Club.Nombre : "Agente Libre",
-                        SiglasClub = e.Club != null ? e.Club.Siglas : ""
+                        SiglasClub = e.Club != null ? e.Club.Siglas : "",
+                        Documento = e.Participante.Dni,
+                        Email = e.Participante.Email,
+                        Telefono = e.Participante.Telefono
                     })
                     .ToListAsync();
 
@@ -291,6 +307,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                     ParticipanteId = entrenadorCreateDto.ParticipanteId,
                     IdClub = entrenadorCreateDto.IdClub,
                     IdFederacion = finalFedId,
+                    Licencia = entrenadorCreateDto.Licencia,
                     PerteneceSeleccion = entrenadorCreateDto.PerteneceSeleccion,
                     CategoriaSeleccion = entrenadorCreateDto.CategoriaSeleccion,
                     BecadoEnard = entrenadorCreateDto.BecadoEnard,
@@ -320,6 +337,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                 {
                     ParticipanteId = entrenador.ParticipanteId,
                     IdClub = entrenador.IdClub ?? 0,
+                    Licencia = entrenador.Licencia ?? string.Empty,
                     PerteneceSeleccion = entrenador.PerteneceSeleccion == true,
                     CategoriaSeleccion = entrenador.CategoriaSeleccion,
                     BecadoEnard = entrenador.BecadoEnard == true,
@@ -328,7 +346,10 @@ namespace SportTrack_Sigdef.Controladores.Services
                     PresentoAptoMedico = entrenador.PresentoAptoMedico == true,
                     NombrePersona = entrenador.Participante.Nombre + " " + entrenador.Participante.Apellido,
                     NombreClub = entrenador.Club?.Nombre ?? "N/A",
-                    SiglasClub = entrenador.Club?.Siglas
+                    SiglasClub = entrenador.Club?.Siglas,
+                    Documento = entrenador.Participante.Dni,
+                    Email = entrenador.Participante.Email,
+                    Telefono = entrenador.Participante.Telefono
                 };
 
                 var result = new ObjectResult(entrenadorDto)
@@ -372,6 +393,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                 }
 
                 entrenador.IdClub = entrenadorCreateDto.IdClub;
+                entrenador.Licencia = entrenadorCreateDto.Licencia;
                 entrenador.PerteneceSeleccion = entrenadorCreateDto.PerteneceSeleccion;
                 entrenador.CategoriaSeleccion = entrenadorCreateDto.CategoriaSeleccion;
                 entrenador.BecadoEnard = entrenadorCreateDto.BecadoEnard;

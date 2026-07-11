@@ -15,6 +15,9 @@ namespace SportTrack_Sigdef.Entidades.DTOs.EntrenadorFederacion
         public int? IdClub { get; set; }
         public int? IdFederacion { get; set; }
 
+        [MaxLength(50)]
+        public string? Licencia { get; set; }
+
         //[Required(ErrorMessage = "El campo PerteneceSeleccion es requerido")]
         public bool PerteneceSeleccion { get; set; }
 

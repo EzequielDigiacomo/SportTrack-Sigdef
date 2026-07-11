@@ -25,6 +25,7 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public virtual Federacion? Federacion { get; set; }
 
         [MaxLength(50)]
+        public string? Licencia { get; set; }
 
         public bool? PerteneceSeleccion { get; set; }
         [MaxLength(50)]
