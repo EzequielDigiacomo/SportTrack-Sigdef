@@ -16,11 +16,16 @@ namespace SportTrack_Sigdef.Controladores.Services
     {
         private readonly SportTrackDbContext _context;
         private readonly ITenantProvider _tenantProvider;
+        private readonly SportTrack_Sigdef.Controladores.Audit.IAuditService _auditService;
 
-        public EntrenadorServices(SportTrackDbContext context, ITenantProvider tenantProvider)
+        public EntrenadorServices(
+            SportTrackDbContext context,
+            ITenantProvider tenantProvider,
+            SportTrack_Sigdef.Controladores.Audit.IAuditService auditService)
         {
             _context = context;
             _tenantProvider = tenantProvider;
+            _auditService = auditService;
         }
 
         public async Task<ActionResult<IEnumerable<EntrenadorDto>>> GetEntrenadores()
@@ -304,6 +309,13 @@ namespace SportTrack_Sigdef.Controladores.Services
                     .Reference(e => e.Club)
                     .LoadAsync();
 
+                var nombreEntrenador = $"{entrenador.Participante.Nombre} {entrenador.Participante.Apellido}".Trim();
+                await _auditService.RegistrarAccionAsync(
+                    "CREATE_COACH",
+                    $"Entrenador creado: {nombreEntrenador} (Club: {entrenador.Club?.Nombre ?? "N/A"})",
+                    null,
+                    "Entrenadores");
+
                 var entrenadorDto = new EntrenadorDto
                 {
                     ParticipanteId = entrenador.ParticipanteId,
@@ -315,8 +327,8 @@ namespace SportTrack_Sigdef.Controladores.Services
                     MontoBeca = entrenador.MontoBeca ?? 0,
                     PresentoAptoMedico = entrenador.PresentoAptoMedico == true,
                     NombrePersona = entrenador.Participante.Nombre + " " + entrenador.Participante.Apellido,
-                    NombreClub = entrenador.Club.Nombre,
-                    SiglasClub = entrenador.Club.Siglas
+                    NombreClub = entrenador.Club?.Nombre ?? "N/A",
+                    SiglasClub = entrenador.Club?.Siglas
                 };
 
                 var result = new ObjectResult(entrenadorDto)

@@ -18,11 +18,16 @@ namespace SportTrack_Sigdef.Controladores.Services
     {
         private readonly SportTrackDbContext _context;
         private readonly ITenantProvider _tenantProvider;
+        private readonly SportTrack_Sigdef.Controladores.Audit.IAuditService _auditService;
 
-        public UsuarioServices(SportTrackDbContext context, ITenantProvider tenantProvider)
+        public UsuarioServices(
+            SportTrackDbContext context,
+            ITenantProvider tenantProvider,
+            SportTrack_Sigdef.Controladores.Audit.IAuditService auditService)
         {
             _context = context;
             _tenantProvider = tenantProvider;
+            _auditService = auditService;
         }
 
         public async Task<ActionResult<IEnumerable<UsuarioDto>>> GetUsuarios()
@@ -187,6 +192,12 @@ namespace SportTrack_Sigdef.Controladores.Services
                 await _context.Entry(usuario)
                     .Reference(u => u.Participante)
                     .LoadAsync();
+
+                await _auditService.RegistrarAccionAsync(
+                    "CREATE_USER",
+                    $"Usuario creado: {usuario.Username} (rol: {usuario.RolFederacion})",
+                    null,
+                    "Usuarios");
 
                 var usuarioDto = new UsuarioDto
                 {
