@@ -22,12 +22,18 @@ namespace SportTrack_Sigdef.Controladores.Services
         private readonly SportTrackDbContext _context;
         private readonly ITenantProvider _tenantProvider;
         private readonly IAltaAtletaService _altaAtletaService;
+        private readonly SportTrack_Sigdef.Controladores.Audit.IAuditService _auditService;
 
-        public AtletaServices(SportTrackDbContext context, ITenantProvider tenantProvider, IAltaAtletaService altaAtletaService)
+        public AtletaServices(
+            SportTrackDbContext context,
+            ITenantProvider tenantProvider,
+            IAltaAtletaService altaAtletaService,
+            SportTrack_Sigdef.Controladores.Audit.IAuditService auditService)
         {
             _context = context;
             _tenantProvider = tenantProvider;
             _altaAtletaService = altaAtletaService;
+            _auditService = auditService;
         }
 
         // -------------------------------------------------
@@ -446,6 +452,13 @@ namespace SportTrack_Sigdef.Controladores.Services
                 }
 
                 await transaction.CommitAsync();
+
+                var nombreAtleta = $"{altaResult.Participante.Nombre} {altaResult.Participante.Apellido}".Trim();
+                await _auditService.RegistrarAccionAsync(
+                    "CREATE_ATHLETE",
+                    $"Atleta creado: {nombreAtleta} (DNI: {altaResult.Participante.Dni})",
+                    null,
+                    "Atletas");
 
                 // Reutilizar lógica de respuesta de GetAtleta por consistencia
                 var response = await GetAtleta(AtletaFederacion.ParticipanteId);

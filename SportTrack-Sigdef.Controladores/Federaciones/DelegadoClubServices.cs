@@ -18,11 +18,16 @@ namespace SportTrack_Sigdef.Controladores.Services
     {
         private readonly SportTrackDbContext _context;
         private readonly ITenantProvider _tenantProvider;
+        private readonly SportTrack_Sigdef.Controladores.Audit.IAuditService _auditService;
 
-        public DelegadoClubServices(SportTrackDbContext context, ITenantProvider tenantProvider)
+        public DelegadoClubServices(
+            SportTrackDbContext context,
+            ITenantProvider tenantProvider,
+            SportTrack_Sigdef.Controladores.Audit.IAuditService auditService)
         {
             _context = context;
             _tenantProvider = tenantProvider;
+            _auditService = auditService;
         }
 
         public async Task<ActionResult<IEnumerable<DelegadoClubDto>>> GetDelegadosClub()
@@ -234,6 +239,13 @@ namespace SportTrack_Sigdef.Controladores.Services
                 await _context.Entry(delegadoClub)
                     .Reference(d => d.Club)
                     .LoadAsync();
+
+                var nombreDelegado = $"{delegadoClub.Participante.Nombre} {delegadoClub.Participante.Apellido}".Trim();
+                await _auditService.RegistrarAccionAsync(
+                    "CREATE_DELEGATE",
+                    $"Delegado creado: {nombreDelegado} (Club: {delegadoClub.Club?.Nombre ?? "N/A"})",
+                    null,
+                    "Delegados");
 
                 var delegadoClubDto = new DelegadoClubDto
                 {

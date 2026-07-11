@@ -15,10 +15,14 @@ namespace SportTrack_Sigdef.Controladores.Services
     public class TutorServices : ITutorServices
     {
         private readonly SportTrackDbContext _context;
+        private readonly SportTrack_Sigdef.Controladores.Audit.IAuditService _auditService;
 
-        public TutorServices(SportTrackDbContext context)
+        public TutorServices(
+            SportTrackDbContext context,
+            SportTrack_Sigdef.Controladores.Audit.IAuditService auditService)
         {
             _context = context;
+            _auditService = auditService;
         }
 
         public async Task<ActionResult<IEnumerable<TutorDto>>> GetTutores()
@@ -246,6 +250,13 @@ namespace SportTrack_Sigdef.Controladores.Services
                 await _context.Entry(tutor)
                     .Reference(t => t.Participante)
                     .LoadAsync();
+
+                var nombreTutor = $"{tutor.Participante.Nombre} {tutor.Participante.Apellido}".Trim();
+                await _auditService.RegistrarAccionAsync(
+                    "CREATE_TUTOR",
+                    $"Tutor creado: {nombreTutor}",
+                    null,
+                    "Tutores");
 
                 var tutorDto = new TutorDto
                 {
