@@ -18,6 +18,15 @@
 
 - [ ] Avanzar fases del plan en [../seguridad/Plan-Endurecimiento-Seguridad.md](../seguridad/Plan-Endurecimiento-Seguridad.md) sin romper Live/SignalR de lectura pública.
 
+## Mensajería
+
+- [ ] Requests de `/api/mensajes/*` requieren `X-Client-App` válido (`sporttrack` \| `sigdef`).
+- [ ] Create/list/unread/campañas respetan `SistemaOrigen`.
+- [ ] Hilos/campañas de un origen no son visibles con el otro header.
+- [ ] Backfill: datos pre-migración quedan en `sporttrack`.
+
+Detalle: [../guias/mensajeria-aislamiento.md](../guias/mensajeria-aislamiento.md). Matriz QA en FrontSigdef `docs/criterios/mensajeria-aislamiento.md`.
+
 ## DoD
 
 1. Cambio en código API guardado.  
