@@ -774,10 +774,13 @@ namespace SportTrack_Sigdef.AccesoDatos
                 entity.ToTable("Hilos", "comunicacion");
                 entity.HasKey(e => e.IdHilo);
                 entity.Property(e => e.Asunto).IsRequired().HasMaxLength(300);
+                entity.Property(e => e.SistemaOrigen).IsRequired().HasMaxLength(20)
+                    .HasDefaultValue(MensajeriaSistemaOrigen.SportTrack);
                 entity.Property(e => e.CreadoEn).IsRequired();
                 entity.Property(e => e.UltimoMensajeEn).IsRequired();
                 entity.HasIndex(e => e.UltimoMensajeEn).HasDatabaseName("IX_Hilos_UltimoMensajeEn");
                 entity.HasIndex(e => e.IdCampana).HasDatabaseName("IX_Hilos_IdCampana");
+                entity.HasIndex(e => e.SistemaOrigen).HasDatabaseName("IX_Hilos_SistemaOrigen");
 
                 entity.HasOne(e => e.Campana)
                     .WithMany(c => c.Hilos)
@@ -793,6 +796,8 @@ namespace SportTrack_Sigdef.AccesoDatos
                 entity.Property(e => e.Asunto).IsRequired().HasMaxLength(300);
                 entity.Property(e => e.Cuerpo).IsRequired();
                 entity.Property(e => e.TipoCampana).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.SistemaOrigen).IsRequired().HasMaxLength(20)
+                    .HasDefaultValue(MensajeriaSistemaOrigen.SportTrack);
                 entity.Property(e => e.EnviadoEn).IsRequired();
 
                 entity.HasOne(e => e.Remitente)
@@ -803,6 +808,7 @@ namespace SportTrack_Sigdef.AccesoDatos
 
                 entity.HasIndex(e => e.RemitenteId).HasDatabaseName("IX_Campanas_RemitenteId");
                 entity.HasIndex(e => e.EnviadoEn).HasDatabaseName("IX_Campanas_EnviadoEn");
+                entity.HasIndex(e => e.SistemaOrigen).HasDatabaseName("IX_Campanas_SistemaOrigen");
             });
 
             modelBuilder.Entity<Mensaje>(entity =>
