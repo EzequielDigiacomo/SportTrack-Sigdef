@@ -211,6 +211,13 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.Property<int>("RemitenteId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("SistemaOrigen")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("sporttrack");
+
                     b.Property<string>("TipoCampana")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -223,6 +230,9 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
 
                     b.HasIndex("RemitenteId")
                         .HasDatabaseName("IX_Campanas_RemitenteId");
+
+                    b.HasIndex("SistemaOrigen")
+                        .HasDatabaseName("IX_Campanas_SistemaOrigen");
 
                     b.ToTable("CampanasEnvio", "comunicacion");
                 });
@@ -1017,6 +1027,13 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.Property<int?>("IdCampana")
                         .HasColumnType("integer");
 
+                    b.Property<string>("SistemaOrigen")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("sporttrack");
+
                     b.Property<DateTime>("UltimoMensajeEn")
                         .HasColumnType("timestamp with time zone");
 
@@ -1024,6 +1041,9 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
 
                     b.HasIndex("IdCampana")
                         .HasDatabaseName("IX_Hilos_IdCampana");
+
+                    b.HasIndex("SistemaOrigen")
+                        .HasDatabaseName("IX_Hilos_SistemaOrigen");
 
                     b.HasIndex("UltimoMensajeEn")
                         .HasDatabaseName("IX_Hilos_UltimoMensajeEn");

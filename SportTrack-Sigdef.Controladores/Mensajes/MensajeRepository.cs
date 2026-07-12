@@ -35,13 +35,14 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 .ToListAsync();
         }
 
-        public async Task<List<Hilo>> GetHilosVisiblesAsync(int usuarioId, bool esSuperAdmin, int? campanaId = null)
+        public async Task<List<Hilo>> GetHilosVisiblesAsync(int usuarioId, bool esSuperAdmin, string sistemaOrigen, int? campanaId = null)
         {
             var query = _context.Hilos
                 .Include(h => h.Mensajes)
                     .ThenInclude(m => m.Remitente)
                 .Include(h => h.Mensajes)
                     .ThenInclude(m => m.Destinatario)
+                .Where(h => h.SistemaOrigen == sistemaOrigen)
                 .AsQueryable();
 
             if (campanaId.HasValue)
@@ -88,11 +89,11 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             await _context.CampanasEnvio.AddAsync(campana);
         }
 
-        public Task<List<CampanaEnvio>> GetCampanasByRemitenteAsync(int remitenteId) =>
+        public Task<List<CampanaEnvio>> GetCampanasByRemitenteAsync(int remitenteId, string sistemaOrigen) =>
             _context.CampanasEnvio
                 .Include(c => c.Hilos)
                     .ThenInclude(h => h.Mensajes)
-                .Where(c => c.RemitenteId == remitenteId)
+                .Where(c => c.RemitenteId == remitenteId && c.SistemaOrigen == sistemaOrigen)
                 .OrderByDescending(c => c.EnviadoEn)
                 .AsNoTracking()
                 .ToListAsync();
@@ -110,10 +111,11 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
 
         public Task SaveChangesAsync() => _context.SaveChangesAsync();
 
-        public Task<int> CountNoLeidosAsync(int usuarioId) =>
+        public Task<int> CountNoLeidosAsync(int usuarioId, string sistemaOrigen) =>
             _context.Mensajes.CountAsync(m =>
                 m.DestinatarioId == usuarioId &&
                 m.LeidoEn == null &&
-                !m.EliminadoPorDestinatario);
+                !m.EliminadoPorDestinatario &&
+                m.Hilo.SistemaOrigen == sistemaOrigen);
     }
 }

@@ -13,11 +13,11 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             _repository = repository;
         }
 
-        public async Task<List<HiloListItemDto>> GetHilosAsync(string username, int? campanaId = null)
+        public async Task<List<HiloListItemDto>> GetHilosAsync(string username, string sistemaOrigen, int? campanaId = null)
         {
             var usuario = await RequireUsuarioAsync(username);
             var esSuperAdmin = EsSuperAdmin(usuario);
-            var hilos = await _repository.GetHilosVisiblesAsync(usuario.IdUsuario, esSuperAdmin, campanaId);
+            var hilos = await _repository.GetHilosVisiblesAsync(usuario.IdUsuario, esSuperAdmin, sistemaOrigen, campanaId);
 
             return hilos
                 .Select(h => MapHiloListItem(h, usuario.IdUsuario, esSuperAdmin))
@@ -26,18 +26,16 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 .ToList();
         }
 
-        public async Task<HiloDetalleDto> GetHiloDetalleAsync(int hiloId, string username)
+        public async Task<HiloDetalleDto> GetHiloDetalleAsync(int hiloId, string username, string sistemaOrigen)
         {
             var usuario = await RequireUsuarioAsync(username);
-            await RequireAccesoHiloAsync(hiloId, usuario);
-
-            var hilo = await _repository.GetHiloConMensajesAsync(hiloId)
-                ?? throw new NotFoundException("Hilo no encontrado");
+            var hilo = await RequireHiloDelSistemaAsync(hiloId, sistemaOrigen);
+            await RequireAccesoHiloAsync(hilo, usuario);
 
             return MapHiloDetalle(hilo, usuario.IdUsuario, EsSuperAdmin(usuario));
         }
 
-        public async Task<HiloDetalleDto> CrearHiloAsync(CrearHiloDto dto, string username)
+        public async Task<HiloDetalleDto> CrearHiloAsync(CrearHiloDto dto, string username, string sistemaOrigen)
         {
             var emisor = await RequireUsuarioAsync(username);
             var destinatario = await _repository.GetUsuarioByIdAsync(dto.DestinatarioId)
@@ -50,6 +48,7 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             var hilo = new Hilo
             {
                 Asunto = dto.Asunto.Trim(),
+                SistemaOrigen = sistemaOrigen,
                 CreadoEn = ahora,
                 UltimoMensajeEn = ahora
             };
@@ -73,7 +72,7 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             return MapHiloDetalle(creado, emisor.IdUsuario, EsSuperAdmin(emisor));
         }
 
-        public async Task<EnviarMasivoResultDto> EnviarMasivoAsync(EnviarMasivoDto dto, string username)
+        public async Task<EnviarMasivoResultDto> EnviarMasivoAsync(EnviarMasivoDto dto, string username, string sistemaOrigen)
         {
             var emisor = await RequireUsuarioAsync(username);
 
@@ -106,7 +105,8 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 Cuerpo = dto.Cuerpo.Trim(),
                 EnviadoEn = ahora,
                 CantidadDestinatarios = destinatarios.Count,
-                TipoCampana = tipo
+                TipoCampana = tipo,
+                SistemaOrigen = sistemaOrigen
             };
 
             await _repository.AddCampanaAsync(campana);
@@ -119,6 +119,7 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 var hilo = new Hilo
                 {
                     Asunto = campana.Asunto,
+                    SistemaOrigen = sistemaOrigen,
                     IdCampana = campana.IdCampana,
                     CreadoEn = ahora,
                     UltimoMensajeEn = ahora
@@ -159,17 +160,17 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             };
         }
 
-        public async Task<List<CampanaListItemDto>> GetCampanasAsync(string username)
+        public async Task<List<CampanaListItemDto>> GetCampanasAsync(string username, string sistemaOrigen)
         {
             var usuario = await RequireUsuarioAsync(username);
             if (!EsSuperAdmin(usuario) && !EsAdmin(usuario))
                 throw new UnauthorizedException("No tenés acceso a comunicados masivos");
 
-            var campanas = await _repository.GetCampanasByRemitenteAsync(usuario.IdUsuario);
+            var campanas = await _repository.GetCampanasByRemitenteAsync(usuario.IdUsuario, sistemaOrigen);
             return campanas.Select(c => MapCampanaListItem(c, usuario.IdUsuario)).ToList();
         }
 
-        public async Task<CampanaDetalleDto> GetCampanaDetalleAsync(int campanaId, string username)
+        public async Task<CampanaDetalleDto> GetCampanaDetalleAsync(int campanaId, string username, string sistemaOrigen)
         {
             var usuario = await RequireUsuarioAsync(username);
             if (!EsSuperAdmin(usuario) && !EsAdmin(usuario))
@@ -178,19 +179,20 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             var campana = await _repository.GetCampanaDetalleAsync(campanaId)
                 ?? throw new NotFoundException("Campaña no encontrada");
 
+            if (!string.Equals(campana.SistemaOrigen, sistemaOrigen, StringComparison.OrdinalIgnoreCase))
+                throw new NotFoundException("Campaña no encontrada");
+
             if (campana.RemitenteId != usuario.IdUsuario && !EsSuperAdmin(usuario))
                 throw new UnauthorizedException("No tenés acceso a esta campaña");
 
             return MapCampanaDetalle(campana, campana.RemitenteId);
         }
 
-        public async Task<HiloDetalleDto> ResponderHiloAsync(int hiloId, ResponderHiloDto dto, string username)
+        public async Task<HiloDetalleDto> ResponderHiloAsync(int hiloId, ResponderHiloDto dto, string username, string sistemaOrigen)
         {
             var emisor = await RequireUsuarioAsync(username);
-            await RequireAccesoHiloAsync(hiloId, emisor);
-
-            var hilo = await _repository.GetHiloConMensajesAsync(hiloId)
-                ?? throw new NotFoundException("Hilo no encontrado");
+            var hilo = await RequireHiloDelSistemaAsync(hiloId, sistemaOrigen);
+            await RequireAccesoHiloAsync(hilo, emisor);
 
             var destinatarioId = ObtenerContraparteId(hilo, emisor.IdUsuario);
             var destinatario = await _repository.GetUsuarioByIdAsync(destinatarioId)
@@ -220,13 +222,11 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             return MapHiloDetalle(actualizado, emisor.IdUsuario, EsSuperAdmin(emisor));
         }
 
-        public async Task MarcarHiloLeidoAsync(int hiloId, string username)
+        public async Task MarcarHiloLeidoAsync(int hiloId, string username, string sistemaOrigen)
         {
             var usuario = await RequireUsuarioAsync(username);
-            await RequireAccesoHiloAsync(hiloId, usuario);
-
-            var hilo = await _repository.GetHiloConMensajesAsync(hiloId)
-                ?? throw new NotFoundException("Hilo no encontrado");
+            var hilo = await RequireHiloDelSistemaAsync(hiloId, sistemaOrigen);
+            await RequireAccesoHiloAsync(hilo, usuario);
 
             var ahora = DateTime.UtcNow;
             var huboCambios = false;
@@ -246,10 +246,10 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             }
         }
 
-        public async Task<int> GetNoLeidosCountAsync(string username)
+        public async Task<int> GetNoLeidosCountAsync(string username, string sistemaOrigen)
         {
             var usuario = await RequireUsuarioAsync(username);
-            return await _repository.CountNoLeidosAsync(usuario.IdUsuario);
+            return await _repository.CountNoLeidosAsync(usuario.IdUsuario, sistemaOrigen);
         }
 
         private async Task<Usuario> RequireUsuarioAsync(string username)
@@ -261,12 +261,23 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 ?? throw new UnauthorizedException("Usuario no encontrado");
         }
 
-        private async Task RequireAccesoHiloAsync(int hiloId, Usuario usuario)
+        private async Task<Hilo> RequireHiloDelSistemaAsync(int hiloId, string sistemaOrigen)
+        {
+            var hilo = await _repository.GetHiloConMensajesAsync(hiloId)
+                ?? throw new NotFoundException("Hilo no encontrado");
+
+            if (!string.Equals(hilo.SistemaOrigen, sistemaOrigen, StringComparison.OrdinalIgnoreCase))
+                throw new NotFoundException("Hilo no encontrado");
+
+            return hilo;
+        }
+
+        private async Task RequireAccesoHiloAsync(Hilo hilo, Usuario usuario)
         {
             if (EsSuperAdmin(usuario))
                 return;
 
-            var participa = await _repository.UsuarioParticipaEnHiloAsync(hiloId, usuario.IdUsuario);
+            var participa = await _repository.UsuarioParticipaEnHiloAsync(hilo.IdHilo, usuario.IdUsuario);
             if (!participa)
                 throw new UnauthorizedException("No tenés acceso a este hilo");
         }
