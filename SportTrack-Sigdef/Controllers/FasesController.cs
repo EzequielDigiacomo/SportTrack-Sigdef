@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using SportTrack_Sigdef.Controladores.Fase;
 using SportTrack_Sigdef.Controladores.Fase.Dtos;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -74,9 +75,10 @@ namespace SportTrack_Sigdef.Controllers
         }
 
         [HttpPost("{id}/Iniciar")]
-        public async Task<ActionResult<FaseDto>> Iniciar(int id)
+        public async Task<ActionResult<FaseDto>> Iniciar(int id, [FromQuery] DateTime? startTime = null)
         {
-            var fase = await _faseService.IniciarFaseAsync(id);
+            // startTime: instante capturado en el dispositivo del largador (evita latencia de red).
+            var fase = await _faseService.IniciarFaseAsync(id, startTime);
             return Ok(fase);
         }
 
