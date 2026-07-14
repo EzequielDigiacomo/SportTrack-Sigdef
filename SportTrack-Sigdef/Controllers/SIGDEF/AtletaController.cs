@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SIGDEF.DTOs;
 using SportTrack_Sigdef.Entidades.DTOs.AtletaFederacion;
@@ -10,6 +11,7 @@ namespace SIGDEF.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class AtletaController : ControllerBase
     {
         private readonly IAtletaServices _atletaServices;

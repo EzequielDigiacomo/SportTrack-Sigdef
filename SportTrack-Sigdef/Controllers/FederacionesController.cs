@@ -9,6 +9,7 @@ namespace SportTrack_Sigdef.Controllers.Federaciones
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class FederacionesController : ControllerBase
     {
         private readonly IFederacionServices _federacionServices;

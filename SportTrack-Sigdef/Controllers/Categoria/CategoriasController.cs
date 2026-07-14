@@ -1,10 +1,12 @@
 // Controllers/CategoriasController.cs
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SportTrack_Sigdef.Controladores.Categoria;
 using SportTrack_Sigdef.Controladores.Categoria.Dtos;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class CategoriasController : ControllerBase
 {
     private readonly ICategoriaService _categoriaService;

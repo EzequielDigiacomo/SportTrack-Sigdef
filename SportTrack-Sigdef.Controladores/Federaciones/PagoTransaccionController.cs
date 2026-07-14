@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SportTrack_Sigdef.Controladores.PagosSIGDEF.Models.Dtos;
@@ -16,6 +17,7 @@ namespace SportTrack_Sigdef.Controladores.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class PagoTransaccionController : ControllerBase
     {
         private readonly SportTrackDbContext _context;

@@ -82,7 +82,15 @@ builder.Services.AddCors(options =>
 
 // Autenticación JWT — TokenKey obligatorio fuera de Development
 var tokenKey = SportTrack_Sigdef.Security.TokenKeyResolver.Resolve(builder.Configuration, builder.Environment);
-builder.Services.AddAuthorization();
+
+// Fase 2: autenticado por defecto. Solo [AllowAnonymous] explícito queda público (Live, login, health, webhook…).
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -253,11 +261,14 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Configuración para leer IP real a través del proxy de Render
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+// Configuración para leer IP/esquema real a través del proxy de Render
+var forwardedOptions = new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
+};
+forwardedOptions.KnownNetworks.Clear();
+forwardedOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedOptions);
 
 // Ejecutar migraciones automáticamente al iniciar (útil para Render)
 using (var scope = app.Services.CreateScope())
@@ -296,6 +307,12 @@ using (var scope = app.Services.CreateScope())
 // Configure the HTTP request pipeline.
 app.UseMiddleware<ExceptionMiddleware>();
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -309,8 +326,8 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Mapeo de Hubs
-app.MapHub<TimingHub>("/hubs/timing");
+// Hub: negotiate/connect anónimo (Live); Join*/GetServerTime AllowAnonymous; escrituras Authorize por método
+app.MapHub<TimingHub>("/hubs/timing").AllowAnonymous();
 
 app.Run();
 

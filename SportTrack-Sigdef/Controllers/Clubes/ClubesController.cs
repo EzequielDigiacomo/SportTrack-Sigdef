@@ -14,6 +14,7 @@ namespace SportTrack_Sigdef.Controllers.Clubes
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class ClubesController : ControllerBase
     {
         private readonly IClubService _clubService;
