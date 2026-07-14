@@ -51,11 +51,14 @@ Todo lo demás: autenticado.
 
 ## Fases
 
-### Fase 0 — Inventario (1–2 días)
+### Fase 0 — Inventario (1–2 días) — HECHO (doc 2026-07-14)
+
+Detalle ejecutable: [Fase-0-Inventario-Baseline.md](./Fase-0-Inventario-Baseline.md)
 
 - Documentar endpoints públicos vs privados
 - Confirmar pantallas Live y consolas juez en SportTrack-Front
 - Checklist de smoke: Live sin login / juez con login / admin SIGDEF con login
+- Pendiente operativo: ejecutar checklist L/J/A y anotar resultados antes de Fase 1
 
 ### Fase 1 — Auth por defecto (sin romper Live)
 

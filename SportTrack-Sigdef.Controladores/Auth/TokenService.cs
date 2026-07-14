@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
-using SportTrack_Sigdef.Controladores.Auth;
 using SportTrack_Sigdef.Entidades.Entidades;
 using System;
 using System.Collections.Generic;
@@ -14,11 +14,34 @@ namespace SportTrack_Sigdef.Controladores.Auth
     {
         private readonly SymmetricSecurityKey _key;
 
-        public TokenService(IConfiguration config)
+        public TokenService(IConfiguration config, IHostEnvironment env)
         {
-            // Debe coincidir con la clave usada en Program.cs para JwtBearer
-            var tokenKey = config["TokenKey"] ?? "SportTrackSuperSecretKey2026!ForEducationalPurposeOnly_LongEnoughToBeSecure";
+            // Misma resolución que Program.cs (sin fallback en producción)
+            var tokenKey = ResolveTokenKey(config, env);
             _key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey));
+        }
+
+        /// <summary>
+        /// Duplicado intencional liviano para no referenciar el proyecto Web desde Controladores.
+        /// Debe mantenerse alineado con SportTrack_Sigdef.Security.TokenKeyResolver.
+        /// </summary>
+        internal static string ResolveTokenKey(IConfiguration config, IHostEnvironment env)
+        {
+            const string developmentFallback =
+                "SportTrackSuperSecretKey2026!ForEducationalPurposeOnly_LongEnoughToBeSecure";
+
+            var key = config["TokenKey"];
+            if (!string.IsNullOrWhiteSpace(key))
+                return key.Trim();
+
+            if (env.IsDevelopment())
+            {
+                Console.WriteLine("⚠️ TokenKey no configurado: usando fallback solo para Development.");
+                return developmentFallback;
+            }
+
+            throw new InvalidOperationException(
+                "TokenKey no configurado. Definí la variable de entorno TokenKey antes de iniciar en producción.");
         }
 
         public string CreateToken(Usuario usuario)

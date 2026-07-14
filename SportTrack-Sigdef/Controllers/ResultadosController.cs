@@ -1,6 +1,8 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using SportTrack_Sigdef.Controladores.Auth;
 using SportTrack_Sigdef.Controladores.Fase.Dtos;
 using SportTrack_Sigdef.Controladores.Hubs;
 using SportTrack_Sigdef.Controladores.Resultado;
@@ -30,6 +32,7 @@ namespace SportTrack_Sigdef.Controllers
         }
 
         [HttpGet("Fase/{faseId}")]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<ResultadoFaseDto>>> GetResultadosPorFase(int faseId)
         {
             var resultados = await _resultadoRepository.GetByFaseIdAsync(faseId);
@@ -37,6 +40,7 @@ namespace SportTrack_Sigdef.Controllers
         }
 
         [HttpPut("BatchUpdate")]
+        [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
         public async Task<ActionResult<IEnumerable<ResultadoFaseDto>>> BatchUpdate(List<ResultadoUpdateDto> dto)
         {
             var aActualizar = new List<Entidades.Entidades.Resultado>();

@@ -28,6 +28,7 @@ using SportTrack_Sigdef.Controladores.PagosSIGDEF.Extensions;
 using SportTrack_Sigdef.Controladores.PagosSIGDEF.Services;
 using SIGDEF.API.Services;
 using SportTrack_Sigdef.Middleware;
+using SportTrack_Sigdef;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,12 +50,22 @@ builder.Services.AddDbContext<SportTrackDbContext>(options =>
 // SignalR para tiempo real
 builder.Services.AddSignalR();
 
-// Configuración de CORS
+// Configuración de CORS (lista blanca; no AllowAnyOrigin)
 var originsConfig = builder.Configuration["AllowedOrigins"];
-var configOrigins = !string.IsNullOrEmpty(originsConfig) 
-    ? originsConfig.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(o => o.Trim()).ToArray() 
+var configOrigins = !string.IsNullOrEmpty(originsConfig)
+    ? originsConfig.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(o => o.Trim()).ToArray()
     : Array.Empty<string>();
-var allowedOrigins = configOrigins.Concat(new[] { "http://localhost:3000", "http://localhost:5173", "https://sporttrack-fec.vercel.app" }).Distinct().ToArray();
+var allowedOrigins = configOrigins.Concat(new[]
+{
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://sporttrack-fec.vercel.app",
+    "https://sigdef.vercel.app",
+    "https://oficialsporttrack.vercel.app"
+}).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+
+var corsAllowedOrigins = new CorsAllowedOrigins(allowedOrigins);
+builder.Services.AddSingleton(corsAllowedOrigins);
 
 Console.WriteLine($"Configurando CORS para orígenes: {string.Join(", ", allowedOrigins)}");
 
@@ -64,13 +75,14 @@ builder.Services.AddCors(options =>
     {
         policy.AllowAnyHeader()
               .AllowAnyMethod()
-              .SetIsOriginAllowed(origin => true) // Permitir cualquier origen para facilitar pruebas
+              .WithOrigins(allowedOrigins)
               .AllowCredentials();
     });
 });
 
-// Autenticación JWT
-var tokenKey = builder.Configuration["TokenKey"] ?? "SportTrackSuperSecretKey2026!ForEducationalPurposeOnly_LongEnoughToBeSecure";
+// Autenticación JWT — TokenKey obligatorio fuera de Development
+var tokenKey = SportTrack_Sigdef.Security.TokenKeyResolver.Resolve(builder.Configuration, builder.Environment);
+builder.Services.AddAuthorization();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -79,7 +91,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey)),
             ValidateIssuer = false,
-            ValidateAudience = false
+            ValidateAudience = false,
+            RoleClaimType = System.Security.Claims.ClaimTypes.Role,
+            NameClaimType = System.Security.Claims.ClaimTypes.Name
         };
 
         // Soporte para SignalR con JWT en el query string o Cookies

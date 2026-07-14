@@ -19,7 +19,7 @@ namespace SportTrack_Sigdef.Controllers
         }
 
         [HttpGet("debug-me")]
-        [AllowAnonymous]
+        [Authorize(Roles = "SuperAdmin,soporte_tecnico")]
         public ActionResult DebugMe()
         {
             var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
