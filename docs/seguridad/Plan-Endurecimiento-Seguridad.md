@@ -71,14 +71,16 @@ Hub escrituras, Fases/Resultados, register/IDOR, CORS lista, TokenKey sin fallba
 3. HTTPS redirect + HSTS en prod
 4. Hub: `MapHub.AllowAnonymous` + Join públicos; escrituras JWT (Fase 1)
 
-### Fase 3 — Hardening de producción (siguiente)
+### Fase 3 — Hardening — HECHO parcial (ver Fase-3-Hardening.md)
 
-- Rate limit en login / register / hub
-- Validar uploads (tipo MIME, tamaño, extensión)
-- Webhook Mercado Pago con firma/secret
-- Auditoría de acciones críticas (ya hay base de audit en varios flujos)
-- Revisar ownership por tenant (club/federación) en PUT/DELETE
-- Headers de seguridad / cookie-first gradual
+- Rate limit login/register
+- Uploads MIME/extensión/tamaño
+- Headers de seguridad HTTP
+- **Webhook Mercado Pago: pospuesto** (no se usa aún)
+
+### Fase 4 — Verificación (checklist)
+
+Ver [Fase-4-Verificacion.md](./Fase-4-Verificacion.md).
 
 ### Fase 5 — Verificación
 
