@@ -39,8 +39,7 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
 
         public async Task<object> UploadAsync(IFormFile file, int personaId, int tipoDocumento)
         {
-            if (file == null || file.Length == 0)
-                throw new ArgumentException("El archivo es obligatorio.");
+            FileUploadRules.Validate(file);
 
             var personaExists = await _context.Participantes.AnyAsync(p => p.ParticipanteId == personaId);
             if (!personaExists)

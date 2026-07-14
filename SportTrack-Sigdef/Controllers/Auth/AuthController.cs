@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SportTrack_Sigdef.Controladores.Auth;
 using SportTrack_Sigdef.Controladores.Auth.Dtos;
 using System.Linq;
@@ -22,6 +23,7 @@ namespace SportTrack_Sigdef.Controllers.Auth
 
         [HttpPost("login")]
         [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         public async Task<ActionResult<AuthResponseDto>> Login(LoginDto loginDto)
         {
             var clientApp = Request.Headers["X-Client-App"].FirstOrDefault();
@@ -55,6 +57,7 @@ namespace SportTrack_Sigdef.Controllers.Auth
         /// <summary>Alta de usuarios solo desde panel admin (JWT). Nunca SuperAdmin vía API.</summary>
         [HttpPost("register")]
         [Authorize(Roles = AuthRolePolicies.Admins)]
+        [EnableRateLimiting("auth")]
         public async Task<ActionResult> Register(RegisterDto registerDto)
         {
             await _authService.RegisterAsync(registerDto);
