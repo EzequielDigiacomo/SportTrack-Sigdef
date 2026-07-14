@@ -197,6 +197,21 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 throw new BadRequestException("El nombre de usuario ya existe");
 
             var rol = (registerDto.RolFederacion ?? "Club").Trim();
+
+            if (string.Equals(rol, "SuperAdmin", StringComparison.OrdinalIgnoreCase))
+                throw new BadRequestException("No se puede crear un SuperAdmin desde la API.");
+
+            if (!AuthRolePolicies.RegisterableRoles.Any(r =>
+                    string.Equals(r, rol, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new BadRequestException(
+                    $"Rol no permitido: '{rol}'. Roles válidos: {string.Join(", ", AuthRolePolicies.RegisterableRoles)}.");
+            }
+
+            // Normalizar casing al catálogo
+            rol = AuthRolePolicies.RegisterableRoles.First(r =>
+                string.Equals(r, rol, StringComparison.OrdinalIgnoreCase));
+
             var isClubRole = string.Equals(rol, "Club", StringComparison.OrdinalIgnoreCase);
 
             if (isClubRole && (!registerDto.ClubId.HasValue || registerDto.ClubId.Value <= 0))

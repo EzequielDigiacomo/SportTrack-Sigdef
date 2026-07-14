@@ -72,6 +72,9 @@ public class ExceptionMiddleware
         var origin = context.Request.Headers.Origin.ToString();
         if (string.IsNullOrEmpty(origin)) return;
 
+        var allowed = context.RequestServices.GetService(typeof(CorsAllowedOrigins)) as CorsAllowedOrigins;
+        if (allowed == null || !allowed.IsAllowed(origin)) return;
+
         context.Response.Headers["Access-Control-Allow-Origin"] = origin;
         context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
         context.Response.Headers.Vary = "Origin";

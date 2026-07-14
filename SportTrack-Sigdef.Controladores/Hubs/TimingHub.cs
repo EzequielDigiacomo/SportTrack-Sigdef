@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.SignalR;
-using System.Threading.Tasks;
-using System;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
+using SportTrack_Sigdef.Controladores.Auth;
 using SportTrack_Sigdef.Controladores.Fase;
+using System;
+using System.Threading.Tasks;
 
 namespace SportTrack_Sigdef.Controladores.Hubs
 {
@@ -12,13 +14,18 @@ namespace SportTrack_Sigdef.Controladores.Hubs
         public string Role { get; set; }
     }
 
+    /// <summary>
+    /// Join/Leave/GetServerTime: anónimos (Live).
+    /// Acciones de carrera: JWT + roles de competencia.
+    /// No poner [Authorize] a nivel clase (rompería el Live).
+    /// </summary>
     public class TimingHub : Hub
     {
         private readonly IFaseService _faseService;
-        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.List<RaceUserPresence>> _activeRaceGroups = 
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.List<RaceUserPresence>> _activeRaceGroups =
             new System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.List<RaceUserPresence>>();
 
-        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.List<RaceUserPresence>> _activeEventGroups = 
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.List<RaceUserPresence>> _activeEventGroups =
             new System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.List<RaceUserPresence>>();
 
         public TimingHub(IFaseService faseService)
@@ -26,6 +33,7 @@ namespace SportTrack_Sigdef.Controladores.Hubs
             _faseService = faseService;
         }
 
+        [AllowAnonymous]
         public async Task JoinRaceGroup(string faseId, string userName, string role)
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, $"race_{faseId}");
@@ -60,6 +68,7 @@ namespace SportTrack_Sigdef.Controladores.Hubs
             }
         }
 
+        [AllowAnonymous]
         public async Task JoinEventGroup(string eventoId, string userName, string role)
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, $"event_{eventoId}");
@@ -94,6 +103,7 @@ namespace SportTrack_Sigdef.Controladores.Hubs
             }
         }
 
+        [AllowAnonymous]
         public async Task LeaveRaceGroup(string faseId)
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"race_{faseId}");
@@ -113,7 +123,7 @@ namespace SportTrack_Sigdef.Controladores.Hubs
             }
         }
 
-        public override async Task OnDisconnectedAsync(Exception exception)
+        public override async Task OnDisconnectedAsync(Exception? exception)
         {
             foreach (var entry in _activeRaceGroups)
             {
@@ -162,50 +172,50 @@ namespace SportTrack_Sigdef.Controladores.Hubs
             await base.OnDisconnectedAsync(exception);
         }
 
-        // Acciones críticas vía WebSocket para mínima latencia
+        [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
         public async Task RequestStartRace(int faseId, DateTime startTime)
         {
-            // Ejecutamos la lógica de inicio en el servicio (DB update, etc)
-            // Pasamos la hora de inicio capturada por el largador
-            var fase = await _faseService.IniciarFaseAsync(faseId, startTime);
+            await _faseService.IniciarFaseAsync(faseId, startTime);
         }
 
+        [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
         public async Task RequestResetRace(int faseId)
         {
             await _faseService.ReiniciarFaseAsync(faseId);
-            // El servicio emite "RaceReset"
         }
 
-        // Notificaciones y Sincronización
+        [AllowAnonymous]
         public DateTime GetServerTime()
         {
             return DateTime.UtcNow;
         }
 
+        [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
         public async Task RecordLap(int faseId, int resultadoId, string time)
         {
             await Clients.Group($"race_{faseId}").SendAsync("LapRecorded", resultadoId, time);
         }
 
+        [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
         public async Task FinishRace(int faseId)
         {
             await Clients.Group($"race_{faseId}").SendAsync("RaceFinished", faseId);
         }
 
+        [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
         public async Task SendTime(string faseId, string resultadoId, string timeStr, long ms)
         {
-            // Clientes unidos a la regata (largador / cronometrista / control en la misma fase)
             await Clients.Group($"race_{faseId}").SendAsync("TimeReceived", resultadoId, timeStr, ms);
-            // Mesa de control y otras pantallas del evento: mismo patrón que globalRaceStarted
             await Clients.All.SendAsync("globalTimeReceived", faseId, resultadoId, timeStr, ms);
         }
 
+        [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
         public async Task UpdateResultStatus(string faseId, string resultadoId, string status)
         {
             await _faseService.UpdateResultadoStatusAsync(int.Parse(resultadoId), status);
-            // El servicio ya emite "GlobalResultStatusUpdated"
         }
 
+        [Authorize(Roles = "Admin,SuperAdmin,Club,soporte_tecnico")]
         public async Task RequestPaymentStatusChange(string clubNombre, string clubId)
         {
             await Clients.All.SendAsync("paymentStatusChangeRequested", new { clubNombre, clubId, motive = "solicitar cambio de estado de pago de este club" });
