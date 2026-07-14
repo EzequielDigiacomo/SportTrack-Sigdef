@@ -10,6 +10,7 @@ namespace SportTrack_Sigdef.Controllers.Inscripciones
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class InscripcionesController : ControllerBase
     {
         private readonly IInscripcionService _inscripcionService;

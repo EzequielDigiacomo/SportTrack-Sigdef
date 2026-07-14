@@ -1,10 +1,12 @@
 // Controllers/DistanciasController.cs
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SportTrack_Sigdef.Controladores.Distancia;
 using SportTrack_Sigdef.Controladores.Distancia.Dtos;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class DistanciasController : ControllerBase
 {
     private readonly IDistanciaService _distanciaService;

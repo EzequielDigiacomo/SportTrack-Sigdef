@@ -10,6 +10,7 @@ namespace SportTrack_Sigdef.Controllers.Participantes
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class ParticipantesController : ControllerBase
     {
         private readonly IParticipanteService _participanteService;

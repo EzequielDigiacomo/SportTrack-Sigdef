@@ -1,10 +1,12 @@
 // Controllers/BotesController.cs
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SportTrack_Sigdef.Controladores.Bote;
 using SportTrack_Sigdef.Controladores.Bote.Dtos;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class BotesController : ControllerBase
 {
     private readonly IBoteService _boteService;

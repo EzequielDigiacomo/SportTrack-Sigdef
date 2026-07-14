@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SportTrack_Sigdef.AccesoDatos;
 using SportTrack_Sigdef.Controladores.PagosSIGDEF.Services;
 using SportTrack_Sigdef.Entidades.Enums;
@@ -10,6 +11,7 @@ namespace SportTrack_Sigdef.Controladores.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class NotificacionController : ControllerBase
     {
         private readonly SportTrackDbContext _context;
@@ -23,6 +25,7 @@ namespace SportTrack_Sigdef.Controladores.Controllers
             _logger = logger;
         }
 
+        [AllowAnonymous]
         [HttpPost("webhook")]
         public async Task<IActionResult> RecibirNotificacion([FromQuery] string topic, [FromQuery] string id)
         {

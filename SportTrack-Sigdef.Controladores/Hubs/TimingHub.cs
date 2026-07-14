@@ -15,9 +15,9 @@ namespace SportTrack_Sigdef.Controladores.Hubs
     }
 
     /// <summary>
-    /// Join/Leave/GetServerTime: anónimos (Live).
-    /// Acciones de carrera: JWT + roles de competencia.
-    /// No poner [Authorize] a nivel clase (rompería el Live).
+    /// Conexión: AllowAnonymous en MapHub (Program.cs) para Live + FallbackPolicy.
+    /// Join/GetServerTime: [AllowAnonymous]. Escrituras: [Authorize] por método.
+    /// No poner [AllowAnonymous] a nivel clase: anularía el Authorize de los métodos.
     /// </summary>
     public class TimingHub : Hub
     {

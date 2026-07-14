@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SportTrack_Sigdef.AccesoDatos;
@@ -10,6 +11,7 @@ namespace SIGDEF.Controllers
 {
     [ApiController]
     [Route("api/legacy/eventos/{idEvento}/pruebas")]
+    [Authorize]
     public class EventoPruebaController : ControllerBase
     {
         private readonly SportTrackDbContext _context;

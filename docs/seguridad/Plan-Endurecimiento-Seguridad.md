@@ -60,43 +60,25 @@ Detalle ejecutable: [Fase-0-Inventario-Baseline.md](./Fase-0-Inventario-Baseline
 - Checklist de smoke: Live sin login / juez con login / admin SIGDEF con login
 - Pendiente operativo: ejecutar checklist L/J/A y anotar resultados antes de Fase 1
 
-### Fase 1 — Auth por defecto (sin romper Live)
+### Fase 1 — Escrituras críticas — HECHO (ver Fase-1-Escrituras-Auth.md)
 
-1. Política global: usuario autenticado por defecto (`FallbackPolicy` / `RequireAuthenticatedUser`)
-2. Excepciones solo con `[AllowAnonymous]` en la lista blanca
-3. CORS: orígenes reales de FrontSigdef + SportTrack-Front (prod/staging); quitar `origin => true`
-4. JWT: secret solo por config/env; sin fallback hardcodeado en producción
-5. HTTPS redirect + HSTS en prod
+Hub escrituras, Fases/Resultados, register/IDOR, CORS lista, TokenKey sin fallback en prod.
 
-**Impacto Live/SignalR:** nulo si Join*/lectura quedan anónimos.
+### Fase 2 — Auth por defecto + HTTPS — HECHO (ver Fase-2-Auth-Default.md)
 
-### Fase 2 — SignalR: espectador vs juez
+1. `FallbackPolicy` RequireAuthenticatedUser
+2. `[Authorize]` en CRUD SIGDEF / catálogos / legacy
+3. HTTPS redirect + HSTS en prod
+4. Hub: `MapHub.AllowAnonymous` + Join públicos; escrituras JWT (Fase 1)
 
-| Método | Público | Auth + rol |
-|--------|---------|------------|
-| Conectar, Join*, Leave*, GetServerTime | Sí | — |
-| `RequestStartRace`, `RequestResetRace`, `SendTime`, `FinishRace`, `RecordLap` | No | Juez / Admin / roles Live |
-
-- Cliente Live sigue sin token
-- Starter / Finisher mandan JWT (header o `access_token` en query; ya soportado en `Program.cs`)
-
-**Impacto:** Live OK; consolas de jueces deben ir autenticadas.
-
-### Fase 3 — Cerrar API de escritura
-
-- CRUD Atletas, Tutores, Usuarios, Personas, Fases mutables, etc. → `[Authorize]` + roles
-- `POST /Auth/register` restringido (solo admin / invite)
-- Cambio de password: solo propio usuario o SuperAdmin (evitar IDOR)
-- Revisar ownership por club / federación en PUT/DELETE
-- Tenant: validar que un club no mute datos de otro
-
-### Fase 4 — Hardening de producción
+### Fase 3 — Hardening de producción (siguiente)
 
 - Rate limit en login / register / hub
 - Validar uploads (tipo MIME, tamaño, extensión)
 - Webhook Mercado Pago con firma/secret
 - Auditoría de acciones críticas (ya hay base de audit en varios flujos)
-- Revisar Swagger solo en Development (ya orientado así)
+- Revisar ownership por tenant (club/federación) en PUT/DELETE
+- Headers de seguridad / cookie-first gradual
 
 ### Fase 5 — Verificación
 
