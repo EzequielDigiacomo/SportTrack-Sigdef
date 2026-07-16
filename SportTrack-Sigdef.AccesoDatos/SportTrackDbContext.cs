@@ -893,17 +893,17 @@ namespace SportTrack_Sigdef.AccesoDatos
                 new Distancia { Id = 16, DistanciaRegata = DistanciaRegataEnum.Metros30000, GapSugerido = 40 }
             );
 
-            // Planes SaaS
+            // Planes SaaS — matriz: S≤200 / M≤400 / L ilimitado; Club desde M (SIGDEF/Dúo); Live ST/Dúo M+L; jueces solo ST/Dúo L; imágenes solo L SIGDEF/Dúo
             modelBuilder.Entity<PlanSaaS>().HasData(
-                new PlanSaaS { Id = 1, Nombre = "SIGDEF (S)", Precio = 50, MaxAtletas = 500, MaxTorneosActivos = 5, ResultadosTiempoReal = false, ExportacionExcel = false, SoportePrioritario = false },
-                new PlanSaaS { Id = 2, Nombre = "SIGDEF (M)", Precio = 120, MaxAtletas = 2000, MaxTorneosActivos = 20, ResultadosTiempoReal = false, ExportacionExcel = false, SoportePrioritario = false },
-                new PlanSaaS { Id = 3, Nombre = "SIGDEF (L)", Precio = 250, MaxAtletas = -1, MaxTorneosActivos = -1, ResultadosTiempoReal = true, ExportacionExcel = true, SoportePrioritario = true },
-                new PlanSaaS { Id = 4, Nombre = "SportTrack (S)", Precio = 40, MaxAtletas = 500, MaxTorneosActivos = 5, ResultadosTiempoReal = false, ExportacionExcel = false, SoportePrioritario = false },
-                new PlanSaaS { Id = 5, Nombre = "SportTrack (M)", Precio = 90, MaxAtletas = 2000, MaxTorneosActivos = 20, ResultadosTiempoReal = false, ExportacionExcel = false, SoportePrioritario = false },
-                new PlanSaaS { Id = 6, Nombre = "SportTrack (L)", Precio = 190, MaxAtletas = -1, MaxTorneosActivos = -1, ResultadosTiempoReal = true, ExportacionExcel = true, SoportePrioritario = true },
-                new PlanSaaS { Id = 7, Nombre = "Pack Dúo (S)", Precio = 75, MaxAtletas = 500, MaxTorneosActivos = 5, ResultadosTiempoReal = true, ExportacionExcel = true, SoportePrioritario = true },
-                new PlanSaaS { Id = 8, Nombre = "Pack Dúo (M)", Precio = 170, MaxAtletas = 2000, MaxTorneosActivos = 20, ResultadosTiempoReal = true, ExportacionExcel = true, SoportePrioritario = true },
-                new PlanSaaS { Id = 9, Nombre = "Pack Dúo (L)", Precio = 350, MaxAtletas = -1, MaxTorneosActivos = -1, ResultadosTiempoReal = true, ExportacionExcel = true, SoportePrioritario = true }
+                new PlanSaaS { Id = 1, Nombre = "SIGDEF (S)", Precio = 50, MaxAtletas = 200, MaxTorneosActivos = 5, ResultadosTiempoReal = false, ExportacionExcel = false, ExportacionPdf = true, SoportePrioritario = false, AccesoDashboardClub = false, PermitirCargaImagenes = false },
+                new PlanSaaS { Id = 2, Nombre = "SIGDEF (M)", Precio = 120, MaxAtletas = 400, MaxTorneosActivos = 20, ResultadosTiempoReal = false, ExportacionExcel = false, ExportacionPdf = true, SoportePrioritario = false, AccesoDashboardClub = true, PermitirCargaImagenes = false },
+                new PlanSaaS { Id = 3, Nombre = "SIGDEF (L)", Precio = 250, MaxAtletas = -1, MaxTorneosActivos = -1, ResultadosTiempoReal = false, ExportacionExcel = true, ExportacionPdf = true, SoportePrioritario = true, AccesoDashboardClub = true, PermitirCargaImagenes = true },
+                new PlanSaaS { Id = 4, Nombre = "SportTrack (S)", Precio = 40, MaxAtletas = 200, MaxTorneosActivos = 5, ResultadosTiempoReal = false, ExportacionExcel = false, ExportacionPdf = true, SoportePrioritario = false, AccesoDashboardClub = false, PermitirCargaImagenes = false },
+                new PlanSaaS { Id = 5, Nombre = "SportTrack (M)", Precio = 90, MaxAtletas = 400, MaxTorneosActivos = 20, ResultadosTiempoReal = true, ExportacionExcel = false, ExportacionPdf = true, SoportePrioritario = false, AccesoDashboardClub = false, PermitirCargaImagenes = false },
+                new PlanSaaS { Id = 6, Nombre = "SportTrack (L)", Precio = 190, MaxAtletas = -1, MaxTorneosActivos = -1, ResultadosTiempoReal = true, ExportacionExcel = true, ExportacionPdf = true, SoportePrioritario = true, AccesoDashboardClub = false, PermitirCargaImagenes = false },
+                new PlanSaaS { Id = 7, Nombre = "Pack Dúo (S)", Precio = 75, MaxAtletas = 200, MaxTorneosActivos = 5, ResultadosTiempoReal = false, ExportacionExcel = true, ExportacionPdf = true, SoportePrioritario = true, AccesoDashboardClub = false, PermitirCargaImagenes = false },
+                new PlanSaaS { Id = 8, Nombre = "Pack Dúo (M)", Precio = 170, MaxAtletas = 400, MaxTorneosActivos = 20, ResultadosTiempoReal = true, ExportacionExcel = true, ExportacionPdf = true, SoportePrioritario = true, AccesoDashboardClub = true, PermitirCargaImagenes = false },
+                new PlanSaaS { Id = 9, Nombre = "Pack Dúo (L)", Precio = 350, MaxAtletas = -1, MaxTorneosActivos = -1, ResultadosTiempoReal = true, ExportacionExcel = true, ExportacionPdf = true, SoportePrioritario = true, AccesoDashboardClub = true, PermitirCargaImagenes = true }
             );
 
             // Usuario inicial administrador

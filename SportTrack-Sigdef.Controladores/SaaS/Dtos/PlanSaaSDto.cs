@@ -9,7 +9,10 @@
         public int MaxTorneosActivos { get; set; }
         public bool ResultadosTiempoReal { get; set; }
         public bool ExportacionExcel { get; set; }
+        public bool ExportacionPdf { get; set; }
         public bool SoportePrioritario { get; set; }
+        public bool AccesoDashboardClub { get; set; }
+        public bool PermitirCargaImagenes { get; set; }
 
         public bool AccesoSigdef { get; set; }
         public bool AccesoSportTrack { get; set; }

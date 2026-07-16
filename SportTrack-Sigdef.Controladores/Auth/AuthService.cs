@@ -236,6 +236,32 @@ namespace SportTrack_Sigdef.Controladores.Auth
             if (isClubRole && !federacionId.HasValue)
                 throw new BadRequestException("No se pudo resolver la federación del club para el login.");
 
+            if (PlanSaaSAccessHelper.IsJudgeRole(rol) && !federacionId.HasValue)
+                throw new BadRequestException("Un usuario juez debe estar vinculado a una federación.");
+
+            // Enforcement: Club / jueces según plan de la federación destino
+            if (federacionId.HasValue &&
+                (isClubRole || PlanSaaSAccessHelper.IsJudgeRole(rol)))
+            {
+                var federacion = await _context.Federaciones.AsNoTracking()
+                    .Include(f => f.PlanSaaS)
+                    .FirstOrDefaultAsync(f => f.IdFederacion == federacionId.Value)
+                    ?? throw new BadRequestException($"La federación con ID {federacionId} no existe.");
+
+                if (federacion.PlanSaaS == null)
+                    throw new BadRequestException("La federación no tiene un plan SaaS asignado.");
+
+                var planDto = PlanSaaSAccessHelper.FromEntity(federacion.PlanSaaS);
+                if (!PlanSaaSAccessHelper.CanCreateRole(planDto, rol))
+                {
+                    if (isClubRole)
+                        throw new BadRequestException(
+                            $"El plan '{planDto.Nombre}' no incluye dashboard/login Club. Actualizá a Profesional o superior.");
+                    throw new BadRequestException(
+                        $"El plan '{planDto.Nombre}' no incluye consolas de juez (Largador/Cronometrista/Juez de Control). Requiere Ecosistema SportTrack o Pack Dúo.");
+                }
+            }
+
             var user = _mapper.Map<Usuario>(registerDto);
             user.Username = registerDto.Username.ToLower().Trim();
             user.RolFederacion = rol;
