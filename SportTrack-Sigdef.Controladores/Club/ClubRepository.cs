@@ -22,7 +22,12 @@ namespace SportTrack_Sigdef.Controladores.Club
 
         public async Task<Entidades.Entidades.Club?> GetByIdAsync(int id)
         {
-            return await _context.Clubes.Include(c => c.Participantes).Include(c => c.Federacion).Include(c => c.PlanSaaS).FirstOrDefaultAsync(c => c.IdClub == id);
+            return await _context.Clubes
+                .Include(c => c.Participantes)
+                .Include(c => c.Federacion!)
+                    .ThenInclude(f => f.PlanSaaS)
+                .Include(c => c.PlanSaaS)
+                .FirstOrDefaultAsync(c => c.IdClub == id);
         }
 
         public async Task<Entidades.Entidades.Club> CreateAsync(Entidades.Entidades.Club club)

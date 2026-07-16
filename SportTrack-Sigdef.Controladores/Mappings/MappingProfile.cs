@@ -85,7 +85,10 @@ namespace SportTrack_Sigdef.Controladores.Mappings
                 .ForMember(dest => dest.HoraInicioEvento, opt => opt.MapFrom(src => src.HoraInicioEvento.ToString(@"hh\:mm")))
                 .ForMember(dest => dest.HoraInicioReceso, opt => opt.MapFrom(src => src.HoraInicioReceso.ToString(@"hh\:mm")))
                 .ForMember(dest => dest.HoraFinReceso, opt => opt.MapFrom(src => src.HoraFinReceso.ToString(@"hh\:mm")))
-                .ForMember(dest => dest.PerfilTiempo, opt => opt.MapFrom(src => src.PerfilTiempo.ToString()));
+                .ForMember(dest => dest.PerfilTiempo, opt => opt.MapFrom(src => src.PerfilTiempo.ToString()))
+                .ForMember(dest => dest.ResultadosTiempoReal, opt => opt.MapFrom(src =>
+                    src.Federacion != null && src.Federacion.PlanSaaS != null
+                        && src.Federacion.PlanSaaS.ResultadosTiempoReal));
 
             CreateMap<EventoCreateDto, Entidades.Entidades.Evento>()
                 .ForMember(dest => dest.IdClub, opt => opt.MapFrom(src => src.ClubId))

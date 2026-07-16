@@ -166,5 +166,16 @@ namespace SportTrack_Sigdef.Controladores.Participante
         {
             return await SoloAtletas(_context.Participantes).CountAsync(p => p.IdClub == clubId);
         }
+
+        public async Task<int> CountByFederationIdAsync(int federationId)
+        {
+            var clubIds = await _context.Clubes
+                .Where(c => c.IdFederacion == federationId)
+                .Select(c => c.IdClub)
+                .ToListAsync();
+
+            return await SoloAtletas(_context.Participantes)
+                .CountAsync(p => p.IdClub.HasValue && clubIds.Contains(p.IdClub.Value));
+        }
     }
 }

@@ -38,6 +38,8 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public bool PermitirCombinadas { get; set; }
         public bool UsarGapVariable { get; set; }
         public string TimeZoneId { get; set; } = "America/Argentina/Buenos_Aires";
+        /// <summary>Plan de la federación: Live SignalR vs pizarra por polling.</summary>
+        public bool ResultadosTiempoReal { get; set; }
         public string? CategoriasHabilitadas { get; set; }
         public string? BotesHabilitados { get; set; }
         public string? DistanciasHabilitadas { get; set; }
