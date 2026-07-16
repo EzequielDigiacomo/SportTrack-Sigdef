@@ -1,7 +1,7 @@
 # Diseño de enforcement — planes SaaS
 
 Fecha: 2026-07-16  
-A+B implementados (2026-07-16): columnas/seed, helper `CanCreateRole`, `RegisterAsync`, LoginForm/GestionLogins, FrontSigdef Club/delegados.  
+A+B+C+D+E+F+G implementados (2026-07-16). Carga manual sin jueces; MaxAtletas por fed; imágenes; Live flag; Home copy.  
 Matriz de producto: plan Cursor `inventario_planes_saas`
 
 ---

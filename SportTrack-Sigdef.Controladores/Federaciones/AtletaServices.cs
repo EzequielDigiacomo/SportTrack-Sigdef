@@ -393,6 +393,8 @@ namespace SportTrack_Sigdef.Controladores.Services
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                await EnsureMaxAtletasAsync(dto.DatosDeportivos.IdClub);
+
                 var participanteInput = _altaAtletaService.FromPersonaCreateDto(dto.PersonaAtleta, dto.DatosDeportivos.IdClub);
                 var fedInput = _altaAtletaService.FromAtletaCreateDto(dto.DatosDeportivos);
                 var altaResult = await _altaAtletaService.AltaAtletaCompletaAsync(participanteInput, fedInput);
@@ -480,6 +482,11 @@ namespace SportTrack_Sigdef.Controladores.Services
                 }
 
                 return response.Result ?? new StatusCodeResult(201);
+            }
+            catch (InvalidOperationException ex)
+            {
+                await transaction.RollbackAsync();
+                return new BadRequestObjectResult(new { error = ex.Message });
             }
             catch (Exception ex)
             {
@@ -639,6 +646,58 @@ namespace SportTrack_Sigdef.Controladores.Services
         // -------------------------------------------------
         // Métodos auxiliares
         // -------------------------------------------------
+        private async Task EnsureMaxAtletasAsync(int? clubId)
+        {
+            int? federacionId = _tenantProvider.GetFederacionId();
+            PlanSaaS? plan = null;
+
+            if (clubId.HasValue)
+            {
+                var club = await _context.Clubes
+                    .AsNoTracking()
+                    .Include(c => c.Federacion!)
+                        .ThenInclude(f => f.PlanSaaS)
+                    .Include(c => c.PlanSaaS)
+                    .FirstOrDefaultAsync(c => c.IdClub == clubId.Value);
+
+                federacionId ??= club?.IdFederacion;
+                plan = club?.Federacion?.PlanSaaS ?? club?.PlanSaaS;
+            }
+
+            if (plan == null && federacionId.HasValue)
+            {
+                var fed = await _context.Federaciones
+                    .AsNoTracking()
+                    .Include(f => f.PlanSaaS)
+                    .FirstOrDefaultAsync(f => f.IdFederacion == federacionId.Value);
+                plan = fed?.PlanSaaS;
+            }
+
+            if (plan == null || plan.MaxAtletas == -1) return;
+
+            int count;
+            if (federacionId.HasValue)
+            {
+                var clubIds = await _context.Clubes
+                    .Where(c => c.IdFederacion == federacionId.Value)
+                    .Select(c => c.IdClub)
+                    .ToListAsync();
+                count = await _context.Participantes
+                    .CountAsync(p => p.IdClub.HasValue && clubIds.Contains(p.IdClub.Value));
+            }
+            else if (clubId.HasValue)
+            {
+                count = await _context.Participantes.CountAsync(p => p.IdClub == clubId.Value);
+            }
+            else return;
+
+            if (count >= plan.MaxAtletas)
+            {
+                throw new InvalidOperationException(
+                    $"La federación alcanzó el límite de {plan.MaxAtletas} atletas del plan {plan.Nombre}.");
+            }
+        }
+
         private async Task<bool> AtletaExistsAsync(int id)
         {
             return await _context.AtletasFederados.AnyAsync(e => e.ParticipanteId == id);

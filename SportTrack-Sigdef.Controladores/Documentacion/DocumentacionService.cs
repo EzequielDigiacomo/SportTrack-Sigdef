@@ -41,9 +41,26 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
         {
             FileUploadRules.Validate(file);
 
-            var personaExists = await _context.Participantes.AnyAsync(p => p.ParticipanteId == personaId);
-            if (!personaExists)
-                throw new KeyNotFoundException($"No se encontró la persona con ID {personaId}.");
+            var persona = await _context.Participantes
+                .AsNoTracking()
+                .Include(p => p.Club!)
+                    .ThenInclude(c => c.Federacion!)
+                        .ThenInclude(f => f.PlanSaaS)
+                .Include(p => p.Club!)
+                    .ThenInclude(c => c.PlanSaaS)
+                .FirstOrDefaultAsync(p => p.ParticipanteId == personaId)
+                ?? throw new KeyNotFoundException($"No se encontró la persona con ID {personaId}.");
+
+            var isImage = file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+            if (isImage)
+            {
+                var plan = persona.Club?.Federacion?.PlanSaaS ?? persona.Club?.PlanSaaS;
+                if (plan != null && !plan.PermitirCargaImagenes)
+                {
+                    throw new ArgumentException(
+                        $"El plan '{plan.Nombre}' no incluye carga de imágenes. Podés subir PDF, o actualizar a Ecosistema.");
+                }
+            }
 
             string urlArchivo;
             string? publicId;

@@ -72,6 +72,9 @@ namespace SportTrack_Sigdef.Controladores.Evento
         public async Task<Entidades.Entidades.Evento?> GetByIdAsync(int id)
         {
             return await _context.Eventos
+                .Include(e => e.Federacion!)
+                    .ThenInclude(f => f.PlanSaaS)
+                .Include(e => e.Club)
                 .Include(e => e.EventoPruebas)
                     .ThenInclude(ep => ep.Prueba)
                 .FirstOrDefaultAsync(e => e.IdEvento == id);

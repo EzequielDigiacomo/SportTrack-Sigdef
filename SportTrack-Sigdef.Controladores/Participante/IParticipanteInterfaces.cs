@@ -15,6 +15,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
         Task<bool> DeleteAsync(int id);
         Task<bool> ExistsAsync(int id);
         Task<int> CountByClubIdAsync(int clubId);
+        Task<int> CountByFederationIdAsync(int federationId);
     }
 
     public interface IParticipanteService
