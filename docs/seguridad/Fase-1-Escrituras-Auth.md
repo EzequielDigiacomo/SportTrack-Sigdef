@@ -36,10 +36,10 @@ Roles competencia: `Admin,SuperAdmin,JuezControl,Largador,Cronometrista,soporte_
 
 ```text
 TokenKey=<secreto-largo-aleatorio-64+chars>
-AllowedOrigins=https://sporttrack-fec.vercel.app,https://sigdef.vercel.app,https://oficialsporttrack.vercel.app
+AllowedOrigins=https://sporttrack.pro,https://www.sporttrack.pro,https://sigdef.vercel.app,https://sporttrack-fec.vercel.app
 ```
 
-(Localhost ya va hardcodeado en `Program.cs` para Dev.)
+(Localhost ya va hardcodeado en `Program.cs` para Dev. Dominio canónico del front: **https://sporttrack.pro**)
 
 2. **Redeploy** del API en Render **después** de guardar esas vars (o al menos `TokenKey` antes del primer arranque con este código).
 

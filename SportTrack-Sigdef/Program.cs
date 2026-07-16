@@ -61,8 +61,11 @@ var allowedOrigins = configOrigins.Concat(new[]
 {
     "http://localhost:3000",
     "http://localhost:5173",
-    "https://sporttrack-fec.vercel.app",
+    "https://sporttrack.pro",
+    "https://www.sporttrack.pro",
     "https://sigdef.vercel.app",
+    // Legacy Vercel (transición); preferir sporttrack.pro
+    "https://sporttrack-fec.vercel.app",
     "https://oficialsporttrack.vercel.app"
 }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 

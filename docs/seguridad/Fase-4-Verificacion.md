@@ -21,7 +21,7 @@ La API en Render ya está rechazando escrituras/CRUD anónimos. Falta confirmar 
 ## Checklist manual (vos)
 
 ### Público / Live
-- [ ] Abrir `https://sporttrack-fec.vercel.app/resultados/{idEvento}` sin login → carga
+- [ ] Abrir `https://sporttrack.pro/resultados/{idEvento}` sin login → carga
 - [ ] F12 Network: `.../hubs/timing/negotiate` → 200 (no `hubs/results`)
 - [ ] Con otra ventana: largar / cortar → Live se actualiza
 

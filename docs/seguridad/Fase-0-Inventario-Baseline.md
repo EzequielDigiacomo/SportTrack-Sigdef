@@ -133,9 +133,9 @@ Lecturas GET de `Clubes`, `Participantes`, `Inscripciones`, `Federaciones` tambi
 | Variable | Dónde | Valores conocidos |
 |----------|-------|-------------------|
 | API | Render | `https://sporttrack-sigdef.onrender.com` |
-| SportTrack-Front | Vercel | `https://sporttrack-fec.vercel.app` |
+| SportTrack-Front | Vercel / dominio | `https://sporttrack.pro` (antes `sporttrack-fec.vercel.app` / `oficialsporttrack.vercel.app`) |
 | FrontSigdef | Vercel | `https://sigdef.vercel.app` |
-| Landing ops | Vercel | `https://oficialsporttrack.vercel.app` (verificar si llama API) |
+| Landing ops | — | Integrada en sporttrack.pro / WebSPA |
 | Dev | local | `http://localhost:5173`, `http://localhost:3000` |
 | `AllowedOrigins` | Render (opcional hoy) | Leído pero **ignorado** por CORS permisivo |
 | `TokenKey` | Render (opcional hoy) | Si falta → fallback hardcodeado |
@@ -206,7 +206,7 @@ Completar L/J/A como “verde actual”. Los N son evidencia de riesgo; no “ar
 2. Setear `AllowedOrigins` con dominios reales (comma-separated), ej.:
 
 ```text
-https://sporttrack-fec.vercel.app,https://sigdef.vercel.app,https://oficialsporttrack.vercel.app
+https://sporttrack.pro,https://www.sporttrack.pro,https://sigdef.vercel.app,https://sporttrack-fec.vercel.app
 ```
 
 3. Redeploy API.  
