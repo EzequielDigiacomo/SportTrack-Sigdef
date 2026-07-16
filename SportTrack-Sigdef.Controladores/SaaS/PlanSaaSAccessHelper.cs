@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using SportTrack_Sigdef.Controladores.SaaS.Dtos;
 using SportTrack_Sigdef.Entidades.Entidades;
 
@@ -9,6 +11,7 @@ namespace SportTrack_Sigdef.Controladores.SaaS
         private static readonly int[] SigdefOnlyIds = { 1, 2, 3 };
         private static readonly int[] SportTrackOnlyIds = { 4, 5, 6 };
         private static readonly int[] PackDuoIds = { 7, 8, 9 };
+        private static readonly string[] JudgeRoles = { "Largador", "Cronometrista", "JuezControl" };
 
         public static PlanSaaSDto FromEntity(PlanSaaS plan)
         {
@@ -21,7 +24,10 @@ namespace SportTrack_Sigdef.Controladores.SaaS
                 MaxTorneosActivos = plan.MaxTorneosActivos,
                 ResultadosTiempoReal = plan.ResultadosTiempoReal,
                 ExportacionExcel = plan.ExportacionExcel,
-                SoportePrioritario = plan.SoportePrioritario
+                ExportacionPdf = plan.ExportacionPdf,
+                SoportePrioritario = plan.SoportePrioritario,
+                AccesoDashboardClub = plan.AccesoDashboardClub,
+                PermitirCargaImagenes = plan.PermitirCargaImagenes
             };
             ApplyAccessFlags(dto);
             return dto;
@@ -51,7 +57,8 @@ namespace SportTrack_Sigdef.Controladores.SaaS
 
             dto.AccesoSigdef = esSigdef || esPackDuo;
             dto.AccesoSportTrack = esSportTrack || esPackDuo;
-            dto.AccesoControlesLive = lower.EndsWith("(l)");
+            // Jueces solo Ecosistema ST/Dúo (L), no SIGDEF-only
+            dto.AccesoControlesLive = (esSportTrack || esPackDuo) && lower.EndsWith("(l)");
         }
 
         private static (bool sigdef, bool sporttrack, bool live)? ResolveByPlanId(int id)
@@ -59,10 +66,32 @@ namespace SportTrack_Sigdef.Controladores.SaaS
             if (PackDuoIds.Contains(id))
                 return (true, true, id == 9);
             if (SigdefOnlyIds.Contains(id))
-                return (true, false, id == 3);
+                // SIGDEF no tiene consolas juez (aunque sea L)
+                return (true, false, false);
             if (SportTrackOnlyIds.Contains(id))
                 return (false, true, id == 6);
             return null;
         }
+
+        public static bool CanCreateRole(PlanSaaSDto? plan, string? rol)
+        {
+            if (string.IsNullOrWhiteSpace(rol)) return false;
+            if (plan == null) return false;
+
+            if (string.Equals(rol, "Admin", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (string.Equals(rol, "Club", StringComparison.OrdinalIgnoreCase))
+                return plan.AccesoDashboardClub;
+
+            if (IsJudgeRole(rol))
+                return plan.AccesoControlesLive;
+
+            return true;
+        }
+
+        public static bool IsJudgeRole(string? rol) =>
+            !string.IsNullOrWhiteSpace(rol) &&
+            JudgeRoles.Any(r => string.Equals(r, rol, StringComparison.OrdinalIgnoreCase));
     }
 }
