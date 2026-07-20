@@ -180,5 +180,84 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
                             (i.Participante != null && i.Participante.IdClub == clubId || i.Tripulantes.Any(t => t.Participante != null && t.Participante.IdClub == clubId)))
                 .ToListAsync();
         }
+
+        public async Task<IEnumerable<Entidades.Entidades.Inscripcion>> GetRegistroAsync(
+            int? clubScope,
+            int? federacionScope,
+            int? eventoId,
+            int? clubIdFilter,
+            int? participanteId,
+            string? busqueda)
+        {
+            var query = _context.Inscripciones
+                .Include(i => i.Participante)
+                    .ThenInclude(p => p!.Club)
+                .Include(i => i.EventoPrueba)
+                    .ThenInclude(ep => ep.Evento)
+                .Include(i => i.EventoPrueba)
+                    .ThenInclude(ep => ep.Prueba)
+                        .ThenInclude(p => p.Categoria)
+                .Include(i => i.EventoPrueba)
+                    .ThenInclude(ep => ep.Prueba)
+                        .ThenInclude(p => p.Bote)
+                .Include(i => i.EventoPrueba)
+                    .ThenInclude(ep => ep.Prueba)
+                        .ThenInclude(p => p.Distancia)
+                .Include(i => i.EventoPrueba)
+                    .ThenInclude(ep => ep.Prueba)
+                        .ThenInclude(p => p.Sexo)
+                .Include(i => i.Tripulantes)
+                    .ThenInclude(t => t.Participante)
+                .AsNoTracking()
+                .AsQueryable();
+
+            if (clubScope.HasValue)
+            {
+                query = query.Where(i =>
+                    (i.Participante != null && i.Participante.IdClub == clubScope.Value) ||
+                    i.Tripulantes.Any(t => t.Participante != null && t.Participante.IdClub == clubScope.Value));
+            }
+            else if (federacionScope.HasValue)
+            {
+                query = query.Where(i =>
+                    i.Participante != null &&
+                    i.Participante.Club != null &&
+                    i.Participante.Club.IdFederacion == federacionScope.Value);
+            }
+
+            if (eventoId.HasValue)
+            {
+                query = query.Where(i => i.EventoPrueba.IdEvento == eventoId.Value);
+            }
+
+            if (clubIdFilter.HasValue)
+            {
+                query = query.Where(i =>
+                    i.Participante != null && i.Participante.IdClub == clubIdFilter.Value);
+            }
+
+            if (participanteId.HasValue)
+            {
+                query = query.Where(i => i.IdParticipante == participanteId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(busqueda))
+            {
+                var term = busqueda.Trim().ToLower();
+                query = query.Where(i =>
+                    (i.Participante != null && (
+                        i.Participante.Nombre.ToLower().Contains(term) ||
+                        i.Participante.Apellido.ToLower().Contains(term) ||
+                        (i.Participante.Documento != null && i.Participante.Documento.ToLower().Contains(term)))) ||
+                    (i.EventoPrueba.Evento.Nombre.ToLower().Contains(term)) ||
+                    (i.Participante != null && i.Participante.Club != null &&
+                        i.Participante.Club.Nombre.ToLower().Contains(term)));
+            }
+
+            return await query
+                .OrderByDescending(i => i.FechaInscripcion)
+                .ThenBy(i => i.Participante != null ? i.Participante.Apellido : string.Empty)
+                .ToListAsync();
+        }
     }
 }

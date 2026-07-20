@@ -142,5 +142,57 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
 
             return true;
         }
+
+        public async Task<IEnumerable<RegistroInscripcionDto>> GetRegistroInscripcionesAsync(
+            int? clubScope,
+            int? federacionScope,
+            int? eventoId,
+            int? clubIdFilter,
+            int? participanteId,
+            string? busqueda)
+        {
+            var inscripciones = await _inscripcionRepository.GetRegistroAsync(
+                clubScope,
+                federacionScope,
+                eventoId,
+                clubIdFilter,
+                participanteId,
+                busqueda);
+
+            return inscripciones.Select(MapToRegistroDto);
+        }
+
+        private static RegistroInscripcionDto MapToRegistroDto(Entidades.Entidades.Inscripcion i)
+        {
+            var prueba = i.EventoPrueba?.Prueba;
+            var pruebaNombre = prueba != null
+                ? $"{prueba.Categoria?.Nombre} {prueba.Bote?.Tipo} {prueba.Distancia?.Descripcion} {prueba.Sexo?.Nombre}".Trim()
+                : string.Empty;
+
+            return new RegistroInscripcionDto
+            {
+                Id = i.IdInscripcion,
+                ParticipanteId = i.IdParticipante ?? 0,
+                ParticipanteNombre = i.Participante != null
+                    ? $"{i.Participante.Nombre} {i.Participante.Apellido}".Trim()
+                    : string.Empty,
+                ParticipanteDocumento = i.Participante?.Documento,
+                ClubId = i.Participante?.IdClub,
+                ClubNombre = i.Participante?.Club?.Nombre,
+                EventoId = i.EventoPrueba?.IdEvento ?? 0,
+                EventoNombre = i.EventoPrueba?.Evento?.Nombre ?? string.Empty,
+                EventoPruebaId = i.IdEventoPrueba,
+                PruebaNombre = pruebaNombre,
+                FechaInscripcion = i.FechaInscripcion,
+                FechaInicioEvento = i.EventoPrueba?.Evento?.FechaInicio,
+                FechaFinEvento = i.EventoPrueba?.Evento?.FechaFin,
+                Estado = i.Estado.ToString(),
+                Pagado = i.Pagado,
+                TripulantesNombres = i.Tripulantes
+                    .Where(t => t.Participante != null)
+                    .Select(t => $"{t.Participante!.Nombre} {t.Participante.Apellido}".Trim())
+                    .ToList()
+            };
+        }
     }
 }

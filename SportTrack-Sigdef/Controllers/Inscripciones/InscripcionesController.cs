@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SportTrack_Sigdef.Controladores.Inscripcion;
 using SportTrack_Sigdef.Controladores.Inscripcion.Dtos;
+using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -18,6 +19,46 @@ namespace SportTrack_Sigdef.Controllers.Inscripciones
         public InscripcionesController(IInscripcionService inscripcionService)
         {
             _inscripcionService = inscripcionService;
+        }
+
+        private static int? ParseClaimId(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            return int.TryParse(value, out var id) && id > 0 ? id : null;
+        }
+
+        [HttpGet("registro")]
+        public async Task<ActionResult<IEnumerable<RegistroInscripcionDto>>> GetRegistro(
+            [FromQuery] int? eventoId,
+            [FromQuery] int? clubId,
+            [FromQuery] int? participanteId,
+            [FromQuery] string? busqueda)
+        {
+            var userClubId = ParseClaimId(User.FindFirst("ClubId")?.Value);
+            var federacionId = ParseClaimId(User.FindFirst("FederacionId")?.Value);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            int? clubScope = null;
+            int? federacionScope = null;
+
+            if (string.Equals(role, "Club", StringComparison.OrdinalIgnoreCase))
+            {
+                clubScope = userClubId;
+            }
+            else if (string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase))
+            {
+                federacionScope = federacionId;
+            }
+
+            var result = await _inscripcionService.GetRegistroInscripcionesAsync(
+                clubScope,
+                federacionScope,
+                eventoId,
+                clubScope.HasValue ? null : clubId,
+                participanteId,
+                busqueda);
+
+            return Ok(result);
         }
 
         [HttpGet]
