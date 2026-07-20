@@ -18,5 +18,13 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
         
         Task<IEnumerable<Entidades.Entidades.Inscripcion>> GetByEventoPruebaIdAsync(int eventoPruebaId);
         Task<IEnumerable<Entidades.Entidades.Inscripcion>> GetByEventoAndClubAsync(int eventoId, int clubId);
+
+        Task<IEnumerable<Entidades.Entidades.Inscripcion>> GetRegistroAsync(
+            int? clubScope,
+            int? federacionScope,
+            int? eventoId,
+            int? clubIdFilter,
+            int? participanteId,
+            string? busqueda);
     }
 }
