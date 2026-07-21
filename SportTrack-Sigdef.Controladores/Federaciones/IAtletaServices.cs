@@ -10,6 +10,7 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
         Task<IActionResult> DeleteAtleta(int id);
         Task<ActionResult<AtletaDetailDto>> GetAtleta(int id);
         Task<ActionResult<IEnumerable<AtletaDetailDto>>> GetAtletas();
+        Task<ActionResult<IEnumerable<AtletaDetailDto>>> GetAtletasByClub(int clubId);
         Task<ActionResult<PagedResponseDto<AtletaListDto>>> GetAtletasPaginadosAsync(PaginationParamsDto parameters);
         Task<ActionResult<AtletaDto>> PostAtleta(AtletaCreateDto atletaCreateDto);
         Task<ActionResult<AtletaDto>> PostAtletaFull(AtletaFullCreateDto atletaFullCreateDto);

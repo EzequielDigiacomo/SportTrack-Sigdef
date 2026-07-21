@@ -123,6 +123,107 @@ namespace SportTrack_Sigdef.Controladores.Services
         }
 
         // -------------------------------------------------
+        // GET: Obtener atletas federados de un club
+        // -------------------------------------------------
+        public async Task<ActionResult<IEnumerable<AtletaDetailDto>>> GetAtletasByClub(int clubId)
+        {
+            try
+            {
+                if (clubId <= 0)
+                {
+                    return new BadRequestObjectResult("clubId inválido.");
+                }
+
+                // Un usuario de club solo puede consultar su propio club.
+                var tenantClubId = _tenantProvider.GetClubId();
+                if (tenantClubId.HasValue && tenantClubId.Value != clubId)
+                {
+                    return new ObjectResult(new { message = "No autorizado a consultar atletas de otro club." })
+                    {
+                        StatusCode = 403
+                    };
+                }
+
+                var query = _context.AtletasFederados
+                    .AsNoTracking()
+                    .Where(a => a.IdClub == clubId);
+
+                var fedId = _tenantProvider.GetFederacionId();
+                if (fedId.HasValue)
+                {
+                    query = query.Where(a => a.IdFederacion == fedId.Value);
+                }
+
+                var atletas = await query
+                    .Include(a => a.Participante)
+                        .ThenInclude(p => p.Categoria)
+                    .Include(a => a.Club)
+                    .Include(a => a.Inscripciones)
+                        .ThenInclude(i => i.EventoPrueba)
+                    .Include(a => a.Tutores)
+                        .ThenInclude(at => at.TutorFederacion)
+                        .ThenInclude(t => t.Participante)
+                    .Select(a => new AtletaDetailDto
+                    {
+                        ParticipanteId = a.ParticipanteId,
+                        IdClub = a.IdClub,
+                        EstadoPago = a.EstadoPago,
+                        PerteneceSeleccion = a.PerteneceSeleccion,
+                        Categoria = a.Categoria,
+                        CategoriaId = a.Participante.CategoriaId,
+                        CategoriaNombre = a.Participante.Categoria != null
+                            ? a.Participante.Categoria.Nombre
+                            : null,
+                        BecadoEnard = a.BecadoEnard,
+                        BecadoSdn = a.BecadoSdn,
+                        MontoBeca = a.MontoBeca,
+                        PresentoAptoMedico = a.PresentoAptoMedico,
+                        FechaAptoMedico = a.FechaAptoMedico,
+                        FechaCreacion = a.FechaCreacion,
+                        Participante = new PersonaDto
+                        {
+                            ParticipanteId = a.Participante.ParticipanteId,
+                            Nombre = a.Participante.Nombre,
+                            Apellido = a.Participante.Apellido,
+                            Documento = a.Participante.Dni,
+                            FechaNacimiento = a.Participante.FechaNacimiento,
+                            Email = a.Participante.Email,
+                            Telefono = a.Participante.Telefono,
+                            Direccion = a.Participante.Direccion
+                        },
+                        Club = a.Club != null ? new ClubDto
+                        {
+                            IdClub = a.Club.IdClub,
+                            Nombre = a.Club.Nombre,
+                            Siglas = a.Club.Siglas
+                        } : null,
+                        Inscripciones = a.Inscripciones.Select(i => new InscripcionDto
+                        {
+                            IdInscripcion = i.IdInscripcion,
+                            IdEvento = i.IdEventoPrueba,
+                            FechaInscripcion = i.FechaInscripcion,
+                        }).ToList(),
+                        Tutores = a.Tutores.Select(at => new AtletaTutorDto
+                        {
+                            ParticipanteId = at.IdAtleta,
+                            IdTutor = at.IdTutor,
+                            Parentesco = at.Parentesco,
+                            NombreTutor = (at.TutorFederacion != null && at.TutorFederacion.Participante != null)
+                                ? at.TutorFederacion.Participante.Nombre + " " + at.TutorFederacion.Participante.Apellido
+                                : "TutorFederacion no encontrado"
+                        }).ToList()
+                    })
+                    .ToListAsync();
+
+                return new OkObjectResult(atletas);
+            }
+            catch (Exception)
+            {
+                return new StatusCodeResult(500);
+            }
+        }
+
+        // -------------------------------------------------
         // GET: Obtener AtletasFederados paginados
         // -------------------------------------------------
         public async Task<ActionResult<PagedResponseDto<AtletaListDto>>> GetAtletasPaginadosAsync(PaginationParamsDto parameters)
