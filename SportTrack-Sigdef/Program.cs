@@ -61,6 +61,12 @@ var allowedOrigins = configOrigins.Concat(new[]
 {
     "http://localhost:3000",
     "http://localhost:5173",
+    "http://localhost:5174",
+    // Capacitor Android (androidScheme: https)
+    "https://localhost",
+    "http://localhost",
+    "capacitor://localhost",
+    "ionic://localhost",
     "https://sporttrack.pro",
     "https://www.sporttrack.pro",
     "https://sigdef.vercel.app",
