@@ -32,6 +32,8 @@ namespace SportTrack_Sigdef.AccesoDatos
         public DbSet<RolFederacion> Roles { get; set; }
         public DbSet<DocumentacionFederacionPersona> DocumentacionPersonas { get; set; }
         public DbSet<PagoFederacionTransaccion> PagosTransacciones { get; set; }
+        public DbSet<PeriodoTraspaso> PeriodosTraspaso { get; set; }
+        public DbSet<SolicitudTraspaso> SolicitudesTraspaso { get; set; }
 
         // Tablas Principales
         public DbSet<Evento> Eventos { get; set; }
@@ -114,6 +116,50 @@ namespace SportTrack_Sigdef.AccesoDatos
             modelBuilder.Entity<RolFederacion>(entity => { entity.ToTable("Roles", "federacion"); });
             modelBuilder.Entity<DocumentacionFederacionPersona>(entity => { entity.ToTable("DocumentacionPersonas", "federacion"); });
             modelBuilder.Entity<PagoFederacionTransaccion>(entity => { entity.ToTable("PagosTransacciones", "federacion"); });
+
+            modelBuilder.Entity<PeriodoTraspaso>(entity =>
+            {
+                entity.ToTable("PeriodosTraspaso", "federacion");
+                entity.HasKey(e => e.IdPeriodoTraspaso);
+                entity.Property(e => e.Observaciones).HasMaxLength(500);
+                entity.HasOne(e => e.Federacion)
+                    .WithMany()
+                    .HasForeignKey(e => e.IdFederacion)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasIndex(e => new { e.IdFederacion, e.Activo, e.FechaInicio, e.FechaFin })
+                    .HasDatabaseName("IX_PeriodosTraspaso_Federacion_Activo_Fechas");
+            });
+
+            modelBuilder.Entity<SolicitudTraspaso>(entity =>
+            {
+                entity.ToTable("SolicitudesTraspaso", "federacion");
+                entity.HasKey(e => e.IdSolicitudTraspaso);
+                entity.Property(e => e.Estado)
+                    .HasConversion(new EstadoSolicitudTraspasoEnumConverter())
+                    .HasMaxLength(30);
+                entity.Property(e => e.MotivoSolicitud).HasMaxLength(500);
+                entity.Property(e => e.MotivoRechazo).HasMaxLength(500);
+                entity.HasOne(e => e.Federacion)
+                    .WithMany()
+                    .HasForeignKey(e => e.IdFederacion)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(e => e.Participante)
+                    .WithMany()
+                    .HasForeignKey(e => e.ParticipanteId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.ClubOrigen)
+                    .WithMany()
+                    .HasForeignKey(e => e.IdClubOrigen)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.ClubDestino)
+                    .WithMany()
+                    .HasForeignKey(e => e.IdClubDestino)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasIndex(e => new { e.ParticipanteId, e.Estado })
+                    .HasDatabaseName("IX_SolicitudesTraspaso_Participante_Estado");
+                entity.HasIndex(e => e.IdFederacion)
+                    .HasDatabaseName("IX_SolicitudesTraspaso_Federacion");
+            });
 
 
             // Tabla: Sexo
@@ -946,6 +992,16 @@ namespace SportTrack_Sigdef.AccesoDatos
                 : base(
                     v => v.ToString(),
                     v => (EstadoResultadoEnum)Enum.Parse(typeof(EstadoResultadoEnum), v)
+                )
+            { }
+        }
+
+        public class EstadoSolicitudTraspasoEnumConverter : ValueConverter<EstadoSolicitudTraspaso, string>
+        {
+            public EstadoSolicitudTraspasoEnumConverter()
+                : base(
+                    v => v.ToString(),
+                    v => (EstadoSolicitudTraspaso)Enum.Parse(typeof(EstadoSolicitudTraspaso), v)
                 )
             { }
         }

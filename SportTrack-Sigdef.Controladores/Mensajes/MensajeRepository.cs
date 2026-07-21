@@ -117,5 +117,38 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 m.LeidoEn == null &&
                 !m.EliminadoPorDestinatario &&
                 m.Hilo.SistemaOrigen == sistemaOrigen);
+
+        public async Task<Usuario?> GetEmisorNotificacionFederacionAsync(int idFederacion)
+        {
+            var admin = await _context.Usuarios
+                .AsNoTracking()
+                .Where(u => u.EstaActivo
+                    && u.RolFederacion == "Admin"
+                    && u.IdFederacion == idFederacion)
+                .OrderBy(u => u.IdUsuario)
+                .FirstOrDefaultAsync();
+
+            if (admin != null) return admin;
+
+            return await _context.Usuarios
+                .AsNoTracking()
+                .Where(u => u.EstaActivo && u.RolFederacion == "SuperAdmin")
+                .OrderBy(u => u.IdUsuario)
+                .FirstOrDefaultAsync();
+        }
+
+        public Task<List<Usuario>> GetUsuariosActivosByClubAsync(int clubId) =>
+            _context.Usuarios
+                .AsNoTracking()
+                .Where(u => u.EstaActivo && u.IdClub == clubId)
+                .ToListAsync();
+
+        public Task<List<Usuario>> GetUsuariosAdminByFederacionAsync(int idFederacion) =>
+            _context.Usuarios
+                .AsNoTracking()
+                .Where(u => u.EstaActivo
+                    && u.RolFederacion == "Admin"
+                    && u.IdFederacion == idFederacion)
+                .ToListAsync();
     }
 }

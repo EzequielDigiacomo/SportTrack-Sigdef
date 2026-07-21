@@ -98,7 +98,11 @@ namespace SportTrack_Sigdef.Controllers.Inscripciones
         [Authorize]
         public async Task<IActionResult> DeleteInscripcion(int id)
         {
-            await _inscripcionService.DeleteInscripcionAsync(id);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            var allowWhenClosed = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(role, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+            await _inscripcionService.DeleteInscripcionAsync(id, allowWhenClosed);
             return NoContent();
         }
 

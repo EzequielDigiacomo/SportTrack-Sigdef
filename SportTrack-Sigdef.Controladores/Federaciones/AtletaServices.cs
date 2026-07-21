@@ -10,6 +10,7 @@ using SportTrack_Sigdef.Entidades.DTOs.Base;
 using SportTrack_Sigdef.Entidades.DTOs.Club;
 using SportTrack_Sigdef.Entidades.DTOs.Inscripcion;
 using SportTrack_Sigdef.Entidades.DTOs.Participante;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -523,6 +524,19 @@ namespace SportTrack_Sigdef.Controladores.Services
                     }
                 }
 
+                var rol = _tenantProvider.GetRol();
+                var esRolClub = string.Equals(rol, "Club", StringComparison.OrdinalIgnoreCase);
+                var clubAnterior = AtletaFederacion.IdClub;
+                var cambiaClub = atletaCreateDto.IdClub != clubAnterior;
+
+                if (esRolClub && cambiaClub)
+                {
+                    return new BadRequestObjectResult(new
+                    {
+                        error = "Los traspasos de club deben gestionarse mediante POST /api/Traspaso."
+                    });
+                }
+
                 // Convertir fecha apto médico a UTC
                 DateTime? fechaAptoMedicoUtc = null;
                 if (atletaCreateDto.FechaAptoMedico.HasValue)
@@ -540,6 +554,21 @@ namespace SportTrack_Sigdef.Controladores.Services
                 AtletaFederacion.MontoBeca = atletaCreateDto.MontoBeca;
                 AtletaFederacion.PresentoAptoMedico = atletaCreateDto.PresentoAptoMedico;
                 AtletaFederacion.FechaAptoMedico = fechaAptoMedicoUtc;
+
+                if (cambiaClub && atletaCreateDto.IdClub.HasValue)
+                {
+                    var participante = await _context.Participantes.FindAsync(id);
+                    if (participante != null)
+                    {
+                        participante.IdClub = atletaCreateDto.IdClub;
+                    }
+
+                    await _auditService.RegistrarAccionAsync(
+                        "TRASPASO_ADMIN_DIRECTO",
+                        $"Admin cambió club atleta {id}: {clubAnterior} → {atletaCreateDto.IdClub}",
+                        null,
+                        "Traspasos");
+                }
 
                 await _context.SaveChangesAsync();
 

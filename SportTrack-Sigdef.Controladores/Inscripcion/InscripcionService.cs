@@ -2,6 +2,7 @@ using AutoMapper;
 using SportTrack_Sigdef.Controladores.Inscripcion.Dtos;
 using SportTrack_Sigdef.Controladores.Inscripcion;
 using SportTrack_Sigdef.Entidades.Entidades;
+using SportTrack_Sigdef.Entidades.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -81,10 +82,18 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
             return _mapper.Map<InscripcionDto>(updatedInscripcion);
         }
 
-        public async Task<bool> DeleteInscripcionAsync(int id)
+        public async Task<bool> DeleteInscripcionAsync(int id, bool allowWhenClosed = false)
         {
-            if (!await _inscripcionRepository.ExistsAsync(id))
+            var inscripcion = await _inscripcionRepository.GetByIdAsync(id);
+            if (inscripcion == null)
                 throw new NotFoundException($"Inscripción con ID {id} no encontrada");
+
+            if (!allowWhenClosed)
+            {
+                var evento = inscripcion.EventoPrueba?.Evento;
+                if (evento != null && !EventoPermiteModificarInscripciones(evento))
+                    throw new BadRequestException("Las inscripciones están cerradas para este evento. No se puede eliminar la inscripción.");
+            }
 
             var res = await _inscripcionRepository.DeleteAsync(id);
             
@@ -95,6 +104,20 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
             }
 
             return res;
+        }
+
+        private static bool EventoPermiteModificarInscripciones(SportTrack_Sigdef.Entidades.Entidades.Evento evento)
+        {
+            if (!evento.InscripcionesHabilitadas)
+                return false;
+
+            if (evento.Estado != EstadoEventoEnum.Programada)
+                return false;
+
+            if (evento.FechaFinInscripciones.HasValue && DateTime.UtcNow > evento.FechaFinInscripciones.Value)
+                return false;
+
+            return true;
         }
 
         public async Task<int> GetCountByEventoPruebaIdAsync(int eventoPruebaId)
