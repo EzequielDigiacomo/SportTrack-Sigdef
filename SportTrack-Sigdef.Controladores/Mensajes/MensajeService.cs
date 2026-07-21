@@ -252,6 +252,56 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             return await _repository.CountNoLeidosAsync(usuario.IdUsuario, sistemaOrigen);
         }
 
+        public async Task EnviarNotificacionAutomaticaAsync(
+            int idFederacion,
+            IEnumerable<int> destinatarioIds,
+            string asunto,
+            string cuerpo,
+            string sistemaOrigen = MensajeriaSistemaOrigen.Sigdef)
+        {
+            var emisor = await _repository.GetEmisorNotificacionFederacionAsync(idFederacion);
+            if (emisor == null) return;
+
+            ValidarContenido(asunto, cuerpo);
+
+            var ids = destinatarioIds
+                .Where(id => id > 0 && id != emisor.IdUsuario)
+                .Distinct()
+                .ToList();
+
+            if (ids.Count == 0) return;
+
+            var destinatarios = await _repository.GetUsuariosByIdsAsync(ids);
+            var activos = destinatarios.Where(d => d.EstaActivo).ToList();
+            if (activos.Count == 0) return;
+
+            var ahora = DateTime.UtcNow;
+            foreach (var destinatario in activos)
+            {
+                var hilo = new Hilo
+                {
+                    Asunto = asunto.Trim(),
+                    SistemaOrigen = sistemaOrigen,
+                    CreadoEn = ahora,
+                    UltimoMensajeEn = ahora
+                };
+
+                var mensaje = new Mensaje
+                {
+                    Hilo = hilo,
+                    RemitenteId = emisor.IdUsuario,
+                    DestinatarioId = destinatario.IdUsuario,
+                    Cuerpo = cuerpo.Trim(),
+                    EnviadoEn = ahora
+                };
+
+                await _repository.AddHiloAsync(hilo);
+                await _repository.AddMensajeAsync(mensaje);
+            }
+
+            await _repository.SaveChangesAsync();
+        }
+
         private async Task<Usuario> RequireUsuarioAsync(string username)
         {
             if (string.IsNullOrWhiteSpace(username))

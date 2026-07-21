@@ -10,7 +10,7 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
         Task<InscripcionDto> GetInscripcionByIdAsync(int id);
         Task<InscripcionDto> CreateInscripcionAsync(InscripcionCreateDto inscripcionDto);
         Task<InscripcionDto> UpdateInscripcionAsync(int id, InscripcionUpdateDto inscripcionDto);
-        Task<bool> DeleteInscripcionAsync(int id);
+        Task<bool> DeleteInscripcionAsync(int id, bool allowWhenClosed = false);
         Task<int> GetCountByEventoPruebaIdAsync(int eventoPruebaId);
         Task<IEnumerable<InscripcionDto>> GetInscripcionesByEventoPruebaIdAsync(int eventoPruebaId);
         Task<IEnumerable<InscripcionDto>> GetInscripcionesByEventoAndClubAsync(int eventoId, int clubId);

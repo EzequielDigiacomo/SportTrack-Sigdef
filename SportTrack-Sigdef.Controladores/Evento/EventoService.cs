@@ -15,22 +15,30 @@ namespace SportTrack_Sigdef.Controladores.Evento
         private readonly IEventoRepository _eventoRepository;
         private readonly IMapper _mapper;
         private readonly Audit.IAuditService _auditService;
+        private readonly IEventoEstadoSyncService _estadoSyncService;
 
-        public EventoService(IEventoRepository eventoRepository, IMapper mapper, Audit.IAuditService auditService)
+        public EventoService(
+            IEventoRepository eventoRepository,
+            IMapper mapper,
+            Audit.IAuditService auditService,
+            IEventoEstadoSyncService estadoSyncService)
         {
             _eventoRepository = eventoRepository;
             _mapper = mapper;
             _auditService = auditService;
+            _estadoSyncService = estadoSyncService;
         }
 
         public async Task<IEnumerable<EventoDto>> GetAllEventosAsync(int? clubId = null, string? rol = null)
         {
+            await _estadoSyncService.SyncAllAsync();
             var eventos = await _eventoRepository.GetAllAsync(clubId, rol);
             return _mapper.Map<IEnumerable<EventoDto>>(eventos);
         }
 
         public async Task<EventoDto> GetEventoByIdAsync(int id)
         {
+            await _estadoSyncService.SyncEventoAsync(id);
             var evento = await _eventoRepository.GetByIdAsync(id);
             if (evento == null) throw new NotFoundException($"Evento con ID {id} no encontrado");
             return _mapper.Map<EventoDto>(evento);
@@ -124,6 +132,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
         }
         public async Task<IEnumerable<EventoDto>> GetProximosEventosAsync(int? clubId = null, string? rol = null)
         {
+            await _estadoSyncService.SyncAllAsync();
             var eventos = await _eventoRepository.GetProximosAsync(clubId, rol);
             return _mapper.Map<IEnumerable<EventoDto>>(eventos);
         }

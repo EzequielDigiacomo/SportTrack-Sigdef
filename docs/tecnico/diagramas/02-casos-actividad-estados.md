@@ -75,6 +75,9 @@ flowchart TD
 
 ## 3. Estados (persistidos / runtime)
 
+Documentación completa SportTrack (evento, fases, resultados, inscripciones):  
+[../estados-eventos-fases-sporttrack.md](../estados-eventos-fases-sporttrack.md)
+
 ### Usuario
 
 ```mermaid
@@ -84,13 +87,47 @@ stateDiagram-v2
     Inactivo --> Activo
 ```
 
-### Fase
+### Evento (SportTrack)
+
+Sync **automático** por fechas + override **manual** admin. `Cancelado` no se toca.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Programada
-    Programada --> EnCurso
-    EnCurso --> Finalizada
+    Programada --> EnCurso: fecha/hora inicio (auto o manual)
+    EnCurso --> Finalizado: fin del día FechaFin (auto o manual)
+    Programada --> Finalizado: evento ya terminó
+    Programada --> Cancelado: admin
+    EnCurso --> Cancelado: admin
+```
+
+### Fase (serie / carrera)
+
+Sync **manual** vía jueces (API `/api/fases/{id}/...`).
+
+```mermaid
+stateDiagram-v2
+    [*] --> Programada
+    Programada --> EnCarrera: Iniciar (largador)
+    EnCarrera --> Finalizada: Finalizar (cronometrista)
+    EnCarrera --> PendienteValidacion: EnviarARevision
+    Programada --> Programada: Reiniciar
+    EnCarrera --> Programada: Reiniciar
+    Finalizada --> Programada: Reiniciar
+    PendienteValidacion --> Programada: Reiniciar
+```
+
+### Resultado (por carril)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pendiente
+    Pendiente --> Preliminar: EnviarARevision
+    Preliminar --> Oficial: Finalizar fase
+    Pendiente --> Oficial: Finalizar fase con tiempo
+    Pendiente --> DSQ: carga manual
+    Pendiente --> DNS: carga manual
+    Pendiente --> DNF: carga manual
 ```
 
 ### Hilo/Mensaje

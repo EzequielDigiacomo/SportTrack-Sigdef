@@ -180,6 +180,8 @@ builder.Services.AddScoped<IParticipanteRepository, ParticipanteRepository>();
 // Eventos
 builder.Services.AddScoped<IEventoService, EventoService>();
 builder.Services.AddScoped<IEventoRepository, EventoRepository>();
+builder.Services.AddScoped<IEventoEstadoSyncService, EventoEstadoSyncService>();
+builder.Services.AddHostedService<EventoEstadoBackgroundService>();
 // Fases y Resultados
 builder.Services.AddScoped<IEtapaRepository, EtapaRepository>();
 builder.Services.AddScoped<IFaseRepository, FaseRepository>();
@@ -218,6 +220,8 @@ builder.Services.AddScoped<IPruebaServices, PruebaServices>();
 builder.Services.AddScoped<IRolServices, RolServices>();
 builder.Services.AddScoped<ITutorServices, TutorServices>();
 builder.Services.AddScoped<IUsuarioServices, UsuarioServices>();
+builder.Services.AddScoped<ITraspasoService, TraspasoService>();
+builder.Services.AddScoped<ITraspasoNotificacionService, TraspasoNotificacionService>();
 
 // Documentación (Cloudinary + fallback local)
 builder.Services.Configure<CloudinarySettings>(options =>
@@ -322,6 +326,11 @@ using (var scope = app.Services.CreateScope())
             {
                 Console.WriteLine("Base de datos al día (sin migraciones pendientes).");
             }
+
+            var estadoSync = services.GetRequiredService<IEventoEstadoSyncService>();
+            var syncCount = await estadoSync.SyncAllAsync();
+            if (syncCount > 0)
+                Console.WriteLine($"Estados de eventos sincronizados al arranque: {syncCount}.");
         }
     }
     catch (Exception ex)

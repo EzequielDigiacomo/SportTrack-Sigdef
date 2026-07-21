@@ -1,4 +1,5 @@
 using SportTrack_Sigdef.Controladores.Mensajes.Dtos;
+using SportTrack_Sigdef.Entidades.Entidades;
 
 namespace SportTrack_Sigdef.Controladores.Mensajes
 {
@@ -13,5 +14,15 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
         Task<HiloDetalleDto> ResponderHiloAsync(int hiloId, ResponderHiloDto dto, string username, string sistemaOrigen);
         Task MarcarHiloLeidoAsync(int hiloId, string username, string sistemaOrigen);
         Task<int> GetNoLeidosCountAsync(string username, string sistemaOrigen);
+
+        /// <summary>
+        /// Notificación automática del sistema (sin validar permisos de mensajería entre roles).
+        /// </summary>
+        Task EnviarNotificacionAutomaticaAsync(
+            int idFederacion,
+            IEnumerable<int> destinatarioIds,
+            string asunto,
+            string cuerpo,
+            string sistemaOrigen = MensajeriaSistemaOrigen.Sigdef);
     }
 }
