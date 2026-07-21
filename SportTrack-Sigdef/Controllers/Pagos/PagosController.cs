@@ -92,6 +92,32 @@ namespace SportTrack_Sigdef.Controllers.Pagos
             if (!result) return BadRequest("No se pudo actualizar el estado de pago de la inscripción");
             return NoContent();
         }
+
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> EliminarPago(int id)
+        {
+            var username = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                           ?? User.FindFirst(ClaimTypes.Name)?.Value
+                           ?? "System";
+
+            var result = await _pagoService.EliminarPagoAsync(id, username);
+            if (!result) return BadRequest("No se pudo eliminar el recibo");
+            return NoContent();
+        }
+
+        [HttpDelete("bulk")]
+        public async Task<IActionResult> EliminarPagos([FromBody] List<int> ids)
+        {
+            if (ids == null || ids.Count == 0)
+                return BadRequest("Debés seleccionar al menos un recibo.");
+
+            var username = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                           ?? User.FindFirst(ClaimTypes.Name)?.Value
+                           ?? "System";
+
+            var deleted = await _pagoService.EliminarPagosAsync(ids, username);
+            return Ok(new { eliminados = deleted });
+        }
     }
 }
 
