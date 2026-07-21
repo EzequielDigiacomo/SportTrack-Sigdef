@@ -276,5 +276,54 @@ namespace SportTrack_Sigdef.Controladores.Pago
 
             return result;
         }
+
+        public async Task<bool> EliminarPagoAsync(int pagoId, string eliminadoPor)
+        {
+            var pago = await _context.Pagos
+                .Include(p => p.Club)
+                .Include(p => p.Participante)
+                .FirstOrDefaultAsync(p => p.Id == pagoId);
+
+            if (pago == null) throw new NotFoundException($"Pago con ID {pagoId} no encontrado");
+
+            var detalle =
+                $"Se eliminó el recibo #{pago.Id} ({pago.TipoPago}) por ${pago.Monto}" +
+                (pago.Club != null ? $" — Club '{pago.Club.Nombre}'" : "") +
+                (pago.Participante != null ? $" — Atleta '{pago.Participante.Nombre} {pago.Participante.Apellido}'" : "") +
+                $" (Ref: {pago.Referencia}).";
+
+            _context.Pagos.Remove(pago);
+            var result = await _context.SaveChangesAsync() > 0;
+
+            if (result)
+            {
+                await _auditService.RegistrarAccionAsync("ELIMINAR_PAGO", detalle, eliminadoPor, "Pagos");
+            }
+
+            return result;
+        }
+
+        public async Task<int> EliminarPagosAsync(IEnumerable<int> pagoIds, string eliminadoPor)
+        {
+            var ids = pagoIds?.Distinct().ToList() ?? new List<int>();
+            if (ids.Count == 0) return 0;
+
+            var pagos = await _context.Pagos
+                .Where(p => ids.Contains(p.Id))
+                .ToListAsync();
+
+            if (pagos.Count == 0) return 0;
+
+            _context.Pagos.RemoveRange(pagos);
+            await _context.SaveChangesAsync();
+
+            await _auditService.RegistrarAccionAsync(
+                "ELIMINAR_PAGOS",
+                $"Se eliminaron {pagos.Count} recibo(s): {string.Join(", ", pagos.Select(p => $"#{p.Id}"))}.",
+                eliminadoPor,
+                "Pagos");
+
+            return pagos.Count;
+        }
     }
 }
