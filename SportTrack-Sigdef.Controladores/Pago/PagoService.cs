@@ -48,11 +48,13 @@ namespace SportTrack_Sigdef.Controladores.Pago
 
             if (role == "Admin" && fedId.HasValue)
             {
-                // 1. Pagos de clubes hijos de la federación (IdFederacion == fedId)
-                // 2. Pagos de atletas cuyos clubes pertenecen a la federación
-                // 3. Inscripciones en eventos organizados por la federación (Evento.IdFederacion == fedId)
+                // 1. Pagos de clubes hijos de la federación
+                // 2. Pagos de atletas federados en esa federación (o club de la federación)
+                // 3. Inscripciones en eventos de la federación
                 query = query.Where(p =>
                     (p.Club != null && p.Club.IdFederacion == fedId.Value) ||
+                    (p.ParticipanteId != null && _context.AtletasFederados.Any(af =>
+                        af.ParticipanteId == p.ParticipanteId && af.IdFederacion == fedId.Value)) ||
                     (p.Participante != null && p.Participante.Club != null && p.Participante.Club.IdFederacion == fedId.Value) ||
                     (p.Inscripcion != null && p.Inscripcion.EventoPrueba != null && p.Inscripcion.EventoPrueba.Evento != null && p.Inscripcion.EventoPrueba.Evento.IdFederacion == fedId.Value)
                 );
