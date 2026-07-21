@@ -13,11 +13,14 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             _context = context;
         }
 
-        public Task<Usuario?> GetUsuarioByUsernameAsync(string username) =>
-            _context.Usuarios
+        public Task<Usuario?> GetUsuarioByUsernameAsync(string username)
+        {
+            var normalized = (username ?? string.Empty).Trim().ToLower();
+            return _context.Usuarios
                 .Include(u => u.Club)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Username == username);
+                .FirstOrDefaultAsync(u => u.Username.ToLower() == normalized);
+        }
 
         public Task<Usuario?> GetUsuarioByIdAsync(int id) =>
             _context.Usuarios
@@ -149,6 +152,13 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 .Where(u => u.EstaActivo
                     && u.RolFederacion == "Admin"
                     && u.IdFederacion == idFederacion)
+                .ToListAsync();
+
+        public Task<List<Usuario>> GetUsuariosSuperAdminAsync() =>
+            _context.Usuarios
+                .AsNoTracking()
+                .Where(u => u.EstaActivo && u.RolFederacion == "SuperAdmin")
+                .OrderBy(u => u.IdUsuario)
                 .ToListAsync();
     }
 }

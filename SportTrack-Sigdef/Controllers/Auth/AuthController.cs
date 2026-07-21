@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using SportTrack_Sigdef.Controladores.Auth;
 using SportTrack_Sigdef.Controladores.Auth.Dtos;
+using SportTrack_Sigdef.Controladores.Mensajes;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -15,10 +16,12 @@ namespace SportTrack_Sigdef.Controllers.Auth
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly IMensajeService _mensajeService;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, IMensajeService mensajeService)
         {
             _authService = authService;
+            _mensajeService = mensajeService;
         }
 
         [HttpPost("login")]
@@ -52,6 +55,22 @@ namespace SportTrack_Sigdef.Controllers.Auth
                 SameSite = Request.IsHttps ? SameSiteMode.None : SameSiteMode.Lax
             });
             return Ok(new { message = "Sesión cerrada correctamente" });
+        }
+
+        /// <summary>
+        /// Solicita al Admin de la federación del usuario (MD) que restablezca la contraseña.
+        /// </summary>
+        [HttpPost("solicitar-reset-password")]
+        [AllowAnonymous]
+        [EnableRateLimiting("auth")]
+        public async Task<ActionResult> SolicitarResetPassword([FromBody] SolicitarResetPasswordDto dto)
+        {
+            var clientApp = Request.Headers["X-Client-App"].FirstOrDefault() ?? "sigdef";
+            await _mensajeService.SolicitarResetPasswordAsync(dto?.Username ?? string.Empty, dto?.Nota, clientApp);
+            return Ok(new
+            {
+                message = "Si el usuario existe, se envió un mensaje al administrador de su federación para restablecer la contraseña."
+            });
         }
 
         /// <summary>Alta de usuarios solo desde panel admin (JWT). Nunca SuperAdmin vía API.</summary>

@@ -16,6 +16,11 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
         Task<int> GetNoLeidosCountAsync(string username, string sistemaOrigen);
 
         /// <summary>
+        /// Desde login (sin sesión): notifica al Admin de la misma federación del usuario.
+        /// </summary>
+        Task SolicitarResetPasswordAsync(string username, string? nota, string sistemaOrigen);
+
+        /// <summary>
         /// Notificación automática del sistema (sin validar permisos de mensajería entre roles).
         /// </summary>
         Task EnviarNotificacionAutomaticaAsync(
