@@ -28,8 +28,15 @@ namespace SIGDEF.API.Controllers
             return await _atletaServices.GetAtletas();
         }
 
+        // GET: api/Atleta/club/5  (antes de {id} para no confiar solo en el constraint int)
+        [HttpGet("club/{clubId:int}")]
+        public async Task<ActionResult<IEnumerable<AtletaDetailDto>>> GetAtletasByClub(int clubId)
+        {
+            return await _atletaServices.GetAtletasByClub(clubId);
+        }
+
         // GET: api/Atleta/5
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         public async Task<ActionResult<AtletaDetailDto>> GetAtleta(int id)
         {
             return await _atletaServices.GetAtleta(id);
