@@ -66,4 +66,10 @@
         public string? Telefono { get; set; }
         public string? Email { get; set; }
     }
+
+    public class SolicitarResetPasswordDto
+    {
+        public string Username { get; set; } = string.Empty;
+        public string? Nota { get; set; }
+    }
 }

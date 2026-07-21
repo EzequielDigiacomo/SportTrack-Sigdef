@@ -252,6 +252,98 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             return await _repository.CountNoLeidosAsync(usuario.IdUsuario, sistemaOrigen);
         }
 
+        public async Task SolicitarResetPasswordAsync(string username, string? nota, string sistemaOrigen)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+                throw new BadRequestException("Indicá el usuario para el cual solicitás el restablecimiento.");
+
+            var solicitante = await _repository.GetUsuarioByUsernameAsync(username.Trim());
+            // Respuesta genérica: no revelar si el usuario existe.
+            if (solicitante == null || !solicitante.EstaActivo)
+                return;
+
+            string sistema;
+            try
+            {
+                sistema = MensajeriaSistemaOrigen.Normalizar(sistemaOrigen);
+            }
+            catch (ArgumentException)
+            {
+                sistema = MensajeriaSistemaOrigen.Sigdef;
+            }
+
+            List<Usuario> destinatarios;
+            if (EsSuperAdmin(solicitante))
+            {
+                // SuperAdmin no tiene Admin de federación; no enviar MD automático.
+                return;
+            }
+
+            if (EsAdmin(solicitante))
+            {
+                destinatarios = (await _repository.GetUsuariosSuperAdminAsync())
+                    .Where(u => u.IdUsuario != solicitante.IdUsuario)
+                    .ToList();
+            }
+            else
+            {
+                var fedId = ResolverFederacionId(solicitante);
+                if (!fedId.HasValue)
+                    return;
+
+                destinatarios = (await _repository.GetUsuariosAdminByFederacionAsync(fedId.Value))
+                    .Where(u => u.IdUsuario != solicitante.IdUsuario)
+                    .ToList();
+            }
+
+            if (destinatarios.Count == 0)
+                return;
+
+            var clubLabel = solicitante.Club?.Nombre;
+            var fedLabel = solicitante.IdFederacion?.ToString()
+                ?? solicitante.Club?.IdFederacion?.ToString()
+                ?? "-";
+
+            var asunto = $"Solicitud de restablecimiento de contraseña — {solicitante.Username}";
+            var cuerpo =
+                $"El usuario «{solicitante.Username}» solicitó restablecer su contraseña desde el login de SIGDEF.\n\n" +
+                $"Rol: {solicitante.RolFederacion}\n" +
+                (string.IsNullOrWhiteSpace(clubLabel) ? "" : $"Club: {clubLabel}\n") +
+                $"Federación (Id): {fedLabel}\n\n" +
+                (string.IsNullOrWhiteSpace(nota)
+                    ? "Sin nota adicional del solicitante."
+                    : $"Nota del solicitante:\n{nota.Trim()}") +
+                "\n\nPor favor, ingresá a Usuarios y asigná una nueva contraseña temporal.";
+
+            ValidarContenido(asunto, cuerpo);
+
+            var ahora = DateTime.UtcNow;
+            foreach (var admin in destinatarios)
+            {
+                var hilo = new Hilo
+                {
+                    Asunto = asunto,
+                    SistemaOrigen = sistema,
+                    CreadoEn = ahora,
+                    UltimoMensajeEn = ahora
+                };
+
+                var mensaje = new Mensaje
+                {
+                    Hilo = hilo,
+                    RemitenteId = solicitante.IdUsuario,
+                    DestinatarioId = admin.IdUsuario,
+                    Cuerpo = cuerpo,
+                    EnviadoEn = ahora
+                };
+
+                await _repository.AddHiloAsync(hilo);
+                await _repository.AddMensajeAsync(mensaje);
+            }
+
+            await _repository.SaveChangesAsync();
+        }
+
         public async Task EnviarNotificacionAutomaticaAsync(
             int idFederacion,
             IEnumerable<int> destinatarioIds,
