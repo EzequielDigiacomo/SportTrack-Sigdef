@@ -173,7 +173,7 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                 ParticipanteId = dto.ParticipanteId,
                 IdClubOrigen = idClubOrigen,
                 IdClubDestino = clubDestinoId,
-                Estado = EstadoSolicitudTraspaso.PendienteOrigen,
+                Estado = EstadoSolicitudTraspaso.PendienteFederacion,
                 MotivoSolicitud = dto.MotivoSolicitud,
                 SolicitadoPorUsuarioId = await GetCurrentUsuarioIdAsync(),
                 FechaSolicitud = DateTime.UtcNow
@@ -200,15 +200,18 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
             if (solicitud.Estado != EstadoSolicitudTraspaso.PendienteOrigen)
                 throw new BadRequestException("La solicitud no está pendiente de aceptación del club origen.");
 
-            solicitud.Estado = EstadoSolicitudTraspaso.PendienteFederacion;
+            if (!solicitud.FechaRespuestaFederacion.HasValue)
+                throw new BadRequestException("La federación debe verificar la deuda antes de que el club origen responda.");
+
             solicitud.FechaRespuestaOrigen = DateTime.UtcNow;
             solicitud.MotivoRechazo = null;
-            await _context.SaveChangesAsync();
+
+            await EjecutarTraspasoAsync(solicitud, forzado: false);
 
             await ReloadNavigationForDto(solicitud);
             await _auditService.RegistrarAccionAsync(
                 "ACEPTAR_TRASPASO_ORIGEN",
-                $"Club origen aceptó solicitud #{id}",
+                $"Club origen aceptó y se ejecutó traspaso #{id}",
                 null,
                 "Traspasos");
 
@@ -245,19 +248,32 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
             var solicitud = await LoadSolicitudForFederacionAsync(id);
 
             if (solicitud.Estado != EstadoSolicitudTraspaso.PendienteFederacion)
-                throw new BadRequestException("La solicitud no está pendiente de aprobación federativa.");
+                throw new BadRequestException("La solicitud no está pendiente de verificación federativa.");
 
             var validaciones = await BuildValidacionesAsync(solicitud);
             if (!validaciones.PuedeAprobar && !forzar)
-                throw new BadRequestException("No se puede aprobar: hay validaciones bloqueantes pendientes.");
+                throw new BadRequestException("No se puede habilitar: hay validaciones bloqueantes (deuda u otras).");
 
             if (forzar && !IsGlobalAdmin())
-                throw new UnauthorizedException("Solo administradores globales pueden forzar la aprobación.");
+                throw new UnauthorizedException("Solo administradores globales pueden forzar la habilitación.");
 
-            await EjecutarTraspasoAsync(solicitud, forzar);
+            solicitud.Estado = EstadoSolicitudTraspaso.PendienteOrigen;
+            solicitud.FechaRespuestaFederacion = DateTime.UtcNow;
+            solicitud.AprobadoPorUsuarioId = await GetCurrentUsuarioIdAsync();
+            solicitud.MotivoRechazo = null;
+            await _context.SaveChangesAsync();
 
             await ReloadNavigationForDto(solicitud);
-            await _notificacionService.NotificarAsync(solicitud, TraspasoNotificacionEvento.FederacionAprobo);
+            await _auditService.RegistrarAccionAsync(
+                "HABILITAR_TRASPASO_FEDERACION",
+                $"Federación habilitó traspaso #{id} tras verificar deuda{(forzar ? " (forzado)" : string.Empty)}",
+                null,
+                "Traspasos");
+
+            await _notificacionService.NotificarAsync(
+                solicitud,
+                forzar ? TraspasoNotificacionEvento.FederacionHabilitoForzado : TraspasoNotificacionEvento.FederacionHabilito);
+
             return MapSolicitud(solicitud);
         }
 
@@ -267,7 +283,7 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
             var solicitud = await LoadSolicitudForFederacionAsync(id);
 
             if (solicitud.Estado != EstadoSolicitudTraspaso.PendienteFederacion)
-                throw new BadRequestException("La solicitud no está pendiente de aprobación federativa.");
+                throw new BadRequestException("La solicitud no está pendiente de verificación federativa.");
 
             solicitud.Estado = EstadoSolicitudTraspaso.RechazadoFederacion;
             solicitud.FechaRespuestaFederacion = DateTime.UtcNow;
@@ -451,9 +467,11 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                 atleta.EstadoPago = EstadoPago.Pendiente;
 
                 solicitud.Estado = EstadoSolicitudTraspaso.Aprobado;
-                solicitud.FechaRespuestaFederacion = DateTime.UtcNow;
                 solicitud.FechaEjecucion = DateTime.UtcNow;
-                solicitud.AprobadoPorUsuarioId = await GetCurrentUsuarioIdAsync();
+                if (!solicitud.FechaRespuestaFederacion.HasValue)
+                    solicitud.FechaRespuestaFederacion = DateTime.UtcNow;
+                if (!solicitud.AprobadoPorUsuarioId.HasValue)
+                    solicitud.AprobadoPorUsuarioId = await GetCurrentUsuarioIdAsync();
 
                 await _context.SaveChangesAsync();
                 await tx.CommitAsync();

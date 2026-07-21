@@ -11,9 +11,10 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
     public enum TraspasoNotificacionEvento
     {
         SolicitudCreada,
+        FederacionHabilito,
+        FederacionHabilitoForzado,
         OrigenAcepto,
         OrigenRechazo,
-        FederacionAprobo,
         FederacionRechazo,
         Cancelado
     }
@@ -53,25 +54,30 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                     TraspasoNotificacionEvento.SolicitudCreada => (
                         $"Nueva solicitud de traspaso #{solicitud.IdSolicitudTraspaso}",
                         $"El club {destino} solicitó el traspaso de {atletaNombre} desde {origen}. " +
+                        $"Verifique la deuda del atleta en Traspasos antes de habilitar la solicitud."
+                    ),
+                    TraspasoNotificacionEvento.FederacionHabilito => (
+                        $"Traspaso #{solicitud.IdSolicitudTraspaso} habilitado por federación",
+                        $"La federación verificó la deuda de {atletaNombre} y habilitó el traspaso hacia {destino}. " +
+                        $"Ingrese a Traspasos → Salidas pendientes para aceptar o rechazar."
+                    ),
+                    TraspasoNotificacionEvento.FederacionHabilitoForzado => (
+                        $"Traspaso #{solicitud.IdSolicitudTraspaso} habilitado (forzado)",
+                        $"La federación habilitó el traspaso de {atletaNombre} hacia {destino} con validaciones forzadas. " +
                         $"Ingrese a Traspasos → Salidas pendientes para aceptar o rechazar."
                     ),
                     TraspasoNotificacionEvento.OrigenAcepto => (
-                        $"Traspaso #{solicitud.IdSolicitudTraspaso} aceptado por club origen",
-                        $"El club {origen} aceptó el traspaso de {atletaNombre} hacia {destino}. " +
-                        $"La solicitud está pendiente de aprobación federativa."
+                        $"Traspaso #{solicitud.IdSolicitudTraspaso} aceptado y ejecutado",
+                        $"El club {origen} aceptó el traspaso de {atletaNombre} hacia {destino}. El cambio de club ya fue ejecutado."
                     ),
                     TraspasoNotificacionEvento.OrigenRechazo => (
                         $"Traspaso #{solicitud.IdSolicitudTraspaso} rechazado por club origen",
                         $"El club {origen} rechazó el traspaso de {atletaNombre} hacia {destino}." +
                         (string.IsNullOrWhiteSpace(solicitud.MotivoRechazo) ? string.Empty : $" Motivo: {solicitud.MotivoRechazo}")
                     ),
-                    TraspasoNotificacionEvento.FederacionAprobo => (
-                        $"Traspaso #{solicitud.IdSolicitudTraspaso} aprobado",
-                        $"La federación aprobó el traspaso de {atletaNombre} de {origen} a {destino}. El cambio de club ya fue ejecutado."
-                    ),
                     TraspasoNotificacionEvento.FederacionRechazo => (
                         $"Traspaso #{solicitud.IdSolicitudTraspaso} rechazado por federación",
-                        $"La federación rechazó el traspaso de {atletaNombre} ({origen} → {destino})." +
+                        $"La federación rechazó el traspaso de {atletaNombre} ({origen} → {destino}) por deuda u otras validaciones." +
                         (string.IsNullOrWhiteSpace(solicitud.MotivoRechazo) ? string.Empty : $" Motivo: {solicitud.MotivoRechazo}")
                     ),
                     TraspasoNotificacionEvento.Cancelado => (
@@ -104,7 +110,14 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
             switch (evento)
             {
                 case TraspasoNotificacionEvento.SolicitudCreada:
+                    AddUsuarios(ids, await _mensajeRepository.GetUsuariosAdminByFederacionAsync(solicitud.IdFederacion));
+                    AddUsuarios(ids, await _mensajeRepository.GetUsuariosActivosByClubAsync(solicitud.IdClubDestino));
+                    break;
+
+                case TraspasoNotificacionEvento.FederacionHabilito:
+                case TraspasoNotificacionEvento.FederacionHabilitoForzado:
                     AddUsuarios(ids, await _mensajeRepository.GetUsuariosActivosByClubAsync(solicitud.IdClubOrigen));
+                    AddUsuarios(ids, await _mensajeRepository.GetUsuariosActivosByClubAsync(solicitud.IdClubDestino));
                     break;
 
                 case TraspasoNotificacionEvento.OrigenAcepto:
@@ -114,20 +127,16 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
 
                 case TraspasoNotificacionEvento.OrigenRechazo:
                     AddUsuarios(ids, await _mensajeRepository.GetUsuariosActivosByClubAsync(solicitud.IdClubDestino));
+                    AddUsuarios(ids, await _mensajeRepository.GetUsuariosAdminByFederacionAsync(solicitud.IdFederacion));
                     break;
 
-                case TraspasoNotificacionEvento.FederacionAprobo:
                 case TraspasoNotificacionEvento.FederacionRechazo:
-                    AddUsuarios(ids, await _mensajeRepository.GetUsuariosActivosByClubAsync(solicitud.IdClubOrigen));
                     AddUsuarios(ids, await _mensajeRepository.GetUsuariosActivosByClubAsync(solicitud.IdClubDestino));
                     break;
 
                 case TraspasoNotificacionEvento.Cancelado:
                     AddUsuarios(ids, await _mensajeRepository.GetUsuariosActivosByClubAsync(solicitud.IdClubOrigen));
-                    if (solicitud.Estado == EstadoSolicitudTraspaso.Cancelado)
-                    {
-                        AddUsuarios(ids, await _mensajeRepository.GetUsuariosAdminByFederacionAsync(solicitud.IdFederacion));
-                    }
+                    AddUsuarios(ids, await _mensajeRepository.GetUsuariosAdminByFederacionAsync(solicitud.IdFederacion));
                     break;
             }
 
