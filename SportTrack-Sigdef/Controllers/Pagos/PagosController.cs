@@ -21,17 +21,32 @@ namespace SportTrack_Sigdef.Controllers.Pagos
         }
 
         [HttpGet("historial")]
-        public async Task<ActionResult<IEnumerable<PagoDto>>> GetHistorial()
+        public async Task<ActionResult<IEnumerable<PagoDto>>> GetHistorial([FromQuery] int? idFederacion = null)
         {
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
-            var clubIdClaim = User.FindFirst("ClubId")?.Value;
-            int? fedId = null;
-            if (int.TryParse(clubIdClaim, out int parsedId))
+            var federacionClaim = User.FindFirst("FederacionId")?.Value;
+            var clubClaim = User.FindFirst("ClubId")?.Value;
+
+            int? scopeId = null;
+
+            // SuperAdmin puede acotar por federación vía query.
+            if ((role == "SuperAdmin" || role == "soporte_tecnico") && idFederacion.HasValue && idFederacion.Value > 0)
             {
-                fedId = parsedId;
+                scopeId = idFederacion.Value;
+                // Reutilizar filtro de Admin por federación.
+                role = "Admin";
+            }
+            else if (role == "Admin")
+            {
+                if (int.TryParse(federacionClaim, out int fedId) && fedId > 0)
+                    scopeId = fedId;
+            }
+            else if (int.TryParse(clubClaim, out int clubId) && clubId > 0)
+            {
+                scopeId = clubId;
             }
 
-            var result = await _pagoService.GetHistorialPagosAsync(fedId, role);
+            var result = await _pagoService.GetHistorialPagosAsync(scopeId, role);
             return Ok(result);
         }
 
