@@ -115,6 +115,9 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
 
         public async Task<IEnumerable<SolicitudTraspasoDto>> GetSolicitudesAsync(string? estado = null)
         {
+            // Solicitudes creadas con el flujo anterior (origen primero) sin OK de federación.
+            await HealLegacyPendienteOrigenAsync();
+
             var query = ApplySolicitudScope(_context.SolicitudesTraspaso.AsNoTracking());
 
             if (!string.IsNullOrWhiteSpace(estado)
@@ -628,6 +631,25 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                 .Include(s => s.ClubDestino)
                 .FirstOrDefaultAsync(s => s.IdSolicitudTraspaso == id && s.IdFederacion == fedId)
                 ?? throw new NotFoundException("Solicitud no encontrada.");
+        }
+
+        /// <summary>
+        /// Antes: crear → PendienteOrigen. Ahora: crear → PendienteFederacion.
+        /// Corrige solicitudes viejas que quedaron en PendienteOrigen sin verificación federativa.
+        /// </summary>
+        private async Task HealLegacyPendienteOrigenAsync()
+        {
+            var legacy = await _context.SolicitudesTraspaso
+                .Where(s => s.Estado == EstadoSolicitudTraspaso.PendienteOrigen
+                    && s.FechaRespuestaFederacion == null)
+                .ToListAsync();
+
+            if (legacy.Count == 0) return;
+
+            foreach (var s in legacy)
+                s.Estado = EstadoSolicitudTraspaso.PendienteFederacion;
+
+            await _context.SaveChangesAsync();
         }
 
         private async Task EnsurePeriodoActivoAsync(int idFederacion)
