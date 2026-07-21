@@ -4,6 +4,7 @@ using SportTrack_Sigdef.Controladores.Audit;
 using SportTrack_Sigdef.Controladores.Exceptions;
 using SportTrack_Sigdef.Controladores.Pago.Dtos;
 using SportTrack_Sigdef.Entidades.Entidades;
+using SportTrack_Sigdef.Entidades.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -131,6 +132,13 @@ namespace SportTrack_Sigdef.Controladores.Pago
 
                 atleta.PagoAfiliacionAlDia = true;
                 pago.ParticipanteId = atleta.ParticipanteId;
+
+                var atletaFed = await _context.AtletasFederados.FindAsync(atleta.ParticipanteId);
+                if (atletaFed != null)
+                {
+                    atletaFed.EstadoPago = EstadoPago.Pagado;
+                }
+
                 detalleAuditoria = $"Pago de afiliación de Atleta '{atleta.Nombre} {atleta.Apellido}' registrado por ${dto.Monto} (Ref: {dto.Referencia}).";
             }
             else if (dto.TipoPago == "InscripcionEvento")
@@ -225,6 +233,13 @@ namespace SportTrack_Sigdef.Controladores.Pago
 
             atleta.PagoAfiliacionAlDia = alDia;
             _context.Participantes.Update(atleta);
+
+            var atletaFed = await _context.AtletasFederados.FindAsync(participanteId);
+            if (atletaFed != null)
+            {
+                atletaFed.EstadoPago = alDia ? EstadoPago.Pagado : EstadoPago.Pendiente;
+            }
+
             var result = await _context.SaveChangesAsync() > 0;
 
             if (result)
