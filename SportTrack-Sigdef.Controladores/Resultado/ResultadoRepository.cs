@@ -27,9 +27,13 @@ namespace SportTrack_Sigdef.Controladores.Resultado
         public async Task<IEnumerable<Entidades.Entidades.Resultado>> GetByFaseIdAsync(int faseId)
         {
             return await _context.Resultados
+                .AsNoTracking()
                 .Include(r => r.Inscripcion)
                     .ThenInclude(i => i.Participante)
                         .ThenInclude(p => p.Club)
+                .Include(r => r.Inscripcion)
+                    .ThenInclude(i => i.Tripulantes)
+                        .ThenInclude(t => t.Participante)
                 .Where(r => r.FaseId == faseId)
                 .OrderBy(r => r.Posicion ?? int.MaxValue)
                 .ToListAsync();
@@ -40,6 +44,7 @@ namespace SportTrack_Sigdef.Controladores.Resultado
             return await _context.Resultados
                 .Include(r => r.Fase)
                     .ThenInclude(f => f.Etapa)
+                        .ThenInclude(e => e.EventoPrueba)
                 .Include(r => r.Inscripcion)
                     .ThenInclude(i => i.Participante)
                         .ThenInclude(p => p.Club)

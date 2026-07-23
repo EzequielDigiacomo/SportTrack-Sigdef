@@ -47,7 +47,19 @@ else
 }
 
 builder.Services.AddDbContext<SportTrackDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString, npgsql =>
+    {
+        npgsql.EnableRetryOnFailure(maxRetryCount: 3);
+        npgsql.CommandTimeout(30);
+    }));
+
+// Cache en memoria para lecturas Live (listo para Redis después)
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 1024;
+});
+builder.Services.AddSingleton<SportTrack_Sigdef.Controladores.Caching.ILiveCacheService,
+    SportTrack_Sigdef.Controladores.Caching.LiveCacheService>();
 
 // SignalR para tiempo real
 builder.Services.AddSignalR();
@@ -102,7 +114,7 @@ builder.Services.AddAuthorization(options =>
         .Build();
 });
 
-// Fase 3: rate limit en login/register (por IP)
+// Fase 3: rate limit auth + hot path Live público
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -114,6 +126,18 @@ builder.Services.AddRateLimiter(options =>
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("live", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString()
+                          ?? httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+                          ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));

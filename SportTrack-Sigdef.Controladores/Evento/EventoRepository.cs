@@ -128,6 +128,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
         public async Task<IEnumerable<EventoPrueba>> GetPruebasByEventoIdAsync(int eventoId)
         {
             return await _context.EventoPruebas
+                .AsNoTracking()
                 .Include(ep => ep.Prueba)
                     .ThenInclude(p => p.Categoria)
                 .Include(ep => ep.Prueba)

@@ -17,7 +17,7 @@ namespace SportTrack_Sigdef.Controladores.Hubs
     /// <summary>
     /// Conexión: AllowAnonymous en MapHub (Program.cs) para Live + FallbackPolicy.
     /// Join/GetServerTime: [AllowAnonymous]. Escrituras: [Authorize] por método.
-    /// No poner [AllowAnonymous] a nivel clase: anularía el Authorize de los métodos.
+    /// Broadcasts de carrera van a event_{id} + operators (no Clients.All).
     /// </summary>
     public class TimingHub : Hub
     {
@@ -36,7 +36,7 @@ namespace SportTrack_Sigdef.Controladores.Hubs
         [AllowAnonymous]
         public async Task JoinRaceGroup(string faseId, string userName, string role)
         {
-            await Groups.AddToGroupAsync(Context.ConnectionId, $"race_{faseId}");
+            await Groups.AddToGroupAsync(Context.ConnectionId, TimingGroups.Race(faseId));
 
             var presence = new RaceUserPresence
             {
@@ -64,14 +64,14 @@ namespace SportTrack_Sigdef.Controladores.Hubs
                 {
                     copyList = new System.Collections.Generic.List<RaceUserPresence>(currentList);
                 }
-                await Clients.Group($"race_{faseId}").SendAsync("RacePresenceUpdated", copyList);
+                await Clients.Group(TimingGroups.Race(faseId)).SendAsync("RacePresenceUpdated", copyList);
             }
         }
 
         [AllowAnonymous]
         public async Task JoinEventGroup(string eventoId, string userName, string role)
         {
-            await Groups.AddToGroupAsync(Context.ConnectionId, $"event_{eventoId}");
+            await Groups.AddToGroupAsync(Context.ConnectionId, TimingGroups.Event(eventoId));
 
             var presence = new RaceUserPresence
             {
@@ -99,14 +99,23 @@ namespace SportTrack_Sigdef.Controladores.Hubs
                 {
                     copyList = new System.Collections.Generic.List<RaceUserPresence>(currentList);
                 }
-                await Clients.Group($"event_{eventoId}").SendAsync("EventPresenceUpdated", copyList);
+                await Clients.Group(TimingGroups.Event(eventoId)).SendAsync("EventPresenceUpdated", copyList);
             }
+        }
+
+        /// <summary>
+        /// Grupo de operadores (admin/jueces) para notificaciones sin Clients.All.
+        /// </summary>
+        [Authorize(Roles = AuthRolePolicies.CompetitionOperators + ",Club")]
+        public async Task JoinOperatorsGroup()
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, TimingGroups.Operators);
         }
 
         [AllowAnonymous]
         public async Task LeaveRaceGroup(string faseId)
         {
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"race_{faseId}");
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, TimingGroups.Race(faseId));
 
             if (_activeRaceGroups.TryGetValue(faseId, out var currentList))
             {
@@ -119,7 +128,7 @@ namespace SportTrack_Sigdef.Controladores.Hubs
                 {
                     copyList = new System.Collections.Generic.List<RaceUserPresence>(currentList);
                 }
-                await Clients.Group($"race_{faseId}").SendAsync("RacePresenceUpdated", copyList);
+                await Clients.Group(TimingGroups.Race(faseId)).SendAsync("RacePresenceUpdated", copyList);
             }
         }
 
@@ -143,7 +152,7 @@ namespace SportTrack_Sigdef.Controladores.Hubs
                     {
                         copyList = new System.Collections.Generic.List<RaceUserPresence>(currentList);
                     }
-                    await Clients.Group($"race_{faseId}").SendAsync("RacePresenceUpdated", copyList);
+                    await Clients.Group(TimingGroups.Race(faseId)).SendAsync("RacePresenceUpdated", copyList);
                 }
             }
 
@@ -165,7 +174,7 @@ namespace SportTrack_Sigdef.Controladores.Hubs
                     {
                         copyList = new System.Collections.Generic.List<RaceUserPresence>(currentList);
                     }
-                    await Clients.Group($"event_{eventoId}").SendAsync("EventPresenceUpdated", copyList);
+                    await Clients.Group(TimingGroups.Event(eventoId)).SendAsync("EventPresenceUpdated", copyList);
                 }
             }
 
@@ -193,20 +202,29 @@ namespace SportTrack_Sigdef.Controladores.Hubs
         [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
         public async Task RecordLap(int faseId, int resultadoId, string time)
         {
-            await Clients.Group($"race_{faseId}").SendAsync("LapRecorded", resultadoId, time);
+            await Clients.Group(TimingGroups.Race(faseId)).SendAsync("LapRecorded", resultadoId, time);
         }
 
         [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
         public async Task FinishRace(int faseId)
         {
-            await Clients.Group($"race_{faseId}").SendAsync("RaceFinished", faseId);
+            await Clients.Group(TimingGroups.Race(faseId)).SendAsync("RaceFinished", faseId);
         }
 
         [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
         public async Task SendTime(string faseId, string resultadoId, string timeStr, long ms)
         {
-            await Clients.Group($"race_{faseId}").SendAsync("TimeReceived", resultadoId, timeStr, ms);
-            await Clients.All.SendAsync("globalTimeReceived", faseId, resultadoId, timeStr, ms);
+            await Clients.Group(TimingGroups.Race(faseId)).SendAsync("TimeReceived", resultadoId, timeStr, ms);
+
+            if (int.TryParse(faseId, out var faseIdInt))
+            {
+                var eventoId = await _faseService.GetEventoIdByFaseIdAsync(faseIdInt);
+                if (eventoId.HasValue)
+                {
+                    await Clients.Group(TimingGroups.Event(eventoId.Value))
+                        .SendAsync("globalTimeReceived", faseId, resultadoId, timeStr, ms);
+                }
+            }
         }
 
         [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
@@ -218,7 +236,9 @@ namespace SportTrack_Sigdef.Controladores.Hubs
         [Authorize(Roles = "Admin,SuperAdmin,Club,soporte_tecnico")]
         public async Task RequestPaymentStatusChange(string clubNombre, string clubId)
         {
-            await Clients.All.SendAsync("paymentStatusChangeRequested", new { clubNombre, clubId, motive = "solicitar cambio de estado de pago de este club" });
+            await Clients.Group(TimingGroups.Operators).SendAsync(
+                "paymentStatusChangeRequested",
+                new { clubNombre, clubId, motive = "solicitar cambio de estado de pago de este club" });
         }
     }
 }

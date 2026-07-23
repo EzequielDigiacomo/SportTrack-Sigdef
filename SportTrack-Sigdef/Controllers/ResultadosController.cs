@@ -1,8 +1,10 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using SportTrack_Sigdef.Controladores.Auth;
+using SportTrack_Sigdef.Controladores.Caching;
 using SportTrack_Sigdef.Controladores.Fase.Dtos;
 using SportTrack_Sigdef.Controladores.Hubs;
 using SportTrack_Sigdef.Controladores.Resultado;
@@ -17,26 +19,40 @@ namespace SportTrack_Sigdef.Controllers
     [Route("api/[controller]")]
     public class ResultadosController : ControllerBase
     {
+        private static readonly TimeSpan LiveReadTtl = TimeSpan.FromSeconds(30);
+
         private readonly IResultadoRepository _resultadoRepository;
         private readonly IHubContext<TimingHub> _hubContext;
         private readonly IMapper _mapper;
+        private readonly ILiveCacheService _liveCache;
 
         public ResultadosController(
             IResultadoRepository resultadoRepository,
             IHubContext<TimingHub> hubContext,
-            IMapper mapper)
+            IMapper mapper,
+            ILiveCacheService liveCache)
         {
             _resultadoRepository = resultadoRepository;
             _hubContext = hubContext;
             _mapper = mapper;
+            _liveCache = liveCache;
         }
 
         [HttpGet("Fase/{faseId}")]
         [AllowAnonymous]
+        [EnableRateLimiting("live")]
         public async Task<ActionResult<IEnumerable<ResultadoFaseDto>>> GetResultadosPorFase(int faseId)
         {
-            var resultados = await _resultadoRepository.GetByFaseIdAsync(faseId);
-            return Ok(_mapper.Map<IEnumerable<ResultadoFaseDto>>(resultados));
+            var dtos = await _liveCache.GetOrCreateAsync(
+                LiveCacheKeys.ResultadosByFase(faseId),
+                LiveReadTtl,
+                async () =>
+                {
+                    var resultados = await _resultadoRepository.GetByFaseIdAsync(faseId);
+                    return _mapper.Map<IEnumerable<ResultadoFaseDto>>(resultados);
+                });
+
+            return Ok(dtos);
         }
 
         [HttpPut("BatchUpdate")]
@@ -102,18 +118,17 @@ namespace SportTrack_Sigdef.Controllers
             }
             var guardados = await _resultadoRepository.UpdateManyAsync(aActualizar);
 
-            // Notificar cambios vía SignalR
             if (guardados.Any())
             {
-                // Notificamos para cada resultado, asociándolo a su EventoPruebaId
-                // Nota: Asumimos que todos pertenecen a la misma prueba para simplificar, 
-                // o iteramos si fueran de distintas.
                 foreach (var r in guardados)
                 {
-                    // Necesitamos el EventoPruebaId. Usualmente está en Fase -> Etapa -> EventoPruebaId
-                    if (r.Fase?.Etapa != null)
+                    var eventoId = r.Fase?.Etapa?.EventoPrueba?.IdEvento;
+                    var eventoPruebaId = r.Fase?.Etapa?.EventoPruebaId;
+                    _liveCache.InvalidateFase(r.FaseId, eventoId, eventoPruebaId);
+
+                    if (eventoId.HasValue && r.Fase?.Etapa != null)
                     {
-                        await _hubContext.Clients.All.SendAsync(
+                        await _hubContext.Clients.Group(TimingGroups.Event(eventoId.Value)).SendAsync(
                             "ResultadoActualizado",
                             r.Fase.Etapa.EventoPruebaId,
                             _mapper.Map<ResultadoFaseDto>(r));
@@ -136,4 +151,3 @@ namespace SportTrack_Sigdef.Controllers
         public string? ClubSigla { get; set; }
     }
 }
-

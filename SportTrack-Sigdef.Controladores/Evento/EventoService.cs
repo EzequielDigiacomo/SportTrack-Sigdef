@@ -1,8 +1,8 @@
 using AutoMapper;
+using SportTrack_Sigdef.Controladores.Caching;
 using SportTrack_Sigdef.Controladores.Evento.Dtos;
 using SportTrack_Sigdef.Controladores.Exceptions;
 using SportTrack_Sigdef.Entidades.Entidades;
-using SportTrack_Sigdef.Entidades.Enums;
 using SportTrack_Sigdef.Entidades.Enums;
 using System;
 using System.Collections.Generic;
@@ -12,21 +12,26 @@ namespace SportTrack_Sigdef.Controladores.Evento
 {
     public class EventoService : IEventoService
     {
+        private static readonly TimeSpan LiveReadTtl = TimeSpan.FromSeconds(45);
+
         private readonly IEventoRepository _eventoRepository;
         private readonly IMapper _mapper;
         private readonly Audit.IAuditService _auditService;
         private readonly IEventoEstadoSyncService _estadoSyncService;
+        private readonly ILiveCacheService _liveCache;
 
         public EventoService(
             IEventoRepository eventoRepository,
             IMapper mapper,
             Audit.IAuditService auditService,
-            IEventoEstadoSyncService estadoSyncService)
+            IEventoEstadoSyncService estadoSyncService,
+            ILiveCacheService liveCache)
         {
             _eventoRepository = eventoRepository;
             _mapper = mapper;
             _auditService = auditService;
             _estadoSyncService = estadoSyncService;
+            _liveCache = liveCache;
         }
 
         public async Task<IEnumerable<EventoDto>> GetAllEventosAsync(int? clubId = null, string? rol = null)
@@ -38,10 +43,16 @@ namespace SportTrack_Sigdef.Controladores.Evento
 
         public async Task<EventoDto> GetEventoByIdAsync(int id)
         {
-            await _estadoSyncService.SyncEventoAsync(id);
-            var evento = await _eventoRepository.GetByIdAsync(id);
-            if (evento == null) throw new NotFoundException($"Evento con ID {id} no encontrado");
-            return _mapper.Map<EventoDto>(evento);
+            return await _liveCache.GetOrCreateAsync(
+                LiveCacheKeys.Evento(id),
+                LiveReadTtl,
+                async () =>
+                {
+                    await _estadoSyncService.SyncEventoAsync(id);
+                    var evento = await _eventoRepository.GetByIdAsync(id);
+                    if (evento == null) throw new NotFoundException($"Evento con ID {id} no encontrado");
+                    return _mapper.Map<EventoDto>(evento);
+                });
         }
 
         public async Task<EventoDto> CreateEventoAsync(EventoCreateDto eventoDto)
@@ -71,6 +82,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
             await _auditService.RegistrarAccionAsync("CREATE_EVENT", 
                 $"Evento creado: {result.Nombre} (Ubicación: {result.Ubicacion}, Fecha: {result.Fecha:dd/MM/yyyy})", null, "Eventos");
 
+            _liveCache.InvalidateEvento(result.IdEvento);
             return _mapper.Map<EventoDto>(fullEvento);
         }
 
@@ -106,6 +118,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
             await _auditService.RegistrarAccionAsync("UPDATE_EVENT", 
                 $"Evento actualizado: {result.Nombre} (ID: {id})", null, "Eventos");
 
+            _liveCache.InvalidateEvento(id);
             return _mapper.Map<EventoDto>(fullEvento);
         }
 
@@ -121,9 +134,9 @@ namespace SportTrack_Sigdef.Controladores.Evento
             }
             
             var res = await _eventoRepository.DeleteAsync(id);
-
-            // Auditoria
-            if (res) {
+            if (res)
+            {
+                _liveCache.InvalidateEvento(id);
                 await _auditService.RegistrarAccionAsync("DELETE_EVENT", 
                     $"Evento eliminado: {existing.Nombre} (ID: {id})", null, "Eventos");
             }
@@ -139,8 +152,14 @@ namespace SportTrack_Sigdef.Controladores.Evento
 
         public async Task<IEnumerable<EventoPruebaDto>> GetPruebasByEventoAsync(int eventoId)
         {
-            var pruebas = await _eventoRepository.GetPruebasByEventoIdAsync(eventoId);
-            return _mapper.Map<IEnumerable<EventoPruebaDto>>(pruebas);
+            return await _liveCache.GetOrCreateAsync(
+                LiveCacheKeys.PruebasByEvento(eventoId),
+                LiveReadTtl,
+                async () =>
+                {
+                    var pruebas = await _eventoRepository.GetPruebasByEventoIdAsync(eventoId);
+                    return _mapper.Map<IEnumerable<EventoPruebaDto>>(pruebas);
+                });
         }
 
         public async Task<EventoPruebaDto> AssignPruebaToEventoAsync(int eventoId, EventoPruebaCreateDto assignDto)
@@ -177,11 +196,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
             eventoPrueba.FechaHora = DateTime.SpecifyKind(eventoPrueba.FechaHora, DateTimeKind.Utc);
 
             var result = await _eventoRepository.AssignPruebaAsync(eventoPrueba);
-            
-            // Recargamos para traer las navegaciones (Categoria, Bote, Distancia) si el Repo lo permite
-            // o mapeamos lo que tenemos.
-            // Recargamos para traer las navegaciones (Categoria, Bote, Distancia) si el Repo lo permite
-            // o mapeamos lo que tenemos.
+            _liveCache.InvalidateEvento(eventoId);
             return _mapper.Map<EventoPruebaDto>(result);
         }
 
@@ -211,12 +226,17 @@ namespace SportTrack_Sigdef.Controladores.Evento
             existing.FechaHora = DateTime.SpecifyKind(existing.FechaHora, DateTimeKind.Utc);
 
             var result = await _eventoRepository.UpdateEventoPruebaAsync(existing);
+            _liveCache.InvalidateEventoPrueba(eventoPruebaId, existing.IdEvento);
             return _mapper.Map<EventoPruebaDto>(result);
         }
 
         public async Task<bool> DeleteEventoPruebaAsync(int eventoPruebaId)
         {
-            return await _eventoRepository.UnassignPruebaAsync(eventoPruebaId);
+            var existing = await _eventoRepository.GetEventoPruebaByIdAsync(eventoPruebaId);
+            var ok = await _eventoRepository.UnassignPruebaAsync(eventoPruebaId);
+            if (ok && existing != null)
+                _liveCache.InvalidateEventoPrueba(eventoPruebaId, existing.IdEvento);
+            return ok;
         }
 
         private static DistanciaRegata MapDistanciaToEnum(int distanciaId)
