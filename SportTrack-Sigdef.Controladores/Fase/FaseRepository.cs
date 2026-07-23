@@ -19,6 +19,9 @@ namespace SportTrack_Sigdef.Controladores.Fase
         Task<IEnumerable<Entidades.Entidades.Fase>> GetByEventoIdAsync(int eventoId);
         Task<SportTrack_Sigdef.Entidades.Entidades.Resultado?> GetResultadoByIdAsync(int id);
         Task UpdateResultadoAsync(SportTrack_Sigdef.Entidades.Entidades.Resultado resultado);
+        Task<int?> GetEventoIdByFaseIdAsync(int faseId);
+        Task<int?> GetEventoIdByResultadoIdAsync(int resultadoId);
+        Task<(int? EventoId, int? EventoPruebaId)> GetScopeByFaseIdAsync(int faseId);
     }
 
     public class FaseRepository : IFaseRepository
@@ -33,10 +36,19 @@ namespace SportTrack_Sigdef.Controladores.Fase
         public async Task<IEnumerable<Entidades.Entidades.Fase>> GetByEventoPruebaIdAsync(int eventoPruebaId)
         {
             return await _context.Fases
+                .AsNoTracking()
                 .Include(f => f.Etapa)
                     .ThenInclude(e => e.EventoPrueba)
-                        .ThenInclude(ep => ep.Inscripciones)
+                        .ThenInclude(ep => ep.Prueba)
+                            .ThenInclude(p => p.Categoria)
                 .Include(f => f.Etapa)
+                    .ThenInclude(e => e.EventoPrueba)
+                        .ThenInclude(ep => ep.Prueba)
+                            .ThenInclude(p => p.Bote)
+                .Include(f => f.Etapa)
+                    .ThenInclude(e => e.EventoPrueba)
+                        .ThenInclude(ep => ep.Prueba)
+                            .ThenInclude(p => p.Distancia)
                 .Include(f => f.Resultados)
                     .ThenInclude(r => r.Inscripcion)
                         .ThenInclude(i => i.Participante)
@@ -102,10 +114,9 @@ namespace SportTrack_Sigdef.Controladores.Fase
 
         public async Task<IEnumerable<Entidades.Entidades.Fase>> GetByEventoIdAsync(int eventoId)
         {
+            // Lectura Live: sin Inscripciones de EventoPrueba (CantidadInscritos no es crítico aquí).
             return await _context.Fases
-                .Include(f => f.Etapa)
-                    .ThenInclude(e => e.EventoPrueba)
-                        .ThenInclude(ep => ep.Inscripciones)
+                .AsNoTracking()
                 .Include(f => f.Etapa)
                     .ThenInclude(e => e.EventoPrueba)
                         .ThenInclude(ep => ep.Prueba)
@@ -142,6 +153,39 @@ namespace SportTrack_Sigdef.Controladores.Fase
         {
             _context.Resultados.Update(resultado);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<int?> GetEventoIdByFaseIdAsync(int faseId)
+        {
+            return await _context.Fases
+                .AsNoTracking()
+                .Where(f => f.Id == faseId)
+                .Select(f => (int?)f.Etapa.EventoPrueba.IdEvento)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<int?> GetEventoIdByResultadoIdAsync(int resultadoId)
+        {
+            return await _context.Resultados
+                .AsNoTracking()
+                .Where(r => r.Id == resultadoId)
+                .Select(r => (int?)r.Fase.Etapa.EventoPrueba.IdEvento)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<(int? EventoId, int? EventoPruebaId)> GetScopeByFaseIdAsync(int faseId)
+        {
+            var row = await _context.Fases
+                .AsNoTracking()
+                .Where(f => f.Id == faseId)
+                .Select(f => new
+                {
+                    EventoId = (int?)f.Etapa.EventoPrueba.IdEvento,
+                    EventoPruebaId = (int?)f.Etapa.EventoPruebaId
+                })
+                .FirstOrDefaultAsync();
+
+            return row is null ? (null, null) : (row.EventoId, row.EventoPruebaId);
         }
     }
 }

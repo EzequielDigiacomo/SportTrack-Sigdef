@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SportTrack_Sigdef.Controladores.Evento;
 using SportTrack_Sigdef.Controladores.Evento.Dtos;
 using System;
@@ -106,6 +107,7 @@ namespace SportTrack_Sigdef.Controllers.Eventos
 
         [HttpGet("{id}/fases")]
         [AllowAnonymous]
+        [EnableRateLimiting("live")]
         public async Task<ActionResult<IEnumerable<FaseDto>>> GetFases(int id)
         {
             var result = await _faseService.GetFasesPorEventoAsync(id);
@@ -166,6 +168,7 @@ namespace SportTrack_Sigdef.Controllers.Eventos
 
         [HttpGet("{id}")]
         [AllowAnonymous]
+        [EnableRateLimiting("live")]
         public async Task<ActionResult<EventoDto>> GetEvento(int id)
         {
             var result = await _eventoService.GetEventoByIdAsync(id);
@@ -242,6 +245,7 @@ namespace SportTrack_Sigdef.Controllers.Eventos
 
         [HttpGet("{id}/pruebas")]
         [AllowAnonymous]
+        [EnableRateLimiting("live")]
         public async Task<ActionResult<IEnumerable<EventoPruebaDto>>> GetPruebas(int id)
         {
             var result = await _eventoService.GetPruebasByEventoAsync(id);

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SportTrack_Sigdef.Controladores.Auth;
 using SportTrack_Sigdef.Controladores.Fase;
 using SportTrack_Sigdef.Controladores.Fase.Dtos;
@@ -23,6 +24,7 @@ namespace SportTrack_Sigdef.Controllers
         // Lectura anónima: Live + paneles (GET)
         [HttpGet("EventoPrueba/{eventoPruebaId}")]
         [AllowAnonymous]
+        [EnableRateLimiting("live")]
         public async Task<ActionResult<IEnumerable<FaseDto>>> GetFasesPorEventoPrueba(int eventoPruebaId)
         {
             var fases = await _faseService.GetFasesPorEventoPruebaAsync(eventoPruebaId);
@@ -31,6 +33,7 @@ namespace SportTrack_Sigdef.Controllers
 
         [HttpGet("all-by-evento/{eventoId}")]
         [AllowAnonymous]
+        [EnableRateLimiting("live")]
         public async Task<ActionResult<IEnumerable<FaseDto>>> GetFasesPorEvento(int eventoId)
         {
             var fases = await _faseService.GetFasesPorEventoAsync(eventoId);

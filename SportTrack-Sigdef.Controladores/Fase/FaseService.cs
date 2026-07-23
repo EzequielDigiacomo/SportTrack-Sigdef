@@ -1,5 +1,7 @@
 ﻿using AutoMapper;
+using SportTrack_Sigdef.Controladores.Caching;
 using SportTrack_Sigdef.Controladores.Fase.Dtos;
+using SportTrack_Sigdef.Controladores.Hubs;
 using SportTrack_Sigdef.Controladores.Inscripcion;
 using SportTrack_Sigdef.Controladores.Evento;
 using SportTrack_Sigdef.Controladores.Fase.Progression;
@@ -27,10 +29,13 @@ namespace SportTrack_Sigdef.Controladores.Fase
         Task<IEnumerable<FaseDto>> GenerarFasesManualAsync(int eventoPruebaId, List<ManualPlacementDto> placements);
         Task UpdateResultadoStatusAsync(int resultadoId, string status);
         Task<IEnumerable<ProgressionAuditDto>> GetProgressionAuditAsync(int eventoPruebaId);
+        Task<int?> GetEventoIdByFaseIdAsync(int faseId);
     }
 
     public class FaseService : IFaseService
     {
+        private static readonly TimeSpan LiveReadTtl = TimeSpan.FromSeconds(45);
+
         private readonly IFaseRepository _faseRepository;
         private readonly IEtapaRepository _etapaRepository;
         private readonly IInscripcionRepository _inscripcionRepository;
@@ -39,6 +44,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
         private readonly Microsoft.AspNetCore.SignalR.IHubContext<SportTrack_Sigdef.Controladores.Hubs.TimingHub> _hubContext;
         private readonly IMapper _mapper;
         private readonly Audit.IAuditService _auditService;
+        private readonly ILiveCacheService _liveCache;
 
         public FaseService(
             IFaseRepository faseRepository, 
@@ -47,7 +53,8 @@ namespace SportTrack_Sigdef.Controladores.Fase
             IEventoRepository eventoRepository,
             Microsoft.AspNetCore.SignalR.IHubContext<SportTrack_Sigdef.Controladores.Hubs.TimingHub> hubContext,
             IMapper mapper,
-            Audit.IAuditService auditService)
+            Audit.IAuditService auditService,
+            ILiveCacheService liveCache)
         {
             _faseRepository = faseRepository;
             _etapaRepository = etapaRepository;
@@ -57,12 +64,28 @@ namespace SportTrack_Sigdef.Controladores.Fase
 
             _mapper = mapper;
             _auditService = auditService;
+            _liveCache = liveCache;
         }
+
+        public Task<int?> GetEventoIdByFaseIdAsync(int faseId) =>
+            _faseRepository.GetEventoIdByFaseIdAsync(faseId);
 
         public async Task<IEnumerable<FaseDto>> GetFasesPorEventoPruebaAsync(int eventoPruebaId)
         {
-            var fases = await _faseRepository.GetByEventoPruebaIdAsync(eventoPruebaId);
-            return _mapper.Map<IEnumerable<FaseDto>>(fases);
+            return await _liveCache.GetOrCreateAsync(
+                LiveCacheKeys.FasesByEventoPrueba(eventoPruebaId),
+                LiveReadTtl,
+                async () =>
+                {
+                    var fases = await _faseRepository.GetByEventoPruebaIdAsync(eventoPruebaId);
+                    return _mapper.Map<IEnumerable<FaseDto>>(fases);
+                });
+        }
+
+        private async Task<IEnumerable<FaseDto>> GetFasesPorEventoPruebaFreshAsync(int eventoPruebaId)
+        {
+            await InvalidateByEventoPruebaAsync(eventoPruebaId);
+            return await GetFasesPorEventoPruebaAsync(eventoPruebaId);
         }
 
         public async Task<IEnumerable<FaseDto>> GenerarFasesAutoAsync(int eventoPruebaId)
@@ -184,7 +207,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
             await _auditService.RegistrarAccionAsync("GENERATE_HEATS_AUTO", 
                 $"Sorteo automático generado para la Prueba ID {eventoPruebaId}. Se crearon {numSeries} series.", null, "Competencia");
 
-            return await GetFasesPorEventoPruebaAsync(eventoPruebaId);
+            return await GetFasesPorEventoPruebaFreshAsync(eventoPruebaId);
         }
 
         private async Task PreGenerarSiguientesEtapasAsync(int eventoPruebaId, int inscriptosCount, int numSeries, DateTime nextTime)
@@ -447,7 +470,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
                 $"Destinos: {string.Join(", ", progression.Destinos.Keys)}",
                 null, "Competencia");
 
-            return await GetFasesPorEventoPruebaAsync(eventoPruebaId);
+            return await GetFasesPorEventoPruebaFreshAsync(eventoPruebaId);
         }
 
         private async Task AplicarProgresionIcfAsync(
@@ -683,11 +706,11 @@ namespace SportTrack_Sigdef.Controladores.Fase
             await _auditService.RegistrarAccionAsync("START_RACE", 
                 $"Carrera iniciada: {fase.NombreFase} (ID: {id}) a las {fase.FechaHoraInicioReal}", null, "Competencia");
 
-            // Notificar por SignalR
-            await _hubContext.Clients.Group($"race_{id}").SendAsync("RaceStarted", id, fase.FechaHoraInicioReal);
-            
-            // Notificación Global (para usuarios fuera de la regata específica, como el Cronometrista en su Dashboard)
-            await _hubContext.Clients.All.SendAsync("globalRaceStarted", id, fase.FechaHoraInicioReal);
+            var scope = await ResolveFaseScopeAsync(fase, id);
+            _liveCache.InvalidateFase(id, scope.EventoId, scope.EventoPruebaId);
+
+            await _hubContext.Clients.Group(TimingGroups.Race(id)).SendAsync("RaceStarted", id, fase.FechaHoraInicioReal);
+            await BroadcastToEventAndOperatorsAsync(scope.EventoId, "globalRaceStarted", id, fase.FechaHoraInicioReal);
 
             return _mapper.Map<FaseDto>(fase);
         }
@@ -735,16 +758,20 @@ namespace SportTrack_Sigdef.Controladores.Fase
             await _auditService.RegistrarAccionAsync("FINISH_RACE", 
                 $"Carrera oficializada: {fase.NombreFase} (ID: {id})", null, "Competencia");
 
-            // Notificar por SignalR (Local y Global)
-            await _hubContext.Clients.Group($"race_{id}").SendAsync("RaceFinished", id);
-            await _hubContext.Clients.All.SendAsync("globalRaceOfficialized", id);
+            var scope = await ResolveFaseScopeAsync(fase, id);
+            _liveCache.InvalidateFase(id, scope.EventoId, scope.EventoPruebaId);
+
+            await _hubContext.Clients.Group(TimingGroups.Race(id)).SendAsync("RaceFinished", id);
+            await BroadcastToEventAndOperatorsAsync(scope.EventoId, "globalRaceOfficialized", id);
 
             return _mapper.Map<FaseDto>(fase);
         }
 
         public async Task<bool> DeleteFaseAsync(int id)
         {
+            var scope = await _faseRepository.GetScopeByFaseIdAsync(id);
             await _faseRepository.DeleteAsync(id);
+            _liveCache.InvalidateFase(id, scope.EventoId, scope.EventoPruebaId);
             return true;
         }
 
@@ -775,8 +802,12 @@ namespace SportTrack_Sigdef.Controladores.Fase
             await _auditService.RegistrarAccionAsync("RESET_RACE", 
                 $"Carrera reiniciada: {fase.NombreFase} (ID: {id}). Se limpiaron los tiempos.", null, "Competencia");
 
-            // 3. Notificar a los clientes SignalR que la carrera se reinició
-            await _hubContext.Clients.Group($"race_{id}").SendAsync("RaceReset", id);
+            var scope = await ResolveFaseScopeAsync(fase, id);
+            _liveCache.InvalidateFase(id, scope.EventoId, scope.EventoPruebaId);
+
+            await _hubContext.Clients.Group(TimingGroups.Race(id)).SendAsync("RaceReset", id);
+            if (scope.EventoId.HasValue)
+                await _hubContext.Clients.Group(TimingGroups.Event(scope.EventoId.Value)).SendAsync("RaceReset", id);
 
             return _mapper.Map<FaseDto>(fase);
         }
@@ -809,21 +840,35 @@ namespace SportTrack_Sigdef.Controladores.Fase
 
             Console.WriteLine($"[SignalR-Debug] Emitting GlobalRaceInReview for Fase {fase.Id}: {fase.NombreFase}");
 
-            // Notificar que está en revisión (Local a la carrera y Global para el Juez)
-            await _hubContext.Clients.Group($"race_{id}").SendAsync("RaceInReview", id);
-            await _hubContext.Clients.All.SendAsync("globalRaceInReview", new { id = fase.Id, nombre = fase.NombreFase });
+            var scope = await ResolveFaseScopeAsync(fase, id);
+            _liveCache.InvalidateFase(id, scope.EventoId, scope.EventoPruebaId);
+
+            await _hubContext.Clients.Group(TimingGroups.Race(id)).SendAsync("RaceInReview", id);
+            await BroadcastToEventAndOperatorsAsync(
+                scope.EventoId,
+                "globalRaceInReview",
+                new { id = fase.Id, nombre = fase.NombreFase });
 
             return _mapper.Map<FaseDto>(fase);
         }
 
         public async Task<IEnumerable<FaseDto>> GetFasesPorEventoAsync(int eventoId)
         {
-            var fases = await _faseRepository.GetByEventoIdAsync(eventoId);
-            return _mapper.Map<IEnumerable<FaseDto>>(fases);
+            return await _liveCache.GetOrCreateAsync(
+                LiveCacheKeys.FasesByEvento(eventoId),
+                LiveReadTtl,
+                async () =>
+                {
+                    var fases = await _faseRepository.GetByEventoIdAsync(eventoId);
+                    return _mapper.Map<IEnumerable<FaseDto>>(fases);
+                });
         }
 
         public async Task BatchUpdateFasesAsync(List<FaseBatchUpdateDto> dto)
         {
+            var touchedEventos = new HashSet<int>();
+            var touchedEventoPruebas = new HashSet<int>();
+
             foreach (var item in dto)
             {
                 var fase = await _faseRepository.GetByIdAsync(item.Id);
@@ -836,8 +881,17 @@ namespace SportTrack_Sigdef.Controladores.Fase
                         ? item.FechaHoraProgramada 
                         : DateTime.SpecifyKind(item.FechaHoraProgramada, DateTimeKind.Utc);
                     await _faseRepository.UpdateAsync(fase);
+
+                    var scope = await ResolveFaseScopeAsync(fase, item.Id);
+                    if (scope.EventoId.HasValue) touchedEventos.Add(scope.EventoId.Value);
+                    if (scope.EventoPruebaId.HasValue) touchedEventoPruebas.Add(scope.EventoPruebaId.Value);
                 }
             }
+
+            foreach (var epId in touchedEventoPruebas)
+                _liveCache.Remove(LiveCacheKeys.FasesByEventoPrueba(epId));
+            foreach (var evId in touchedEventos)
+                _liveCache.InvalidateEvento(evId);
         }
 
         private DateTime GetUtcTime(DateTime localDateTime, string timeZoneId)
@@ -963,7 +1017,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
                 await PreGenerarSiguientesEtapasAsync(eventoPruebaId, inscriptosCount, numSeries, nextTime);
             }
 
-            return await GetFasesPorEventoPruebaAsync(eventoPruebaId);
+            return await GetFasesPorEventoPruebaFreshAsync(eventoPruebaId);
         }
 
         public async Task UpdateResultadoStatusAsync(int resultadoId, string status)
@@ -986,9 +1040,40 @@ namespace SportTrack_Sigdef.Controladores.Fase
             }
 
             await _faseRepository.UpdateResultadoAsync(res);
-            
-            // Notificar Globalmente
-            await _hubContext.Clients.All.SendAsync("GlobalResultStatusUpdated", resultadoId, status);
+
+            var eventoId = await _faseRepository.GetEventoIdByResultadoIdAsync(resultadoId);
+            if (res.FaseId > 0)
+                _liveCache.InvalidateFase(res.FaseId, eventoId);
+
+            await BroadcastToEventAndOperatorsAsync(eventoId, "GlobalResultStatusUpdated", resultadoId, status);
+        }
+
+        private async Task<(int? EventoId, int? EventoPruebaId)> ResolveFaseScopeAsync(
+            Entidades.Entidades.Fase fase,
+            int faseId)
+        {
+            var eventoId = fase.Etapa?.EventoPrueba?.IdEvento;
+            var eventoPruebaId = fase.Etapa?.EventoPruebaId
+                ?? fase.Etapa?.EventoPrueba?.IdEventoPrueba;
+
+            if (eventoId.HasValue && eventoPruebaId.HasValue)
+                return (eventoId, eventoPruebaId);
+
+            return await _faseRepository.GetScopeByFaseIdAsync(faseId);
+        }
+
+        private async Task BroadcastToEventAndOperatorsAsync(int? eventoId, string method, params object?[] args)
+        {
+            if (eventoId.HasValue)
+                await _hubContext.Clients.Group(TimingGroups.Event(eventoId.Value)).SendCoreAsync(method, args);
+
+            await _hubContext.Clients.Group(TimingGroups.Operators).SendCoreAsync(method, args);
+        }
+
+        private async Task InvalidateByEventoPruebaAsync(int eventoPruebaId)
+        {
+            var ep = await _eventoRepository.GetEventoPruebaByIdAsync(eventoPruebaId);
+            _liveCache.InvalidateEventoPrueba(eventoPruebaId, ep?.IdEvento);
         }
 
     }
