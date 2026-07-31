@@ -57,6 +57,11 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public TimeSpan HoraFinReceso { get; set; } = new TimeSpan(14, 0, 0); // 14:00 default
         public bool SinReceso { get; set; } = false;
         public int GapEntrePruebas { get; set; } = 10;
+        /// <summary>
+        /// Descanso mínimo (minutos) para que un atleta no corra otra prueba
+        /// de la misma categoría y sexo (ej. semi K1 → K2). Default 40.
+        /// </summary>
+        public int GapRecuperacionMinutos { get; set; } = 40;
         public bool PermitirCombinadas { get; set; } = false;
         public bool UsarGapVariable { get; set; } = false;
         public string TimeZoneId { get; set; } = "America/Argentina/Buenos_Aires"; // Default IANA timezone

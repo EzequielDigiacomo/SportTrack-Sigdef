@@ -731,6 +731,11 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.Property<int>("GapEntrePruebas")
                         .HasColumnType("integer");
 
+                    b.Property<int>("GapRecuperacionMinutos")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(40);
+
                     b.Property<TimeSpan>("HoraFinReceso")
                         .HasColumnType("interval");
 

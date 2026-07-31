@@ -35,6 +35,8 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public string HoraFinReceso { get; set; } = "14:00";
         public bool SinReceso { get; set; }
         public int GapEntrePruebas { get; set; } = 10;
+        /// <summary>Descanso mín. (min) misma categoría/sexo entre pruebas distintas. Default 40.</summary>
+        public int GapRecuperacionMinutos { get; set; } = 40;
         public bool PermitirCombinadas { get; set; }
         public bool UsarGapVariable { get; set; }
         public string TimeZoneId { get; set; } = "America/Argentina/Buenos_Aires";
@@ -67,6 +69,7 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public string HoraFinReceso { get; set; } = "14:00";
         public bool SinReceso { get; set; }
         public int GapEntrePruebas { get; set; } = 10;
+        public int GapRecuperacionMinutos { get; set; } = 40;
         public bool PermitirCombinadas { get; set; } = false;
         public bool UsarGapVariable { get; set; } = false;
         public string TimeZoneId { get; set; } = "America/Argentina/Buenos_Aires";
@@ -97,6 +100,7 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public string? HoraFinReceso { get; set; }
         public bool? SinReceso { get; set; }
         public int? GapEntrePruebas { get; set; }
+        public int? GapRecuperacionMinutos { get; set; }
         public bool? PermitirCombinadas { get; set; }
         public bool? UsarGapVariable { get; set; }
         public string? TimeZoneId { get; set; }
