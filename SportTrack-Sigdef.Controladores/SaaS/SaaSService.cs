@@ -201,6 +201,13 @@ namespace SportTrack_Sigdef.Controladores.SaaS
                 _context.Usuarios.Add(user);
                 await _context.SaveChangesAsync();
 
+                // Asegurar FK explícita por si el tracking no propagó IdFederacion al DTO de listados
+                if (user.IdFederacion != fed.IdFederacion)
+                {
+                    user.IdFederacion = fed.IdFederacion;
+                    await _context.SaveChangesAsync();
+                }
+
                 await _auditService.RegistrarAccionAsync(
                     "CREATE_FEDERATION",
                     $"Federación '{fed.Nombre}' (Id={fed.IdFederacion}) creada con admin '{username}'.",
