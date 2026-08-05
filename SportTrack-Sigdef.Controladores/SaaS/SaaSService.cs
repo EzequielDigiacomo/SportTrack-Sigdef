@@ -148,56 +148,46 @@ namespace SportTrack_Sigdef.Controladores.SaaS
 
         public async Task<int> CreateFederacionWithAdminAsync(SaaSCreateFederacionDto dto)
         {
-            // EnableRetryOnFailure requiere envolver transacciones manuales en CreateExecutionStrategy
-            var strategy = _context.Database.CreateExecutionStrategy();
+            // Sin BeginTransaction manual: EnableRetryOnFailure lo rechaza.
+            // Un solo SaveChanges es atómico (EF abre la tx interna) y compatible con reintentos.
             try
             {
-                return await strategy.ExecuteAsync(async () =>
+                var fed = new Entidades.Entidades.Federacion
                 {
-                    await using var transaction = await _context.Database.BeginTransactionAsync();
-                    try
-                    {
-                        var fed = new Entidades.Entidades.Federacion
-                        {
-                            Nombre = dto.Nombre,
-                            Sigla = dto.Sigla,
-                            Email = dto.Email,
-                            Telefono = dto.Telefono,
-                            Direccion = dto.Direccion,
-                            Activo = true,
-                            PlanSaaSId = 1,
-                            FechaAltaPlan = DateTime.UtcNow.Date,
-                            FechaVencimientoPlan = DateTime.UtcNow.Date.AddMonths(1)
-                        };
+                    Nombre = dto.Nombre,
+                    Sigla = dto.Sigla,
+                    Email = dto.Email,
+                    Telefono = dto.Telefono ?? string.Empty,
+                    Direccion = dto.Direccion ?? string.Empty,
+                    Cuit = string.Empty,
+                    Activo = true,
+                    PlanSaaSId = 1,
+                    FechaAltaPlan = DateTime.UtcNow.Date,
+                    FechaVencimientoPlan = DateTime.UtcNow.Date.AddMonths(1)
+                };
 
-                        _context.Federaciones.Add(fed);
-                        await _context.SaveChangesAsync();
+                var user = new Entidades.Entidades.Usuario
+                {
+                    Username = dto.AdminUsername.Trim().ToLower(),
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.AdminPassword),
+                    Email = dto.AdminEmail,
+                    RolFederacion = "Admin",
+                    Federacion = fed,
+                    EstaActivo = true
+                };
 
-                        var user = new Entidades.Entidades.Usuario
-                        {
-                            Username = dto.AdminUsername.Trim().ToLower(),
-                            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.AdminPassword),
-                            Email = dto.AdminEmail,
-                            RolFederacion = "Admin",
-                            IdFederacion = fed.IdFederacion,
-                            EstaActivo = true
-                        };
+                _context.Federaciones.Add(fed);
+                _context.Usuarios.Add(user);
+                await _context.SaveChangesAsync();
 
-                        _context.Usuarios.Add(user);
-                        await _context.SaveChangesAsync();
-
-                        await transaction.CommitAsync();
-                        return fed.IdFederacion;
-                    }
-                    catch
-                    {
-                        await transaction.RollbackAsync();
-                        throw;
-                    }
-                });
+                return fed.IdFederacion;
             }
             catch (Exception ex)
             {
+                // Si falló a mitad, limpiar tracking para no dejar entidades huérfanas en el context
+                foreach (var entry in _context.ChangeTracker.Entries().ToList())
+                    entry.State = EntityState.Detached;
+
                 var innerMsg = ex.InnerException?.Message ?? "";
 
                 string userFriendlyMessage = "Error interno al guardar los datos.";
