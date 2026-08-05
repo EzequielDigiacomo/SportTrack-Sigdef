@@ -254,6 +254,8 @@ Generated_Code/
 # Backup & report files from converting an old project file
 # to a newer Visual Studio version. Backup files are not needed,
 # because we have git ;-)
+# NOTA: Backup*/ ignora carpetas VS "Backup*". El módulo de dumps DB
+# vive en SportTrack-Sigdef.Controladores/DbBackup/ (no usar carpeta Backup/).
 _UpgradeReport_Files/
 Backup*/
 UpgradeLog*.XML
