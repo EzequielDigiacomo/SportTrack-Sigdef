@@ -81,8 +81,11 @@ var allowedOrigins = configOrigins.Concat(new[]
     "ionic://localhost",
     "https://sporttrack.pro",
     "https://www.sporttrack.pro",
+    "https://sigdef.pro",
+    "https://www.sigdef.pro",
     "https://sigdef.vercel.app",
-    // Legacy Vercel (transición); preferir sporttrack.pro
+    "https://www.sigdef.vercel.app",
+    // Legacy Vercel (transición); preferir sporttrack.pro / sigdef.pro
     "https://sporttrack-fec.vercel.app",
     "https://oficialsporttrack.vercel.app"
 }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();

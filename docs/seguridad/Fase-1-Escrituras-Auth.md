@@ -36,7 +36,7 @@ Roles competencia: `Admin,SuperAdmin,JuezControl,Largador,Cronometrista,soporte_
 
 ```text
 TokenKey=<secreto-largo-aleatorio-64+chars>
-AllowedOrigins=https://sporttrack.pro,https://www.sporttrack.pro,https://sigdef.vercel.app,https://sporttrack-fec.vercel.app
+AllowedOrigins=https://sporttrack.pro,https://www.sporttrack.pro,https://sigdef.pro,https://www.sigdef.pro,https://sigdef.vercel.app,https://sporttrack-fec.vercel.app
 ```
 
 (Localhost ya va hardcodeado en `Program.cs` para Dev. Dominio canónico del front: **https://sporttrack.pro**)
