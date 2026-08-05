@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SportTrack_Sigdef.Controladores.Backup;
+using SportTrack_Sigdef.Controladores.DbBackup;
 
 namespace SportTrack_Sigdef.Controllers
 {
