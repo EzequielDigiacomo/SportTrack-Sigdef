@@ -148,48 +148,60 @@ namespace SportTrack_Sigdef.Controladores.SaaS
 
         public async Task<int> CreateFederacionWithAdminAsync(SaaSCreateFederacionDto dto)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try 
+            // EnableRetryOnFailure requiere envolver transacciones manuales en CreateExecutionStrategy
+            var strategy = _context.Database.CreateExecutionStrategy();
+            try
             {
-                var fed = new Entidades.Entidades.Federacion
+                return await strategy.ExecuteAsync(async () =>
                 {
-                    Nombre = dto.Nombre,
-                    Sigla = dto.Sigla,
-                    Email = dto.Email,
-                    Telefono = dto.Telefono,
-                    Direccion = dto.Direccion,
-                    Activo = true,
-                    PlanSaaSId = 1,
-                    FechaAltaPlan = DateTime.UtcNow.Date,
-                    FechaVencimientoPlan = DateTime.UtcNow.Date.AddMonths(1)
-                };
-                
-                _context.Federaciones.Add(fed);
-                await _context.SaveChangesAsync();
+                    await using var transaction = await _context.Database.BeginTransactionAsync();
+                    try
+                    {
+                        var fed = new Entidades.Entidades.Federacion
+                        {
+                            Nombre = dto.Nombre,
+                            Sigla = dto.Sigla,
+                            Email = dto.Email,
+                            Telefono = dto.Telefono,
+                            Direccion = dto.Direccion,
+                            Activo = true,
+                            PlanSaaSId = 1,
+                            FechaAltaPlan = DateTime.UtcNow.Date,
+                            FechaVencimientoPlan = DateTime.UtcNow.Date.AddMonths(1)
+                        };
 
-                var user = new Entidades.Entidades.Usuario
-                {
-                    Username = dto.AdminUsername.Trim().ToLower(),
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.AdminPassword),
-                    Email = dto.AdminEmail, 
-                    RolFederacion = "Admin",
-                    IdFederacion = fed.IdFederacion,
-                    EstaActivo = true
-                };
+                        _context.Federaciones.Add(fed);
+                        await _context.SaveChangesAsync();
 
-                _context.Usuarios.Add(user);
-                await _context.SaveChangesAsync();
+                        var user = new Entidades.Entidades.Usuario
+                        {
+                            Username = dto.AdminUsername.Trim().ToLower(),
+                            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.AdminPassword),
+                            Email = dto.AdminEmail,
+                            RolFederacion = "Admin",
+                            IdFederacion = fed.IdFederacion,
+                            EstaActivo = true
+                        };
 
-                await transaction.CommitAsync();
-                return fed.IdFederacion;
+                        _context.Usuarios.Add(user);
+                        await _context.SaveChangesAsync();
+
+                        await transaction.CommitAsync();
+                        return fed.IdFederacion;
+                    }
+                    catch
+                    {
+                        await transaction.RollbackAsync();
+                        throw;
+                    }
+                });
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 var innerMsg = ex.InnerException?.Message ?? "";
-                
+
                 string userFriendlyMessage = "Error interno al guardar los datos.";
-                
+
                 if (innerMsg.Contains("23505") || innerMsg.Contains("duplicate key"))
                 {
                     if (innerMsg.Contains("IX_Usuarios_Username"))
@@ -200,7 +212,7 @@ namespace SportTrack_Sigdef.Controladores.SaaS
                         userFriendlyMessage = "Ya existe una federación o club con ese nombre.";
                     else
                         userFriendlyMessage = "Un dato ingresado ya existe en el sistema y no puede duplicarse.";
-                        
+
                     throw new Exception(userFriendlyMessage);
                 }
 

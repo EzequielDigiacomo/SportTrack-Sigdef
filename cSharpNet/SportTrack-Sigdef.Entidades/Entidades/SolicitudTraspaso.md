@@ -1,0 +1,71 @@
+# SolicitudTraspaso.cs
+
+> Fuente: `SportTrack-Sigdef.Entidades/Entidades/SolicitudTraspaso.cs`
+
+## Que es este archivo
+
+Archivo C# del proyecto **SportTrack-Sigdef.Entidades**. Define: `SolicitudTraspaso` (tipo principal: **class**).
+Sirve como material de estudio del codigo real de SportTrack-Sigdef.
+
+## Conceptos C# / .NET que aparecen
+
+- **class**: tipo referencia; define datos (propiedades) y comportamiento (metodos).
+- **Propiedades auto-implementadas**: el compilador crea el campo privado (get; set;).
+- **Nullable**: string? / int? indican que el valor puede ser null.
+
+## Namespace
+
+```
+SportTrack_Sigdef.Entidades.Entidades
+```
+
+## Usings (importaciones)
+
+- `SportTrack_Sigdef.Entidades.Enums`
+- `System`
+
+## Atributos detectados
+
+_Sin atributos destacados._
+
+## Propiedades
+
+| Propiedad | Tipo | Notas |
+|-----------|------|-------|
+| `IdSolicitudTraspaso` | `int` | No-null (segun anotaciones) |
+| `IdFederacion` | `int` | No-null (segun anotaciones) |
+| `Federacion` | `Federacion` | No-null (segun anotaciones) |
+| `ParticipanteId` | `int` | No-null (segun anotaciones) |
+| `Participante` | `Participante` | No-null (segun anotaciones) |
+| `IdClubOrigen` | `int` | No-null (segun anotaciones) |
+| `ClubOrigen` | `Club` | No-null (segun anotaciones) |
+| `IdClubDestino` | `int` | No-null (segun anotaciones) |
+| `ClubDestino` | `Club` | No-null (segun anotaciones) |
+| `Estado` | `EstadoSolicitudTraspaso` | No-null (segun anotaciones) |
+| `MotivoSolicitud` | `string?` | Puede ser null |
+| `MotivoRechazo` | `string?` | Puede ser null |
+| `SolicitadoPorUsuarioId` | `int?` | Puede ser null |
+| `FechaSolicitud` | `DateTime` | No-null (segun anotaciones) |
+| `FechaRespuestaOrigen` | `DateTime?` | Puede ser null |
+| `FechaRespuestaFederacion` | `DateTime?` | Puede ser null |
+| `FechaEjecucion` | `DateTime?` | Puede ser null |
+| `AprobadoPorUsuarioId` | `int?` | Puede ser null |
+
+## Metodos
+
+_Sin metodos publicos/protegidos detectados (puede ser solo DTO/entidad)._
+
+## Como estudiarlo
+
+1. Abre el `.cs` original en el IDE.
+2. Identifica el tipo (class) y su responsabilidad.
+3. Lee cada propiedad: tipo, nullabilidad y significado de negocio.
+4. Si hay metodos, sigue el flujo (validaciones -> persistencia -> retorno DTO).
+5. Busca en este mismo directorio los tipos relacionados (DTOs, interfaces, entidades).
+
+## Notas de estudio
+
+- En C#, casi todo vive dentro de un **tipo** (class / interface / enum / record).
+- Los corchetes `[Atributo]` agregan metadatos usados por el runtime, EF Core, ASP.NET, Swagger, etc.
+- `Task` / `async` aparecen cuando hay trabajo de I/O (base de datos, HTTP, archivos).
+- Las interfaces (`I...`) desacoplan el contrato de la implementacion (util para testing y DI).
