@@ -150,11 +150,32 @@ namespace SportTrack_Sigdef.Controladores.SaaS
         {
             // Sin BeginTransaction manual: EnableRetryOnFailure lo rechaza.
             // Un solo SaveChanges es atómico (EF abre la tx interna) y compatible con reintentos.
+            var nombre = (dto.Nombre ?? string.Empty).Trim();
+            var username = (dto.AdminUsername ?? string.Empty).Trim().ToLower();
+            var adminEmail = (dto.AdminEmail ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(nombre))
+                throw new Exception("El nombre de la federación es obligatorio.");
+            if (string.IsNullOrWhiteSpace(username))
+                throw new Exception("El usuario administrador es obligatorio.");
+            if (string.IsNullOrWhiteSpace(adminEmail))
+                throw new Exception("El email del administrador es obligatorio.");
+
+            // Validación previa: evita el mensaje genérico de "duplicate key" y reintentos inútiles
+            if (await _context.Federaciones.AnyAsync(f => f.Nombre.ToLower() == nombre.ToLower()))
+                throw new Exception($"Ya existe una federación con el nombre '{nombre}'. Revisá el listado: puede haberse creado en intentos anteriores.");
+
+            if (await _context.Usuarios.AnyAsync(u => u.Username == username))
+                throw new Exception($"El usuario '{username}' ya está en uso. Elegí otro o eliminá la federación duplicada que lo creó.");
+
+            if (await _context.Usuarios.AnyAsync(u => u.Email.ToLower() == adminEmail.ToLower()))
+                throw new Exception($"El email '{adminEmail}' ya está registrado. Elegí otro o eliminá la federación duplicada que lo usó.");
+
             try
             {
                 var fed = new Entidades.Entidades.Federacion
                 {
-                    Nombre = dto.Nombre,
+                    Nombre = nombre,
                     Sigla = dto.Sigla,
                     Email = dto.Email,
                     Telefono = dto.Telefono ?? string.Empty,
@@ -168,9 +189,9 @@ namespace SportTrack_Sigdef.Controladores.SaaS
 
                 var user = new Entidades.Entidades.Usuario
                 {
-                    Username = dto.AdminUsername.Trim().ToLower(),
+                    Username = username,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.AdminPassword),
-                    Email = dto.AdminEmail,
+                    Email = adminEmail,
                     RolFederacion = "Admin",
                     Federacion = fed,
                     EstaActivo = true
@@ -180,30 +201,35 @@ namespace SportTrack_Sigdef.Controladores.SaaS
                 _context.Usuarios.Add(user);
                 await _context.SaveChangesAsync();
 
+                await _auditService.RegistrarAccionAsync(
+                    "CREATE_FEDERATION",
+                    $"Federación '{fed.Nombre}' (Id={fed.IdFederacion}) creada con admin '{username}'.",
+                    modulo: "SaaS"
+                );
+
                 return fed.IdFederacion;
+            }
+            catch (Exception ex) when (ex.Message.StartsWith("Ya existe") || ex.Message.StartsWith("El usuario") || ex.Message.StartsWith("El email") || ex.Message.StartsWith("El nombre"))
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                // Si falló a mitad, limpiar tracking para no dejar entidades huérfanas en el context
                 foreach (var entry in _context.ChangeTracker.Entries().ToList())
                     entry.State = EntityState.Detached;
 
-                var innerMsg = ex.InnerException?.Message ?? "";
+                var innerMsg = ex.InnerException?.Message ?? ex.Message;
 
-                string userFriendlyMessage = "Error interno al guardar los datos.";
-
-                if (innerMsg.Contains("23505") || innerMsg.Contains("duplicate key"))
+                if (innerMsg.Contains("23505") || innerMsg.Contains("duplicate key", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (innerMsg.Contains("IX_Usuarios_Username"))
-                        userFriendlyMessage = "El nombre de usuario administrador ya está en uso. Por favor, elige otro.";
-                    else if (innerMsg.Contains("IX_Usuarios_Email"))
-                        userFriendlyMessage = "El email del administrador ya está registrado en otra cuenta. Debe ser único.";
-                    else if (innerMsg.Contains("IX_Federaciones_Nombre") || innerMsg.Contains("IX_Clubes_Nombre"))
-                        userFriendlyMessage = "Ya existe una federación o club con ese nombre.";
-                    else
-                        userFriendlyMessage = "Un dato ingresado ya existe en el sistema y no puede duplicarse.";
+                    if (innerMsg.Contains("IX_Usuarios_Username", StringComparison.OrdinalIgnoreCase) || innerMsg.Contains("Username", StringComparison.OrdinalIgnoreCase))
+                        throw new Exception("El nombre de usuario administrador ya está en uso. Por favor, elige otro.");
+                    if (innerMsg.Contains("IX_Usuarios_Email", StringComparison.OrdinalIgnoreCase) || innerMsg.Contains("Email", StringComparison.OrdinalIgnoreCase))
+                        throw new Exception("El email del administrador ya está registrado en otra cuenta. Debe ser único.");
+                    if (innerMsg.Contains("IX_Federaciones_Nombre", StringComparison.OrdinalIgnoreCase) || innerMsg.Contains("IX_Clubes_Nombre", StringComparison.OrdinalIgnoreCase))
+                        throw new Exception("Ya existe una federación o club con ese nombre.");
 
-                    throw new Exception(userFriendlyMessage);
+                    throw new Exception($"Un dato ya existe en el sistema (posible duplicado por reintentos). Detalle: {innerMsg}");
                 }
 
                 throw new Exception($"Error al crear la federación: {ex.Message}");
