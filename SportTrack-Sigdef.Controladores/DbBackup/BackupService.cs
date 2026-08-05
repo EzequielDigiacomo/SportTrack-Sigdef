@@ -128,7 +128,7 @@ namespace SportTrack_Sigdef.Controladores.DbBackup
 
             var psi = new ProcessStartInfo
             {
-                FileName = "pg_dump",
+                FileName = ResolvePgDumpPath(),
                 Arguments = args,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -154,7 +154,7 @@ namespace SportTrack_Sigdef.Controladores.DbBackup
             {
                 _logger.LogError(ex, "pg_dump no disponible en el contenedor");
                 throw new InvalidOperationException(
-                    "pg_dump no está disponible en el servidor. Verificá que la imagen Docker instale postgresql-client.", ex);
+                    "pg_dump no está disponible en el servidor. Verificá que la imagen Docker instale postgresql-client-18.", ex);
             }
 
             var stdoutTask = process.StandardOutput.BaseStream.CopyToAsync(stdout, ct);
@@ -394,6 +394,27 @@ namespace SportTrack_Sigdef.Controladores.DbBackup
         {
             var cleaned = Regex.Replace(value.Trim(), @"[^\w\-]+", "_");
             return string.IsNullOrWhiteSpace(cleaned) ? "fed" : cleaned[..Math.Min(cleaned.Length, 40)];
+        }
+
+        private static string ResolvePgDumpPath()
+        {
+            // Preferir cliente 18 (alineado con Render PG 18.x); fallback a PATH.
+            string[] candidates =
+            {
+                "/usr/local/bin/pg_dump",
+                "/usr/lib/postgresql/18/bin/pg_dump",
+                "pg_dump"
+            };
+
+            foreach (var path in candidates)
+            {
+                if (path == "pg_dump")
+                    return path;
+                if (File.Exists(path))
+                    return path;
+            }
+
+            return "pg_dump";
         }
 
         private static string EscapeArg(string value) => value.Replace("\"", "\\\"");
