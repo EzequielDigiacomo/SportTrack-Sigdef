@@ -8,6 +8,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using SportTrack_Sigdef.AccesoDatos;
 using SportTrack_Sigdef.Controladores.Audit;
+using SportTrack_Sigdef.Controladores.Backup;
 using SportTrack_Sigdef.Controladores.Auth;
 using SportTrack_Sigdef.Controladores.Bote;
 using SportTrack_Sigdef.Controladores.Categoria;
@@ -225,6 +226,8 @@ builder.Services.AddScoped<ISaaSService, SaaSService>();
 // Auditoria
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuditService, AuditService>();
+// Backups DB (SuperAdmin)
+builder.Services.AddScoped<IBackupService, BackupService>();
 // Mensajería privada
 builder.Services.AddScoped<IMensajeRepository, MensajeRepository>();
 builder.Services.AddScoped<IMensajeService, MensajeService>();

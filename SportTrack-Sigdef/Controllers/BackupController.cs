@@ -1,114 +1,61 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
-using Npgsql;
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
+using SportTrack_Sigdef.Controladores.Backup;
 
 namespace SportTrack_Sigdef.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "SuperAdmin")]
+    [Authorize(Roles = "SuperAdmin,soporte_tecnico")]
     public class BackupController : ControllerBase
     {
-        private readonly IConfiguration _configuration;
+        private readonly IBackupService _backupService;
 
-        public BackupController(IConfiguration configuration)
+        public BackupController(IBackupService backupService)
         {
-            _configuration = configuration;
+            _backupService = backupService;
         }
 
+        /// <summary>
+        /// Descarga un backup SQL.
+        /// scope=full (default) | federacion&amp;idFederacion=N
+        /// </summary>
         [HttpGet("download")]
-        public async Task<IActionResult> DownloadBackup()
+        [RequestSizeLimit(512_000_000)]
+        public async Task<IActionResult> Download(
+            [FromQuery] string scope = "full",
+            [FromQuery] int? idFederacion = null,
+            CancellationToken ct = default)
         {
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
-            if (string.IsNullOrEmpty(connectionString))
-            {
-                return StatusCode(500, "Connection string not found.");
-            }
-
             try
             {
-                var builder = new NpgsqlConnectionStringBuilder(connectionString);
-                var host = builder.Host;
-                var port = builder.Port > 0 ? builder.Port : 5432;
-                var database = builder.Database;
-                var username = builder.Username;
-                var password = builder.Password;
-
-                var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-                
-                // Si es Windows, asumimos que puede estar en las rutas habituales de PostgreSQL o en el PATH
-                // En Linux (Render), al haber instalado postgresql-client, pg_dump estará en el PATH
-                var pgDumpCommand = isWindows ? "pg_dump" : "pg_dump";
-                
-                if (isWindows)
-                {
-                    // Intentar buscar en C:\Program Files\PostgreSQL si no se encuentra en el PATH
-                    var defaultPgPath = @"C:\Program Files\PostgreSQL\16\bin\pg_dump.exe"; // Versión común, puede ser 15, 16, 17...
-                    if (!System.IO.File.Exists(defaultPgPath))
-                    {
-                        defaultPgPath = @"C:\Program Files\PostgreSQL\15\bin\pg_dump.exe";
-                    }
-                    if (!System.IO.File.Exists(defaultPgPath))
-                    {
-                        defaultPgPath = @"C:\Program Files\PostgreSQL\14\bin\pg_dump.exe";
-                    }
-                    
-                    if (System.IO.File.Exists(defaultPgPath))
-                    {
-                        pgDumpCommand = defaultPgPath;
-                    }
-                }
-
-                var arguments = $"--host={host} --port={port} --username={username} --format=custom --no-owner --no-privileges {database}";
-                // Para simplificar la salida y que sea texto plano SQL en lugar de 'custom', cambiamos a SQL plano
-                arguments = $"--host={host} --port={port} --username={username} --format=plain --no-owner --no-privileges --clean --if-exists {database}";
-
-                var processStartInfo = new ProcessStartInfo
-                {
-                    FileName = pgDumpCommand,
-                    Arguments = arguments,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                // Pasar la contraseña por variable de entorno es la forma segura en PostgreSQL
-                processStartInfo.EnvironmentVariables["PGPASSWORD"] = password;
-
-                var process = new Process { StartInfo = processStartInfo };
-                
-                process.Start();
-
-                var memoryStream = new MemoryStream();
-                await process.StandardOutput.BaseStream.CopyToAsync(memoryStream);
-                var errorOutput = await process.StandardError.ReadToEndAsync();
-                
-                process.WaitForExit();
-
-                if (process.ExitCode != 0)
-                {
-                    return StatusCode(500, $"Error executing pg_dump: {errorOutput}");
-                }
-
-                memoryStream.Position = 0;
-
-                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                var fileName = $"backup_{database}_{timestamp}.sql";
-
-                return File(memoryStream, "application/sql", fileName);
+                var clientApp = Request.Headers["X-Client-App"].ToString();
+                var result = await _backupService.CreateBackupAsync(scope, idFederacion, clientApp, ct);
+                return File(result.Content, result.ContentType, result.FileName);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error while generating backup: {ex.Message}");
+                return StatusCode(500, new { message = $"Error al generar backup: {ex.Message}" });
             }
+        }
+
+        /// <summary>Historial de backups generados (ambos sistemas, misma BD).</summary>
+        [HttpGet("history")]
+        public async Task<IActionResult> History([FromQuery] int limit = 50, CancellationToken ct = default)
+        {
+            var items = await _backupService.GetHistoryAsync(limit, ct);
+            return Ok(items);
         }
     }
 }
-
