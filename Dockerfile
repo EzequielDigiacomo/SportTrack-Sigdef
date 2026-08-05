@@ -22,8 +22,21 @@ RUN dotnet publish "SportTrack-Sigdef.csproj" -c Release -o /app/publish /p:UseA
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
-# Instalar postgresql-client para disponer de pg_dump (necesario para respaldos de base de datos)
-RUN apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
+# pg_dump debe ser >= versión del server (Render PG 18.x).
+# El metapaquete debian "postgresql-client" trae v15 y falla con mismatch.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+         https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" \
+         > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-18 \
+    && ln -sf /usr/lib/postgresql/18/bin/pg_dump /usr/local/bin/pg_dump \
+    && ln -sf /usr/lib/postgresql/18/bin/pg_restore /usr/local/bin/pg_restore \
+    && ln -sf /usr/lib/postgresql/18/bin/psql /usr/local/bin/psql \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=publish /app/publish .
 
