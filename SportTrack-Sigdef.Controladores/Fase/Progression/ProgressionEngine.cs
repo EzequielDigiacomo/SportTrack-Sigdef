@@ -1,9 +1,17 @@
 using InscripcionEntity = SportTrack_Sigdef.Entidades.Entidades.Inscripcion;
+using SportTrack_Sigdef.Entidades.Enums;
 
 namespace SportTrack_Sigdef.Controladores.Fase.Progression;
 
 public static class ProgressionEngine
 {
+    private static readonly EstadoResultadoEnum[] ExcluidosDelRanking =
+    {
+        EstadoResultadoEnum.Descalificado,
+        EstadoResultadoEnum.DNS,
+        EstadoResultadoEnum.DNF
+    };
+
     public static ProgressionResult PromoteFromEliminatoria(PlanDefinition plan, RankedHeatContext ctx)
     {
         var result = new ProgressionResult();
@@ -74,13 +82,15 @@ public static class ProgressionEngine
         {
             var pos = group.Key;
             var candidates = ctx.RankedByHeat
-                .Select((heat, idx) =>
+                .OrderBy(kv => kv.Key)
+                .Select(kv =>
                 {
+                    var heat = kv.Value;
                     if (heat.Count < pos) return null;
                     var insc = heat[pos - 1];
                     var time = ctx.GetTime(insc);
                     if (!time.HasValue) return null;
-                    return new { Heat = idx + 1, Insc = insc, Time = time.Value };
+                    return new { Heat = kv.Key, Insc = insc, Time = time.Value };
                 })
                 .Where(x => x != null && !used.Contains(x!.Insc.IdInscripcion))
                 .OrderBy(x => x!.Time)
@@ -108,8 +118,7 @@ public static class ProgressionEngine
 
     private static InscripcionEntity? GetAtPosition(RankedHeatContext ctx, int heat, int position)
     {
-        if (heat < 1 || heat > ctx.RankedByHeat.Count) return null;
-        var list = ctx.RankedByHeat[heat - 1];
+        if (!ctx.RankedByHeat.TryGetValue(heat, out var list)) return null;
         if (position < 1 || position > list.Count) return null;
         return list[position - 1];
     }
@@ -118,19 +127,28 @@ public static class ProgressionEngine
         IEnumerable<Entidades.Entidades.Fase> fases,
         Func<Entidades.Entidades.Fase, IEnumerable<Entidades.Entidades.Resultado>> getResults)
     {
-        var ranked = fases
-            .OrderBy(f => f.NumeroFase)
-            .Select(f => getResults(f)
-                .Where(r => r.TiempoOficial.HasValue && r.Inscripcion != null)
-                .OrderBy(r => r.TiempoOficial!.Value)
+        var ranked = new Dictionary<int, List<InscripcionEntity>>();
+
+        foreach (var fase in fases.OrderBy(f => f.NumeroFase))
+        {
+            var ordered = getResults(fase)
+                .Where(r => r.Inscripcion != null && !ExcluidosDelRanking.Contains(r.Estado))
+                .Where(r => r.TiempoOficial.HasValue || r.Posicion.HasValue)
+                // Preferir tiempo oficial; si falta, usar posición guardada.
+                .OrderBy(r => r.TiempoOficial.HasValue ? 0 : 1)
+                .ThenBy(r => r.TiempoOficial ?? TimeSpan.MaxValue)
+                .ThenBy(r => r.Posicion ?? int.MaxValue)
                 .Select(r => r.Inscripcion!)
-                .ToList())
-            .ToList();
+                .ToList();
+
+            ranked[fase.NumeroFase] = ordered;
+        }
 
         var timeLookup = fases
             .SelectMany(f => getResults(f))
             .Where(r => r.Inscripcion != null && r.TiempoOficial.HasValue)
-            .ToDictionary(r => r.InscripcionId, r => r.TiempoOficial);
+            .GroupBy(r => r.InscripcionId)
+            .ToDictionary(g => g.Key, g => g.First().TiempoOficial);
 
         return new RankedHeatContext(
             ranked,

@@ -440,6 +440,16 @@ namespace SportTrack_Sigdef.Controladores.Fase
             {
                 progression = ProgressionEngine.PromoteFromSemifinal(plan, ctx);
 
+                var pasesDesdeSemi = progression.AuditTrail.Count(a =>
+                    a.Origen.Contains("/SF", StringComparison.OrdinalIgnoreCase));
+                var slotsSemiEsperados = plan.SemiToFinalA.Count + plan.SemiToFinalB.Count + plan.SemiToFinalC.Count;
+                if (slotsSemiEsperados > 0 && pasesDesdeSemi == 0)
+                {
+                    throw new InvalidOperationException(
+                        "No se pudieron asignar atletas desde Semifinal a Final según el plan. " +
+                        "Verificá que la semifinal tenga tiempos oficiales (o posiciones) guardados y volvé a promover.");
+                }
+
                 var etapaElim = etapas.FirstOrDefault(e =>
                     e.Tipo == SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Eliminatoria);
                 if (etapaElim != null && plan.ElimToFinalA.Count > 0)
@@ -599,28 +609,9 @@ namespace SportTrack_Sigdef.Controladores.Fase
                 return;
             }
 
-            foreach (var (carril, insc) in laneMap)
-            {
-                var resExistente = existente.Resultados.FirstOrDefault(r => r.Carril == carril);
-                if (resExistente != null)
-                {
-                    resExistente.InscripcionId = insc.IdInscripcion;
-                    resExistente.TiempoOficial = null;
-                    resExistente.Posicion = null;
-                    resExistente.Estado = SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.Pendiente;
-                }
-                else
-                {
-                    existente.Resultados.Add(new Entidades.Entidades.Resultado
-                    {
-                        InscripcionId = insc.IdInscripcion,
-                        Carril = carril,
-                        Estado = SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.Pendiente
-                    });
-                }
-            }
-
-            await _faseRepository.UpdateAsync(existente);
+            // Importante: no usar Update sobre el grafo AsNoTracking de GetByEventoPruebaIdAsync;
+            // los Resultado nuevos (carriles 1/8/9 desde semi) no se insertaban.
+            await _faseRepository.MergeCarrilesAsync(existente.Id, laneMap);
         }
 
         private static Entidades.Entidades.Fase CrearFaseConCarriles(

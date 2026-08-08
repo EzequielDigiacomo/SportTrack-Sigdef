@@ -15,8 +15,11 @@ public record SlotRule(int Heat, int Position, string Destino, int Carril);
 /// <summary>BT: posición origen (8=8vo), rango entre iguales (1=mejor), destino y carril.</summary>
 public record BtSlotRule(int SourcePosition, int BtRank, string Destino, int Carril);
 
+/// <summary>
+/// Rankings por número de serie/heat (1-based ICF). La clave es NumeroFase.
+/// </summary>
 public record RankedHeatContext(
-    List<List<InscripcionEntity>> RankedByHeat,
+    IReadOnlyDictionary<int, List<InscripcionEntity>> RankedByHeat,
     Func<InscripcionEntity, TimeSpan?> GetTime
 );
 
