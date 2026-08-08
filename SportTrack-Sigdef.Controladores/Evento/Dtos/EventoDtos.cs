@@ -19,6 +19,8 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public int? ClubId { get; set; }
         public int? FederacionId { get; set; }
         public string? ClubNombre { get; set; }
+        /// <summary>Velocidad | Maraton</summary>
+        public string Modalidad { get; set; } = "Velocidad";
         public bool InscripcionesHabilitadas { get; set; }
         public bool InscripcionesAbiertas => InscripcionesHabilitadas && Estado == "Programada" && (!FechaFinInscripciones.HasValue || FechaFinInscripciones.Value > DateTime.UtcNow);
         
@@ -61,6 +63,8 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public bool LimitacionBotesAB { get; set; } = false;
         public int? ClubId { get; set; }
         public int? FederacionId { get; set; }
+        /// <summary>Velocidad | Maraton</summary>
+        public string Modalidad { get; set; } = "Velocidad";
         public bool InscripcionesHabilitadas { get; set; } = true;
         public string HoraInicioEvento { get; set; } = "08:00";
         public int CarrilesDisponibles { get; set; } = 9;
@@ -93,6 +97,8 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public bool? LimitacionBotesAB { get; set; }
         public bool? InscripcionesHabilitadas { get; set; }
         public int? ClubId { get; set; }
+        /// <summary>Velocidad | Maraton</summary>
+        public string? Modalidad { get; set; }
         public string? HoraInicioEvento { get; set; }
         public int? CarrilesDisponibles { get; set; }
         public string? PerfilTiempo { get; set; }

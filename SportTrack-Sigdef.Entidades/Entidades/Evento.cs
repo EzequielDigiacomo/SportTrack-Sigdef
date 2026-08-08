@@ -32,6 +32,9 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public bool TieneCronometraje { get; set; }
         public bool RequiereCertificadoMedico { get; set; }
         public string? Observaciones { get; set; }
+
+        /// <summary>Velocidad (pista) o Maraton. Default Velocidad.</summary>
+        public string Modalidad { get; set; } = "Velocidad";
         
         // Propiedad de pertenencia
         public int? IdClub { get; set; }
