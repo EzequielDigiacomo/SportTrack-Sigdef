@@ -216,6 +216,36 @@ namespace SportTrack_Sigdef.Controladores.Evento
             return true;
         }
 
+        public async Task<int> UnassignByGrupoLargadaAsync(Guid grupoLargadaId)
+        {
+            var entities = await _context.EventoPruebas
+                .Where(ep => ep.GrupoLargadaId == grupoLargadaId)
+                .ToListAsync();
+            if (entities.Count == 0) return 0;
+
+            _context.EventoPruebas.RemoveRange(entities);
+            await _context.SaveChangesAsync();
+            return entities.Count;
+        }
+
+        public async Task<IEnumerable<EventoPrueba>> GetPruebasByGrupoLargadaAsync(Guid grupoLargadaId)
+        {
+            return await _context.EventoPruebas
+                .AsNoTracking()
+                .Include(ep => ep.Prueba)
+                    .ThenInclude(p => p.Categoria)
+                .Include(ep => ep.Prueba)
+                    .ThenInclude(p => p.Bote)
+                .Include(ep => ep.Prueba)
+                    .ThenInclude(p => p.Distancia)
+                .Include(ep => ep.Prueba)
+                    .ThenInclude(p => p.Sexo)
+                .Include(ep => ep.Inscripciones)
+                .Where(ep => ep.GrupoLargadaId == grupoLargadaId)
+                .OrderBy(ep => ep.FechaHora)
+                .ToListAsync();
+        }
+
         public async Task<Entidades.Entidades.Prueba?> GetPruebaAsync(int categoriaId, int boteId, int distanciaId, int sexoId)
         {
             return await _context.Pruebas

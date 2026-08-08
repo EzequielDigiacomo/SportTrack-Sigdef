@@ -288,6 +288,21 @@ namespace SportTrack_Sigdef.Controllers.Eventos
             return Ok(result);
         }
 
+        /// <summary>Largada Maratón: varias categorías/botes/sexos en el mismo pateo.</summary>
+        [HttpPost("{id}/pruebas/largada")]
+        public async Task<ActionResult<IEnumerable<EventoPruebaDto>>> AssignLargada(int id, EventoLargadaCreateDto largadaDto)
+        {
+            try
+            {
+                var result = await _eventoService.AssignLargadaMaratonAsync(id, largadaDto);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         [HttpPut("pruebas/{id}")]
         // [Authorize(Roles = "Admin")]
         public async Task<ActionResult<EventoPruebaDto>> UpdatePrueba(int id, EventoPruebaCreateDto updateDto)

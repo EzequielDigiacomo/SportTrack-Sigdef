@@ -21,6 +21,11 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public string? PlanProgresionAsignado { get; set; }
         public decimal? PrecioCategoria { get; set; } = 0;
 
+        /// <summary>
+        /// Agrupa varias EventoPrueba en una misma largada (Maratón: multi categoría/bote/sexo).
+        /// </summary>
+        public Guid? GrupoLargadaId { get; set; }
+
         // Navigation properties
         public Evento Evento { get; set; } = null!;
         public Prueba Prueba { get; set; } = null!;
