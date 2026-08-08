@@ -16,6 +16,12 @@ namespace SportTrack_Sigdef.Controladores.Fase
         Task DeleteByEventoPruebaIdAsync(int eventoPruebaId);
         Task DeleteAsync(int id);
         Task<Entidades.Entidades.Fase> UpdateAsync(Entidades.Entidades.Fase fase);
+        /// <summary>
+        /// Fusiona asignaciones de carril en una fase ya existente (p. ej. completar Final A
+        /// con pases de semifinal sin borrar los pases directos de eliminatoria).
+        /// Usa entidades tracked para que los Resultado nuevos se inserten correctamente.
+        /// </summary>
+        Task MergeCarrilesAsync(int faseId, Dictionary<int, Entidades.Entidades.Inscripcion> laneMap);
         Task<IEnumerable<Entidades.Entidades.Fase>> GetByEventoIdAsync(int eventoId);
         Task<SportTrack_Sigdef.Entidades.Entidades.Resultado?> GetResultadoByIdAsync(int id);
         Task UpdateResultadoAsync(SportTrack_Sigdef.Entidades.Entidades.Resultado resultado);
@@ -110,6 +116,38 @@ namespace SportTrack_Sigdef.Controladores.Fase
             _context.Fases.Update(fase);
             await _context.SaveChangesAsync();
             return fase;
+        }
+
+        public async Task MergeCarrilesAsync(int faseId, Dictionary<int, Entidades.Entidades.Inscripcion> laneMap)
+        {
+            var fase = await _context.Fases
+                .Include(f => f.Resultados)
+                .FirstOrDefaultAsync(f => f.Id == faseId)
+                ?? throw new KeyNotFoundException($"Fase {faseId} no encontrada");
+
+            foreach (var (carril, insc) in laneMap)
+            {
+                var resExistente = fase.Resultados.FirstOrDefault(r => r.Carril == carril);
+                if (resExistente != null)
+                {
+                    resExistente.InscripcionId = insc.IdInscripcion;
+                    resExistente.TiempoOficial = null;
+                    resExistente.Posicion = null;
+                    resExistente.Estado = SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.Pendiente;
+                }
+                else
+                {
+                    fase.Resultados.Add(new Entidades.Entidades.Resultado
+                    {
+                        FaseId = faseId,
+                        InscripcionId = insc.IdInscripcion,
+                        Carril = carril,
+                        Estado = SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.Pendiente
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
         }
 
         public async Task<IEnumerable<Entidades.Entidades.Fase>> GetByEventoIdAsync(int eventoId)
