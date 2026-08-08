@@ -939,6 +939,7 @@ namespace SportTrack_Sigdef.AccesoDatos
                 new Distancia { Id = 8, DistanciaRegata = DistanciaRegataEnum.Metros2000, GapSugerido = 10 },
                 new Distancia { Id = 9, DistanciaRegata = DistanciaRegataEnum.Metros3000, GapSugerido = 15 },
                 new Distancia { Id = 10, DistanciaRegata = DistanciaRegataEnum.Metros5000, GapSugerido = 15 },
+                new Distancia { Id = 17, DistanciaRegata = DistanciaRegataEnum.Metros6000, GapSugerido = 15 },
                 new Distancia { Id = 11, DistanciaRegata = DistanciaRegataEnum.Metros10000, GapSugerido = 20 },
                 new Distancia { Id = 12, DistanciaRegata = DistanciaRegataEnum.Metros12000, GapSugerido = 20 },
                 new Distancia { Id = 13, DistanciaRegata = DistanciaRegataEnum.Metros15000, GapSugerido = 25 },
