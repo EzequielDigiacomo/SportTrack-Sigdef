@@ -856,6 +856,9 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.Property<DateTime>("FechaHora")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("GrupoLargadaId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("IdEvento")
                         .HasColumnType("integer");
 
@@ -884,6 +887,9 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
 
                     b.HasIndex("FechaHora")
                         .HasDatabaseName("IX_EventoPruebas_FechaHora");
+
+                    b.HasIndex("GrupoLargadaId")
+                        .HasDatabaseName("IX_EventoPruebas_GrupoLargadaId");
 
                     b.HasIndex("IdPrueba");
 

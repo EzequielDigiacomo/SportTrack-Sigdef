@@ -461,6 +461,9 @@ namespace SportTrack_Sigdef.AccesoDatos
 
                 entity.HasIndex(e => e.Estado)
                     .HasDatabaseName("IX_EventoPruebas_Estado");
+
+                entity.HasIndex(e => e.GrupoLargadaId)
+                    .HasDatabaseName("IX_EventoPruebas_GrupoLargadaId");
             });
 
             // Tabla: Participante

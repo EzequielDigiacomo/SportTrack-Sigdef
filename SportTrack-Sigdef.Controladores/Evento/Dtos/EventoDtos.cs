@@ -125,6 +125,8 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public string? Estado { get; set; }
         public int CantidadInscritos { get; set; }
         public string? PlanProgresionAsignado { get; set; }
+        /// <summary>Misma GUID = misma largada combinada (Maratón).</summary>
+        public Guid? GrupoLargadaId { get; set; }
     }
 
     public class EventoPruebaCreateDto
@@ -134,6 +136,19 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public int DistanciaId { get; set; }
         public int SexoId { get; set; } = 1; // Mixto por defecto
         public DateTime? FechaHora { get; set; }
+        public Guid? GrupoLargadaId { get; set; }
+    }
+
+    /// <summary>Largada Maratón: varias categorías/botes/sexos en un mismo pateo.</summary>
+    public class EventoLargadaCreateDto
+    {
+        public List<int> CategoriaIds { get; set; } = new();
+        public List<int> BoteIds { get; set; } = new();
+        public List<int> SexoIds { get; set; } = new();
+        public int DistanciaId { get; set; }
+        public DateTime? FechaHora { get; set; }
+        /// <summary>Si se envía, reemplaza el grupo existente (edición).</summary>
+        public Guid? GrupoLargadaId { get; set; }
     }
 
     public class PruebaDto

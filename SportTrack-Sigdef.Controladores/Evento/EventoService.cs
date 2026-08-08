@@ -76,6 +76,10 @@ namespace SportTrack_Sigdef.Controladores.Evento
             // Scope de tenant seteado por el Controller desde Claims / GetMe
             evento.IdClub = eventoDto.ClubId;
             evento.IdFederacion = eventoDto.FederacionId;
+            evento.Modalidad = string.Equals(eventoDto.Modalidad, "Maraton", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(eventoDto.Modalidad, "Maratón", StringComparison.OrdinalIgnoreCase)
+                ? "Maraton"
+                : "Velocidad";
             
             var result = await _eventoRepository.CreateAsync(evento);
             
@@ -102,6 +106,14 @@ namespace SportTrack_Sigdef.Controladores.Evento
             }
             
             _mapper.Map(eventoDto, existing);
+
+            if (!string.IsNullOrWhiteSpace(eventoDto.Modalidad))
+            {
+                existing.Modalidad = string.Equals(eventoDto.Modalidad, "Maraton", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(eventoDto.Modalidad, "Maratón", StringComparison.OrdinalIgnoreCase)
+                    ? "Maraton"
+                    : "Velocidad";
+            }
 
             existing.Fecha = DateTime.SpecifyKind(existing.Fecha, DateTimeKind.Utc);
             if (existing.FechaFin.HasValue)
@@ -196,7 +208,9 @@ namespace SportTrack_Sigdef.Controladores.Evento
                 IdEvento = eventoId,
                 IdPrueba = prueba.IdPrueba,
                 FechaHora = assignDto.FechaHora ?? DateTime.UtcNow,
-                Estado = EstadoEventoEnum.Programada
+                Estado = EstadoEventoEnum.Programada,
+                GrupoLargadaId = assignDto.GrupoLargadaId,
+                MaxParticipantes = 0
             };
 
             // Asegurar UTC para la fecha de la prueba
@@ -205,6 +219,52 @@ namespace SportTrack_Sigdef.Controladores.Evento
             var result = await _eventoRepository.AssignPruebaAsync(eventoPrueba);
             _liveCache.InvalidateEvento(eventoId);
             return _mapper.Map<EventoPruebaDto>(result);
+        }
+
+        public async Task<IEnumerable<EventoPruebaDto>> AssignLargadaMaratonAsync(int eventoId, EventoLargadaCreateDto largadaDto)
+        {
+            if (largadaDto.CategoriaIds == null || largadaDto.CategoriaIds.Count == 0)
+                throw new ArgumentException("Debe seleccionar al menos una categoría.");
+            if (largadaDto.BoteIds == null || largadaDto.BoteIds.Count == 0)
+                throw new ArgumentException("Debe seleccionar al menos un bote.");
+            if (largadaDto.SexoIds == null || largadaDto.SexoIds.Count == 0)
+                throw new ArgumentException("Debe seleccionar al menos una rama (sexo).");
+            if (largadaDto.DistanciaId <= 0)
+                throw new ArgumentException("Debe seleccionar una distancia.");
+
+            var grupoId = largadaDto.GrupoLargadaId ?? Guid.NewGuid();
+            var fechaHora = DateTime.SpecifyKind(
+                largadaDto.FechaHora ?? DateTime.UtcNow,
+                DateTimeKind.Utc);
+
+            // Edición: reemplazar el grupo completo
+            if (largadaDto.GrupoLargadaId.HasValue)
+            {
+                await _eventoRepository.UnassignByGrupoLargadaAsync(largadaDto.GrupoLargadaId.Value);
+            }
+
+            foreach (var catId in largadaDto.CategoriaIds.Distinct())
+            {
+                foreach (var boteId in largadaDto.BoteIds.Distinct())
+                {
+                    foreach (var sexoId in largadaDto.SexoIds.Distinct())
+                    {
+                        await AssignPruebaToEventoAsync(eventoId, new EventoPruebaCreateDto
+                        {
+                            CategoriaId = catId,
+                            BoteId = boteId,
+                            DistanciaId = largadaDto.DistanciaId,
+                            SexoId = sexoId,
+                            FechaHora = fechaHora,
+                            GrupoLargadaId = grupoId
+                        });
+                    }
+                }
+            }
+
+            var grupo = await _eventoRepository.GetPruebasByGrupoLargadaAsync(grupoId);
+            _liveCache.InvalidateEvento(eventoId);
+            return _mapper.Map<IEnumerable<EventoPruebaDto>>(grupo);
         }
 
         public async Task<EventoPruebaDto> UpdateEventoPruebaAsync(int eventoPruebaId, EventoPruebaCreateDto updateDto)
@@ -240,8 +300,19 @@ namespace SportTrack_Sigdef.Controladores.Evento
         public async Task<bool> DeleteEventoPruebaAsync(int eventoPruebaId)
         {
             var existing = await _eventoRepository.GetEventoPruebaByIdAsync(eventoPruebaId);
+            if (existing == null) return false;
+
+            // Si forma parte de una largada Maratón, eliminar todo el grupo
+            if (existing.GrupoLargadaId.HasValue)
+            {
+                var removed = await _eventoRepository.UnassignByGrupoLargadaAsync(existing.GrupoLargadaId.Value);
+                if (removed > 0)
+                    _liveCache.InvalidateEvento(existing.IdEvento);
+                return removed > 0;
+            }
+
             var ok = await _eventoRepository.UnassignPruebaAsync(eventoPruebaId);
-            if (ok && existing != null)
+            if (ok)
                 _liveCache.InvalidateEventoPrueba(eventoPruebaId, existing.IdEvento);
             return ok;
         }
