@@ -24,6 +24,8 @@ namespace SportTrack_Sigdef.Controladores.Fase.Dtos
         public int Id { get; set; }
         public int FaseId { get; set; }
         public int InscripcionId { get; set; }
+        /// <summary>EventoPrueba de la inscripción (Maratón: permite clasificar por cat/sexo/bote).</summary>
+        public int? EventoPruebaId { get; set; }
         public int? ParticipanteId { get; set; }
         public string? NumeroCompetidor { get; set; }
         public string? ParticipanteNombre { get; set; }
