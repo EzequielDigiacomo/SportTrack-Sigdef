@@ -323,6 +323,11 @@ namespace SportTrack_Sigdef.AccesoDatos
                 entity.Property(e => e.Ubicacion)
                     .HasMaxLength(200);
 
+                entity.Property(e => e.Modalidad)
+                    .IsRequired()
+                    .HasMaxLength(20)
+                    .HasDefaultValue("Velocidad");
+
                 // Configurar el enum como string en la BD
                 entity.Property(e => e.Estado)
                     .IsRequired()

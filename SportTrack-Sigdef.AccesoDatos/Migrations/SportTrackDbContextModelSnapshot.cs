@@ -757,6 +757,13 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.Property<bool>("LimitacionBotesAB")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Modalidad")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Velocidad");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(100)
