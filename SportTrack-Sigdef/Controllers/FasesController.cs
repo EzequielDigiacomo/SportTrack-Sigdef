@@ -72,6 +72,30 @@ namespace SportTrack_Sigdef.Controllers
             return Ok(fases);
         }
 
+        /// <summary>Maratón: una fase de largada con todos los inscritos del grupo (sin heats de pista).</summary>
+        [HttpPost("GenerarLargadaMaraton")]
+        [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
+        public async Task<ActionResult<IEnumerable<FaseDto>>> GenerarLargadaMaraton([FromBody] GenerarLargadaMaratonDto dto)
+        {
+            try
+            {
+                var fases = await _faseService.GenerarLargadaMaratonAsync(dto?.EventoPruebaIds ?? new List<int>());
+                return Ok(fases);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+        }
+
         [HttpPost("Promover/{eventoPruebaId}")]
         [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
         public async Task<ActionResult<IEnumerable<FaseDto>>> Promover(int eventoPruebaId)

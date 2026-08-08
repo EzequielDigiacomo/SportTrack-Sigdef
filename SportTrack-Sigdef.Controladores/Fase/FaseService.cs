@@ -27,6 +27,8 @@ namespace SportTrack_Sigdef.Controladores.Fase
         Task<IEnumerable<FaseDto>> GetFasesPorEventoAsync(int eventoId);
         Task BatchUpdateFasesAsync(List<FaseBatchUpdateDto> dto);
         Task<IEnumerable<FaseDto>> GenerarFasesManualAsync(int eventoPruebaId, List<ManualPlacementDto> placements);
+        /// <summary>Maratón: una fase "Largada" con todos los inscritos de las EventoPrueba del grupo.</summary>
+        Task<IEnumerable<FaseDto>> GenerarLargadaMaratonAsync(IEnumerable<int> eventoPruebaIds);
         Task UpdateResultadoStatusAsync(int resultadoId, string status);
         Task<IEnumerable<ProgressionAuditDto>> GetProgressionAuditAsync(int eventoPruebaId);
         Task<int?> GetEventoIdByFaseIdAsync(int faseId);
@@ -1018,6 +1020,137 @@ namespace SportTrack_Sigdef.Controladores.Fase
             }
 
             return await GetFasesPorEventoPruebaFreshAsync(eventoPruebaId);
+        }
+
+        /// <summary>
+        /// Maratón: limpia etapas de las EventoPrueba del grupo y crea UNA fase "Largada"
+        /// con todos los inscritos. Carril = NumeroCompetidor (orden de dorsal).
+        /// No genera heats ni progresión de pista.
+        /// </summary>
+        public async Task<IEnumerable<FaseDto>> GenerarLargadaMaratonAsync(IEnumerable<int> eventoPruebaIds)
+        {
+            var ids = (eventoPruebaIds ?? Enumerable.Empty<int>())
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
+            if (!ids.Any())
+                throw new ArgumentException("Debe indicar al menos una EventoPrueba de la largada.");
+
+            var eps = new List<EventoPrueba>();
+            foreach (var id in ids)
+            {
+                var ep = await _eventoRepository.GetEventoPruebaByIdAsync(id);
+                if (ep == null)
+                    throw new KeyNotFoundException($"EventoPrueba {id} no encontrada.");
+                eps.Add(ep);
+            }
+
+            if (eps.Select(e => e.IdEvento).Distinct().Count() > 1)
+                throw new InvalidOperationException("Todas las pruebas de la largada deben pertenecer al mismo evento.");
+
+            foreach (var id in ids)
+            {
+                var fasesExistentes = await _faseRepository.GetByEventoPruebaIdAsync(id);
+                if (fasesExistentes.Any(f => f.Resultados.Any(r => r.TiempoOficial.HasValue)))
+                {
+                    throw new InvalidOperationException(
+                        "No se puede regenerar una largada de Maratón que ya tiene tiempos oficiales cargados.");
+                }
+            }
+
+            foreach (var id in ids)
+                await _etapaRepository.DeleteByEventoPruebaIdAsync(id);
+
+            var allIns = new List<Entidades.Entidades.Inscripcion>();
+            foreach (var id in ids)
+                allIns.AddRange(await _inscripcionRepository.GetByEventoPruebaIdAsync(id));
+
+            allIns = allIns
+                .GroupBy(i => i.IdInscripcion)
+                .Select(g => g.First())
+                .ToList();
+
+            if (!allIns.Any())
+                return new List<FaseDto>();
+
+            var representative = eps.OrderBy(e => e.FechaHora).ThenBy(e => e.IdEventoPrueba).First();
+
+            DateTime nextTime;
+            if (representative.FechaHora != default)
+            {
+                nextTime = representative.FechaHora;
+            }
+            else
+            {
+                var baseDate = representative.Evento?.Fecha.Date ?? DateTime.UtcNow.Date;
+                var horaBase = representative.Evento?.HoraInicioEvento ?? new TimeSpan(8, 0, 0);
+                nextTime = GetUtcTime(baseDate.Add(horaBase), representative.Evento?.TimeZoneId ?? "America/Argentina/Buenos_Aires");
+            }
+
+            // Sin plan de progresión de pista
+            representative.PlanProgresionAsignado = null;
+            await _eventoRepository.UpdateEventoPruebaAsync(representative);
+
+            var etapa = new Etapa
+            {
+                EventoPruebaId = representative.IdEventoPrueba,
+                Nombre = "Largada",
+                Tipo = SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Final,
+                Orden = 1
+            };
+            await _etapaRepository.CreateAsync(etapa);
+
+            var fase = new Entidades.Entidades.Fase
+            {
+                EtapaId = etapa.Id,
+                NombreFase = "Largada",
+                NumeroFase = 1,
+                Estado = "Programada",
+                FechaHoraProgramada = nextTime
+            };
+
+            var ordered = allIns
+                .OrderBy(i => int.TryParse(i.NumeroCompetidor, out var n) ? n : int.MaxValue)
+                .ThenBy(i => i.IdInscripcion)
+                .ToList();
+
+            var usedCarriles = new HashSet<int>();
+            var fallback = 1;
+            foreach (var ins in ordered)
+            {
+                int carril;
+                if (int.TryParse(ins.NumeroCompetidor, out var n) && n > 0 && usedCarriles.Add(n))
+                {
+                    carril = n;
+                }
+                else
+                {
+                    while (!usedCarriles.Add(fallback)) fallback++;
+                    carril = fallback;
+                    fallback++;
+                }
+
+                fase.Resultados.Add(new Entidades.Entidades.Resultado
+                {
+                    InscripcionId = ins.IdInscripcion,
+                    Carril = carril,
+                    Estado = SportTrack_Sigdef.Entidades.Enums.EstadoResultadoEnum.Pendiente
+                });
+            }
+
+            await _faseRepository.CreateAsync(fase);
+
+            await _auditService.RegistrarAccionAsync(
+                "GENERATE_LARGADA_MARATON",
+                $"Largada Maratón generada (EP rep {representative.IdEventoPrueba}, {ordered.Count} inscritos, grupo [{string.Join(",", ids)}]).",
+                null,
+                "Competencia");
+
+            foreach (var id in ids)
+                await InvalidateByEventoPruebaAsync(id);
+
+            return await GetFasesPorEventoPruebaFreshAsync(representative.IdEventoPrueba);
         }
 
         public async Task UpdateResultadoStatusAsync(int resultadoId, string status)
