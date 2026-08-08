@@ -40,6 +40,9 @@ namespace SportTrack_Sigdef.Entidades.Enums
         [Display(Name = "5000m")]
         Metros5000 = 10,
 
+        [Display(Name = "6000m")]
+        Metros6000 = 17,
+
         [Display(Name = "10000m")]
         Metros10000 = 11,
 
