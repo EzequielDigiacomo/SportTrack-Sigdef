@@ -34,10 +34,13 @@ namespace SportTrack_Sigdef.Controladores.Evento
             _liveCache = liveCache;
         }
 
-        public async Task<IEnumerable<EventoDto>> GetAllEventosAsync(int? clubId = null, string? rol = null)
+        public async Task<IEnumerable<EventoDto>> GetAllEventosAsync(
+            int? clubId = null,
+            string? rol = null,
+            int? federacionId = null)
         {
             await _estadoSyncService.SyncAllAsync();
-            var eventos = await _eventoRepository.GetAllAsync(clubId, rol);
+            var eventos = await _eventoRepository.GetAllAsync(clubId, rol, federacionId);
             return _mapper.Map<IEnumerable<EventoDto>>(eventos);
         }
 
@@ -70,8 +73,9 @@ namespace SportTrack_Sigdef.Controladores.Evento
                 evento.FechaFinInscripciones = DateTime.SpecifyKind(evento.FechaFinInscripciones.Value, DateTimeKind.Utc);
             }
             
-            // Asignar el ClubId si viene en el DTO (seteado por el Controller desde Claims)
+            // Scope de tenant seteado por el Controller desde Claims / GetMe
             evento.IdClub = eventoDto.ClubId;
+            evento.IdFederacion = eventoDto.FederacionId;
             
             var result = await _eventoRepository.CreateAsync(evento);
             
@@ -143,10 +147,13 @@ namespace SportTrack_Sigdef.Controladores.Evento
 
             return res;
         }
-        public async Task<IEnumerable<EventoDto>> GetProximosEventosAsync(int? clubId = null, string? rol = null)
+        public async Task<IEnumerable<EventoDto>> GetProximosEventosAsync(
+            int? clubId = null,
+            string? rol = null,
+            int? federacionId = null)
         {
             await _estadoSyncService.SyncAllAsync();
-            var eventos = await _eventoRepository.GetProximosAsync(clubId, rol);
+            var eventos = await _eventoRepository.GetProximosAsync(clubId, rol, federacionId);
             return _mapper.Map<IEnumerable<EventoDto>>(eventos);
         }
 

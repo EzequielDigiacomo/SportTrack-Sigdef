@@ -27,39 +27,77 @@ namespace SportTrack_Sigdef.Controladores.Evento
             RolesAdministrativos.Any(r => r.Equals(rol?.Trim(), StringComparison.OrdinalIgnoreCase));
 
         /// <summary>
-        /// scopeId puede ser IdClub o IdFederacion (admin de federación sin fila club con ese IdClub).
+        /// Eventos de una federación: IdFederacion directo o IdClub de un club afiliado.
+        /// Nunca interpreta federationId como IdClub (evita colisión Club 1 / Federación 1).
         /// </summary>
-        private async Task<IQueryable<Entidades.Entidades.Evento>> ApplyScopeFilterAsync(
+        private async Task<IQueryable<Entidades.Entidades.Evento>> ApplyFederationScopeAsync(
             IQueryable<Entidades.Entidades.Evento> query,
-            int scopeId,
-            string? rol)
+            int federationId)
         {
-            var clubActual = await _context.Clubes.FirstOrDefaultAsync(c => c.IdClub == scopeId);
-            int federationId = clubActual?.IdFederacion ?? scopeId;
-
             var clubIds = await _context.Clubes
-                .Where(c => c.IdClub == federationId || c.IdFederacion == federationId)
+                .Where(c => c.IdFederacion == federationId)
                 .Select(c => c.IdClub)
                 .ToListAsync();
 
-            if (clubActual == null || IsRolAdministrativo(rol))
-            {
-                return query.Where(e =>
-                    e.IdFederacion == federationId ||
-                    (e.IdClub.HasValue && clubIds.Contains(e.IdClub.Value)));
-            }
-
             return query.Where(e =>
-                e.IdClub == scopeId || e.IdFederacion == federationId);
+                e.IdFederacion == federationId ||
+                (e.IdClub.HasValue && clubIds.Contains(e.IdClub.Value)));
         }
 
-        public async Task<IEnumerable<Entidades.Entidades.Evento>> GetAllAsync(int? clubId = null, string? rol = null)
+        /// <summary>
+        /// Scope por club: roles administrativos ven toda la federación del club;
+        /// el resto ve eventos del club o de su federación.
+        /// </summary>
+        private async Task<IQueryable<Entidades.Entidades.Evento>> ApplyClubScopeAsync(
+            IQueryable<Entidades.Entidades.Evento> query,
+            int clubId,
+            string? rol)
+        {
+            var clubActual = await _context.Clubes.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.IdClub == clubId);
+
+            if (clubActual?.IdFederacion is int federationId && federationId > 0)
+            {
+                if (IsRolAdministrativo(rol))
+                    return await ApplyFederationScopeAsync(query, federationId);
+
+                return query.Where(e =>
+                    e.IdClub == clubId || e.IdFederacion == federationId);
+            }
+
+            return query.Where(e => e.IdClub == clubId);
+        }
+
+        private async Task<IQueryable<Entidades.Entidades.Evento>> ApplyScopeFilterAsync(
+            IQueryable<Entidades.Entidades.Evento> query,
+            int? clubId,
+            int? federacionId,
+            string? rol)
+        {
+            if (federacionId.HasValue && federacionId.Value > 0)
+                return await ApplyFederationScopeAsync(query, federacionId.Value);
+
+            if (clubId.HasValue && clubId.Value > 0)
+                return await ApplyClubScopeAsync(query, clubId.Value, rol);
+
+            // Sin scope: no filtrar (SuperAdmin) o lista vacía (otros)
+            if (IsSuperAdmin(rol))
+                return query;
+
+            return query.Where(e => false);
+        }
+
+        public async Task<IEnumerable<Entidades.Entidades.Evento>> GetAllAsync(
+            int? clubId = null,
+            string? rol = null,
+            int? federacionId = null)
         {
             var query = _context.Eventos.AsQueryable();
-            
-            if (!IsSuperAdmin(rol) && clubId.HasValue)
+
+            // SuperAdmin sin filtro: catálogo global. Resto: siempre scoped (vacío si no hay tenant).
+            if (!(IsSuperAdmin(rol) && !clubId.HasValue && !federacionId.HasValue))
             {
-                query = await ApplyScopeFilterAsync(query, clubId.Value, rol);
+                query = await ApplyScopeFilterAsync(query, clubId, federacionId, rol);
             }
 
             return await query
@@ -109,14 +147,18 @@ namespace SportTrack_Sigdef.Controladores.Evento
             return await _context.Eventos.AnyAsync(e => e.IdEvento == id);
         }
 
-        public async Task<IEnumerable<Entidades.Entidades.Evento>> GetProximosAsync(int? clubId = null, string? rol = null)
+        public async Task<IEnumerable<Entidades.Entidades.Evento>> GetProximosAsync(
+            int? clubId = null,
+            string? rol = null,
+            int? federacionId = null)
         {
             var query = _context.Eventos
                 .Where(e => e.Fecha >= DateTime.UtcNow.Date);
 
-            if (!IsSuperAdmin(rol) && clubId.HasValue)
+            // Endpoint público: sin scope no se filtra. Con club/federación, sí.
+            if (clubId.HasValue || federacionId.HasValue)
             {
-                query = await ApplyScopeFilterAsync(query, clubId.Value, rol);
+                query = await ApplyScopeFilterAsync(query, clubId, federacionId, rol);
             }
 
             return await query

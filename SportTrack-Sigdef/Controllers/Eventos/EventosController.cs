@@ -33,15 +33,16 @@ namespace SportTrack_Sigdef.Controllers.Eventos
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<EventoDto>>> GetEventos([FromQuery] int? clubId = null)
+        public async Task<ActionResult<IEnumerable<EventoDto>>> GetEventos(
+            [FromQuery] int? clubId = null,
+            [FromQuery] int? federacionId = null)
         {
             var username = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
                            ?? User.FindFirst(ClaimTypes.Name)?.Value;
             
             string role = string.Empty;
-
-            int? targetId = clubId; // Variable unificada que puede ser club o federación
-            bool isFederacion = false;
+            int? scopeClubId = clubId;
+            int? scopeFederacionId = federacionId;
 
             if (!string.IsNullOrEmpty(username))
             {
@@ -50,13 +51,19 @@ namespace SportTrack_Sigdef.Controllers.Eventos
                     var userDb = await _authService.GetMeAsync(username);
                     role = userDb.RolFederacion;
                     
-                    if (role != "SuperAdmin" || !targetId.HasValue)
+                    // SuperAdmin: respeta filtros de query; no impone tenant propio.
+                    // Resto: fuerza federación/club del usuario (nunca FederacionId como ClubId).
+                    if (role != "SuperAdmin")
                     {
-                        if (userDb.FederacionId.HasValue) {
-                            targetId = userDb.FederacionId;
-                            isFederacion = true;
-                        } else {
-                            targetId = userDb.ClubId ?? targetId;
+                        if (userDb.FederacionId.HasValue && userDb.FederacionId.Value > 0)
+                        {
+                            scopeFederacionId = userDb.FederacionId;
+                            scopeClubId = null;
+                        }
+                        else if (userDb.ClubId.HasValue && userDb.ClubId.Value > 0)
+                        {
+                            scopeClubId = userDb.ClubId;
+                            scopeFederacionId = null;
                         }
                     }
                 }
@@ -66,23 +73,28 @@ namespace SportTrack_Sigdef.Controllers.Eventos
                            ?? User.FindFirst("role")?.Value 
                            ?? User.FindFirst("Rol")?.Value ?? "";
                     
-                    if (role != "SuperAdmin" || !targetId.HasValue)
+                    if (role != "SuperAdmin")
                     {
                         var fedIdClaim = User.FindFirst("FederacionId")?.Value;
-                        if (int.TryParse(fedIdClaim, out int fid) && fid > 0) {
-                            targetId = fid;
-                            isFederacion = true;
-                        } else {
+                        if (int.TryParse(fedIdClaim, out int fid) && fid > 0)
+                        {
+                            scopeFederacionId = fid;
+                            scopeClubId = null;
+                        }
+                        else
+                        {
                             var clubIdClaim = User.FindFirst("ClubId")?.Value;
-                            if (int.TryParse(clubIdClaim, out int cid)) targetId = cid;
+                            if (int.TryParse(clubIdClaim, out int cid) && cid > 0)
+                            {
+                                scopeClubId = cid;
+                                scopeFederacionId = null;
+                            }
                         }
                     }
                 }
             }
 
-            // Nota: Se podría actualizar el IEventoService para aceptar separadamente clubId y federacionId.
-            // Por retrocompatibilidad pasamos targetId como "clubId" (para que no se rompan las interfaces).
-            var result = await _eventoService.GetAllEventosAsync(targetId, role);
+            var result = await _eventoService.GetAllEventosAsync(scopeClubId, role, scopeFederacionId);
             return Ok(result);
         }
 
@@ -116,11 +128,14 @@ namespace SportTrack_Sigdef.Controllers.Eventos
 
         [HttpGet("proximos")]
         [AllowAnonymous]
-        public async Task<ActionResult<IEnumerable<EventoDto>>> GetProximosEventos([FromQuery] int? clubId = null)
+        public async Task<ActionResult<IEnumerable<EventoDto>>> GetProximosEventos(
+            [FromQuery] int? clubId = null,
+            [FromQuery] int? federacionId = null)
         {
             string? role = null;
+            int? scopeClubId = clubId;
+            int? scopeFederacionId = federacionId;
 
-            // Si el usuario está logueado
             if (User.Identity?.IsAuthenticated == true)
             {
                 var username = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
@@ -133,12 +148,17 @@ namespace SportTrack_Sigdef.Controllers.Eventos
                         var userDb = await _authService.GetMeAsync(username);
                         role = userDb.RolFederacion;
                         
-                        if (role != "SuperAdmin" || !clubId.HasValue)
+                        if (role != "SuperAdmin")
                         {
-                            if (userDb.FederacionId.HasValue) {
-                                clubId = userDb.FederacionId;
-                            } else {
-                                clubId = userDb.ClubId ?? clubId;
+                            if (userDb.FederacionId.HasValue && userDb.FederacionId.Value > 0)
+                            {
+                                scopeFederacionId = userDb.FederacionId;
+                                scopeClubId = null;
+                            }
+                            else if (userDb.ClubId.HasValue && userDb.ClubId.Value > 0)
+                            {
+                                scopeClubId = userDb.ClubId;
+                                scopeFederacionId = null;
                             }
                         }
                     }
@@ -148,21 +168,29 @@ namespace SportTrack_Sigdef.Controllers.Eventos
                                ?? User.FindFirst("role")?.Value 
                                ?? User.FindFirst("Rol")?.Value;
                         
-                        if (role != "SuperAdmin" || !clubId.HasValue)
+                        if (role != "SuperAdmin")
                         {
                             var fedIdClaim = User.FindFirst("FederacionId")?.Value;
-                            if (int.TryParse(fedIdClaim, out int fid) && fid > 0) {
-                                clubId = fid;
-                            } else {
+                            if (int.TryParse(fedIdClaim, out int fid) && fid > 0)
+                            {
+                                scopeFederacionId = fid;
+                                scopeClubId = null;
+                            }
+                            else
+                            {
                                 var clubIdClaim = User.FindFirst("ClubId")?.Value;
-                                if (int.TryParse(clubIdClaim, out int cid)) clubId = cid;
+                                if (int.TryParse(clubIdClaim, out int cid) && cid > 0)
+                                {
+                                    scopeClubId = cid;
+                                    scopeFederacionId = null;
+                                }
                             }
                         }
                     }
                 }
             }
 
-            var result = await _eventoService.GetProximosEventosAsync(clubId, role);
+            var result = await _eventoService.GetProximosEventosAsync(scopeClubId, role, scopeFederacionId);
             return Ok(result);
         }
 
