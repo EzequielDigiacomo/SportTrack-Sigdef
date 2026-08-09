@@ -39,6 +39,20 @@ namespace SportTrack_Sigdef.Controllers
             return Ok(planes);
         }
 
+        [HttpPut("planes/{id:int}")]
+        [Authorize(Roles = "SuperAdmin")]
+        public async Task<IActionResult> UpdatePlan(int id, [FromBody] SportTrack_Sigdef.Controladores.SaaS.Dtos.PlanSaaSUpdateDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var plan = await _saasService.UpdatePlanAsync(id, dto);
+            if (plan == null)
+                return NotFound(new { message = "Plan no encontrado" });
+
+            return Ok(plan);
+        }
+
         [HttpPost("asignar-plan")]
         [Authorize(Roles = "SuperAdmin,Admin")]
         public async Task<IActionResult> AsignarPlan(int clubId, int planId)
