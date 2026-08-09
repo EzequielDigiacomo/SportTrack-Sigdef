@@ -1550,6 +1550,14 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<decimal>("DescuentoAnualPorcentaje")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<decimal>("PrecioAnual")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<bool>("ResultadosTiempoReal")
                         .HasColumnType("boolean");
 

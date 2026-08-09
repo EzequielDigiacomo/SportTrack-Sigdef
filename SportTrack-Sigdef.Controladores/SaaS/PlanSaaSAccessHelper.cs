@@ -20,6 +20,8 @@ namespace SportTrack_Sigdef.Controladores.SaaS
                 Id = plan.Id,
                 Nombre = plan.Nombre,
                 Precio = plan.Precio,
+                DescuentoAnualPorcentaje = plan.DescuentoAnualPorcentaje,
+                PrecioAnual = plan.PrecioAnual,
                 MaxAtletas = plan.MaxAtletas,
                 MaxTorneosActivos = plan.MaxTorneosActivos,
                 ResultadosTiempoReal = plan.ResultadosTiempoReal,
@@ -31,6 +33,39 @@ namespace SportTrack_Sigdef.Controladores.SaaS
             };
             ApplyAccessFlags(dto);
             return dto;
+        }
+
+        /// <summary>
+        /// Orden comercial: SIGDEF S→L, SportTrack S→L, Pack Dúo S→L.
+        /// </summary>
+        public static int CatalogSortKey(PlanSaaS plan) => CatalogSortKey(plan.Id, plan.Nombre);
+
+        public static int CatalogSortKey(PlanSaaSDto plan) => CatalogSortKey(plan.Id, plan.Nombre);
+
+        public static int CatalogSortKey(int id, string? nombre)
+        {
+            // IDs de seed conocidos
+            if (id is >= 1 and <= 9) return id;
+
+            var n = (nombre ?? string.Empty).Trim().ToLowerInvariant();
+            var family =
+                (n.Contains("pack") && (n.Contains("duo") || n.Contains("dúo"))) ? 3 :
+                n.Contains("sporttrack") ? 2 :
+                n.Contains("sigdef") ? 1 : 9;
+            var size =
+                n.Contains("(s)") ? 1 :
+                n.Contains("(m)") ? 2 :
+                n.Contains("(l)") ? 3 : 9;
+            return family * 10 + size;
+        }
+
+        /// <summary>Precio anual = mensual × 12 × (1 − descuento/100).</summary>
+        public static decimal CalcularPrecioAnual(decimal precioMensual, decimal descuentoPorcentaje)
+        {
+            var d = descuentoPorcentaje;
+            if (d < 0) d = 0;
+            if (d > 100) d = 100;
+            return Math.Round(precioMensual * 12m * (1m - d / 100m), 2, MidpointRounding.AwayFromZero);
         }
 
         public static void ApplyAccessFlags(PlanSaaSDto dto)
