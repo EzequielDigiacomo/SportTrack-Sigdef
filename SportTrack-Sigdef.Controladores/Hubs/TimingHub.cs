@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using SportTrack_Sigdef.Controladores.Audience;
 using SportTrack_Sigdef.Controladores.Auth;
 using SportTrack_Sigdef.Controladores.Fase;
 using System;
@@ -22,15 +23,17 @@ namespace SportTrack_Sigdef.Controladores.Hubs
     public class TimingHub : Hub
     {
         private readonly IFaseService _faseService;
+        private readonly IAudiencePresenceTracker _audienceTracker;
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.List<RaceUserPresence>> _activeRaceGroups =
             new System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.List<RaceUserPresence>>();
 
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.List<RaceUserPresence>> _activeEventGroups =
             new System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.List<RaceUserPresence>>();
 
-        public TimingHub(IFaseService faseService)
+        public TimingHub(IFaseService faseService, IAudiencePresenceTracker audienceTracker)
         {
             _faseService = faseService;
+            _audienceTracker = audienceTracker;
         }
 
         [AllowAnonymous]
@@ -56,6 +59,8 @@ namespace SportTrack_Sigdef.Controladores.Hubs
                     }
                     return oldValue;
                 });
+
+            _audienceTracker.Upsert(Context.ConnectionId, eventoId: null, faseId: faseId, userName: userName, role: role);
 
             if (_activeRaceGroups.TryGetValue(faseId, out var currentList))
             {
@@ -92,6 +97,8 @@ namespace SportTrack_Sigdef.Controladores.Hubs
                     return oldValue;
                 });
 
+            _audienceTracker.Upsert(Context.ConnectionId, eventoId: eventoId, faseId: null, userName: userName, role: role);
+
             if (_activeEventGroups.TryGetValue(eventoId, out var currentList))
             {
                 System.Collections.Generic.List<RaceUserPresence> copyList;
@@ -110,6 +117,7 @@ namespace SportTrack_Sigdef.Controladores.Hubs
         public async Task JoinOperatorsGroup()
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, TimingGroups.Operators);
+            _audienceTracker.MarkOperator(Context.ConnectionId);
         }
 
         [AllowAnonymous]
@@ -177,6 +185,8 @@ namespace SportTrack_Sigdef.Controladores.Hubs
                     await Clients.Group(TimingGroups.Event(eventoId)).SendAsync("EventPresenceUpdated", copyList);
                 }
             }
+
+            _audienceTracker.Remove(Context.ConnectionId);
 
             await base.OnDisconnectedAsync(exception);
         }
