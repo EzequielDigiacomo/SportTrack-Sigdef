@@ -36,6 +36,33 @@ namespace SportTrack_Sigdef.Controladores.SaaS
             return PlanSaaSAccessHelper.FromEntity(p);
         }
 
+        public async Task<PlanSaaSDto?> UpdatePlanAsync(int id, PlanSaaSUpdateDto dto)
+        {
+            var plan = await _context.PlanesSaaS.FindAsync(id);
+            if (plan == null) return null;
+
+            var precioAnterior = plan.Precio;
+            var atletasAnterior = plan.MaxAtletas;
+
+            plan.Precio = dto.Precio;
+            plan.MaxAtletas = dto.MaxAtletas;
+            // Torneos: sin límite comercial
+            plan.MaxTorneosActivos = -1;
+
+            await _context.SaveChangesAsync();
+
+            if (precioAnterior != plan.Precio || atletasAnterior != plan.MaxAtletas)
+            {
+                await _auditService.RegistrarAccionAsync(
+                    "UPDATE_PLAN",
+                    $"Plan '{plan.Nombre}' actualizado: precio {precioAnterior}→{plan.Precio}, máx. atletas {atletasAnterior}→{plan.MaxAtletas}.",
+                    modulo: "SaaS"
+                );
+            }
+
+            return PlanSaaSAccessHelper.FromEntity(plan);
+        }
+
         public async Task AsignarPlanAClubAsync(int federacionId, int planId)
         {
             var fed = await _context.Federaciones.FindAsync(federacionId);
@@ -82,7 +109,8 @@ namespace SportTrack_Sigdef.Controladores.SaaS
             {
                 var planActivo = c.PlanSaaS ?? planBasico;
                 var maxAtletas = planActivo?.MaxAtletas ?? 500;
-                var maxTorneos = planActivo?.MaxTorneosActivos ?? 1;
+                // Torneos sin límite comercial (-1)
+                const int maxTorneos = -1;
 
                 var atletasRegistrados = c.Clubes.Sum(a => a.Participantes.Count);
                 var usuariosCount = c.Usuarios.Count + c.Clubes.Sum(a => a.Usuarios.Count);
@@ -96,7 +124,6 @@ namespace SportTrack_Sigdef.Controladores.SaaS
 
                 var alDia = true;
                 if (maxAtletas != -1 && atletasRegistrados > maxAtletas) alDia = false;
-                if (maxTorneos != -1 && torneosActivosCount > maxTorneos) alDia = false;
                 if (c.FechaVencimientoPlan.HasValue && c.FechaVencimientoPlan.Value.Date < DateTime.UtcNow.Date) alDia = false;
                 if (c.BloqueadaPorFaltaDePago) alDia = false;
 

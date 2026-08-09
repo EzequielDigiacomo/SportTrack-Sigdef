@@ -8,6 +8,7 @@ namespace SportTrack_Sigdef.Controladores.SaaS
     {
         Task<IEnumerable<PlanSaaSDto>> GetPlanesAsync();
         Task<PlanSaaSDto> GetPlanByIdAsync(int id);
+        Task<PlanSaaSDto?> UpdatePlanAsync(int id, PlanSaaSUpdateDto dto);
         Task AsignarPlanAClubAsync(int clubId, int planId);
         Task<IEnumerable<ClubSaaSStatusDto>> GetClubesStatusAsync();
         Task ToggleClubActivoAsync(int clubId);
