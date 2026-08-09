@@ -63,6 +63,8 @@ builder.Services.AddSingleton<SportTrack_Sigdef.Controladores.Caching.ILiveCache
     SportTrack_Sigdef.Controladores.Caching.LiveCacheService>();
 builder.Services.AddSingleton<SportTrack_Sigdef.Controladores.Audience.IAudiencePresenceTracker,
     SportTrack_Sigdef.Controladores.Audience.AudiencePresenceTracker>();
+builder.Services.AddSingleton<SportTrack_Sigdef.Controladores.Audience.IAudienceCapacitySettings,
+    SportTrack_Sigdef.Controladores.Audience.AudienceCapacitySettings>();
 builder.Services.AddScoped<SportTrack_Sigdef.Controladores.Audience.IAudienceMetricsService,
     SportTrack_Sigdef.Controladores.Audience.AudienceMetricsService>();
 builder.Services.AddHostedService<SportTrack_Sigdef.Controladores.Audience.AudienceSnapshotBackgroundService>();

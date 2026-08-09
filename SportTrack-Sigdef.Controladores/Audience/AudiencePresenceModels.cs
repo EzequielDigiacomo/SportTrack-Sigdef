@@ -34,6 +34,8 @@ namespace SportTrack_Sigdef.Controladores.Audience
         public string SaturationLevel { get; set; } = "ok";
         public int SessionPeakTotal { get; set; }
         public DateTime? SessionPeakAtUtc { get; set; }
+        public string PresetId { get; set; } = "starter";
+        public string PlanLabel { get; set; } = string.Empty;
         public List<AudienceEventBreakdownDto> ByEvento { get; set; } = new();
     }
 

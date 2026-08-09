@@ -139,6 +139,32 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.ToTable("AudiencePeakSnapshots");
                 });
 
+            modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.AudienceMonitorSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PlanLabel")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("PresetId")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("SoftCapacity")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AudienceMonitorSettings");
+                });
+
             modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.Auditoria", b =>
                 {
                     b.Property<int>("Id")

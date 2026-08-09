@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using SportTrack_Sigdef.AccesoDatos;
 using SportTrack_Sigdef.Entidades.Entidades;
 using System;
@@ -13,21 +12,35 @@ namespace SportTrack_Sigdef.Controladores.Audience
     public sealed class AudienceMetricsService : IAudienceMetricsService
     {
         private readonly IAudiencePresenceTracker _tracker;
+        private readonly IAudienceCapacitySettings _capacity;
         private readonly SportTrackDbContext _db;
-        private readonly IConfiguration _configuration;
 
         public AudienceMetricsService(
             IAudiencePresenceTracker tracker,
-            SportTrackDbContext db,
-            IConfiguration configuration)
+            IAudienceCapacitySettings capacity,
+            SportTrackDbContext db)
         {
             _tracker = tracker;
+            _capacity = capacity;
             _db = db;
-            _configuration = configuration;
         }
 
+        public Task EnsureReadyAsync(CancellationToken ct = default)
+            => _capacity.EnsureLoadedAsync(ct);
+
         public AudienceLiveDto GetLive()
-            => _tracker.GetLiveSnapshot(GetSoftCapacity());
+        {
+            var live = _tracker.GetLiveSnapshot(_capacity.SoftCapacity);
+            live.PresetId = _capacity.PresetId;
+            live.PlanLabel = _capacity.PlanLabel;
+            return live;
+        }
+
+        public AudienceCapacityConfigDto GetCapacityConfig()
+            => _capacity.GetConfig();
+
+        public Task ApplyCapacityAsync(AudienceCapacityUpdateRequest request, CancellationToken ct = default)
+            => _capacity.ApplyAsync(request, ct);
 
         public async Task<IReadOnlyList<AudiencePeakDto>> GetPeaksAsync(int limit = 100, CancellationToken ct = default)
         {
@@ -45,6 +58,7 @@ namespace SportTrack_Sigdef.Controladores.Audience
 
         public async Task PersistSnapshotAsync(CancellationToken ct = default)
         {
+            await _capacity.EnsureLoadedAsync(ct);
             var live = GetLive();
             if (live.TotalConnections <= 0)
                 return;
@@ -74,7 +88,6 @@ namespace SportTrack_Sigdef.Controladores.Audience
 
             var isPeak = live.TotalConnections > previousPeak;
 
-            // Evitar spam: si no es pico nuevo y ya hay snapshot reciente similar, skip.
             if (!isPeak)
             {
                 var recent = await _db.AudiencePeakSnapshots
@@ -105,12 +118,6 @@ namespace SportTrack_Sigdef.Controladores.Audience
             });
 
             await _db.SaveChangesAsync(ct);
-        }
-
-        private int GetSoftCapacity()
-        {
-            var configured = _configuration.GetValue<int?>("AudienceMonitoring:SoftCapacity");
-            return configured is > 0 ? configured.Value : 1000;
         }
 
         private static AudiencePeakDto MapPeak(AudiencePeakSnapshot x) => new()

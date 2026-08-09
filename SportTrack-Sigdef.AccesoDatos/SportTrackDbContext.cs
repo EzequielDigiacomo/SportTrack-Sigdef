@@ -49,6 +49,7 @@ namespace SportTrack_Sigdef.AccesoDatos
         public DbSet<Penalizacion> Penalizaciones { get; set; }
         public DbSet<Auditoria> Auditoria { get; set; }
         public DbSet<AudiencePeakSnapshot> AudiencePeakSnapshots { get; set; }
+        public DbSet<AudienceMonitorSettings> AudienceMonitorSettings { get; set; }
         public DbSet<Pago> Pagos { get; set; }
 
         // Mensajería privada
@@ -830,6 +831,16 @@ namespace SportTrack_Sigdef.AccesoDatos
                 entity.HasIndex(e => e.CapturedAtUtc).HasDatabaseName("IX_AudiencePeakSnapshots_CapturedAtUtc");
                 entity.HasIndex(e => new { e.IsPeakRecord, e.TotalConnections })
                     .HasDatabaseName("IX_AudiencePeakSnapshots_Peak_Total");
+            });
+
+            modelBuilder.Entity<AudienceMonitorSettings>(entity =>
+            {
+                entity.ToTable("AudienceMonitorSettings");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.PresetId).IsRequired().HasMaxLength(40);
+                entity.Property(e => e.PlanLabel).IsRequired().HasMaxLength(120);
+                entity.Property(e => e.SoftCapacity).IsRequired();
+                entity.Property(e => e.UpdatedAtUtc).IsRequired();
             });
 
             // ============================================
