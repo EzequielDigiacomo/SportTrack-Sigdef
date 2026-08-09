@@ -33,6 +33,7 @@ namespace SportTrack_Sigdef.Controllers
         }
 
         [HttpGet("planes")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetPlanes()
         {
             var planes = await _saasService.GetPlanesAsync();
