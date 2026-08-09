@@ -89,6 +89,56 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.ToTable("AtletasTutores", "federacion");
                 });
 
+            modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.AudiencePeakSnapshot", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CapturedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsPeakRecord")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("LiveConnections")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OperatorConnections")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("SaturationPercent")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("SoftCapacity")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TopEventoConnections")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TopEventoId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TopEventoNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("TotalConnections")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CapturedAtUtc")
+                        .HasDatabaseName("IX_AudiencePeakSnapshots_CapturedAtUtc");
+
+                    b.HasIndex("IsPeakRecord", "TotalConnections")
+                        .HasDatabaseName("IX_AudiencePeakSnapshots_Peak_Total");
+
+                    b.ToTable("AudiencePeakSnapshots");
+                });
+
             modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.Auditoria", b =>
                 {
                     b.Property<int>("Id")

@@ -48,6 +48,7 @@ namespace SportTrack_Sigdef.AccesoDatos
         public DbSet<Resultado> Resultados { get; set; }
         public DbSet<Penalizacion> Penalizaciones { get; set; }
         public DbSet<Auditoria> Auditoria { get; set; }
+        public DbSet<AudiencePeakSnapshot> AudiencePeakSnapshots { get; set; }
         public DbSet<Pago> Pagos { get; set; }
 
         // Mensajería privada
@@ -817,6 +818,18 @@ namespace SportTrack_Sigdef.AccesoDatos
                     .HasForeignKey(e => e.InscripcionId)
                     .OnDelete(DeleteBehavior.SetNull)
                     .HasConstraintName("FK_Pagos_Inscripciones");
+            });
+
+            modelBuilder.Entity<AudiencePeakSnapshot>(entity =>
+            {
+                entity.ToTable("AudiencePeakSnapshots");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+                entity.Property(e => e.CapturedAtUtc).IsRequired();
+                entity.Property(e => e.TopEventoNombre).HasMaxLength(200);
+                entity.HasIndex(e => e.CapturedAtUtc).HasDatabaseName("IX_AudiencePeakSnapshots_CapturedAtUtc");
+                entity.HasIndex(e => new { e.IsPeakRecord, e.TotalConnections })
+                    .HasDatabaseName("IX_AudiencePeakSnapshots_Peak_Total");
             });
 
             // ============================================
