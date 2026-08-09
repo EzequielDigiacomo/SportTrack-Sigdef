@@ -5,6 +5,8 @@
         public int Id { get; set; }
         public string Nombre { get; set; } = string.Empty;
         public decimal Precio { get; set; }
+        public decimal DescuentoAnualPorcentaje { get; set; }
+        public decimal PrecioAnual { get; set; }
         public int MaxAtletas { get; set; }
         public int MaxTorneosActivos { get; set; }
         public bool ResultadosTiempoReal { get; set; }

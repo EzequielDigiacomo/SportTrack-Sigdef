@@ -25,7 +25,10 @@ namespace SportTrack_Sigdef.Controladores.SaaS
         public async Task<IEnumerable<PlanSaaSDto>> GetPlanesAsync()
         {
             var planes = await _context.PlanesSaaS.ToListAsync();
-            return planes.Select(PlanSaaSAccessHelper.FromEntity);
+            return planes
+                .OrderBy(PlanSaaSAccessHelper.CatalogSortKey)
+                .ThenBy(p => p.Id)
+                .Select(PlanSaaSAccessHelper.FromEntity);
         }
 
         public async Task<PlanSaaSDto> GetPlanByIdAsync(int id)
@@ -42,20 +45,23 @@ namespace SportTrack_Sigdef.Controladores.SaaS
             if (plan == null) return null;
 
             var precioAnterior = plan.Precio;
+            var descuentoAnterior = plan.DescuentoAnualPorcentaje;
             var atletasAnterior = plan.MaxAtletas;
 
             plan.Precio = dto.Precio;
+            plan.DescuentoAnualPorcentaje = dto.DescuentoAnualPorcentaje;
+            plan.PrecioAnual = PlanSaaSAccessHelper.CalcularPrecioAnual(dto.Precio, dto.DescuentoAnualPorcentaje);
             plan.MaxAtletas = dto.MaxAtletas;
             // Torneos: sin límite comercial
             plan.MaxTorneosActivos = -1;
 
             await _context.SaveChangesAsync();
 
-            if (precioAnterior != plan.Precio || atletasAnterior != plan.MaxAtletas)
+            if (precioAnterior != plan.Precio || descuentoAnterior != plan.DescuentoAnualPorcentaje || atletasAnterior != plan.MaxAtletas)
             {
                 await _auditService.RegistrarAccionAsync(
                     "UPDATE_PLAN",
-                    $"Plan '{plan.Nombre}' actualizado: precio {precioAnterior}→{plan.Precio}, máx. atletas {atletasAnterior}→{plan.MaxAtletas}.",
+                    $"Plan '{plan.Nombre}' actualizado: mensual {precioAnterior}→{plan.Precio}, desc. anual {descuentoAnterior}%→{plan.DescuentoAnualPorcentaje}% (anual {plan.PrecioAnual}), máx. atletas {atletasAnterior}→{plan.MaxAtletas}.",
                     modulo: "SaaS"
                 );
             }

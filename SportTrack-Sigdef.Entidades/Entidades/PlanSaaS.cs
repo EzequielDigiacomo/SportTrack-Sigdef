@@ -7,6 +7,10 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public int Id { get; set; }
         public string Nombre { get; set; } = string.Empty;
         public decimal Precio { get; set; }
+        /// <summary>Descuento % aplicado al precio anual (sobre 12× mensual).</summary>
+        public decimal DescuentoAnualPorcentaje { get; set; }
+        /// <summary>Precio anual calculado: Precio × 12 × (1 − DescuentoAnualPorcentaje/100).</summary>
+        public decimal PrecioAnual { get; set; }
 
         // Limites
         public int MaxAtletas { get; set; } // -1 para ilimitado
