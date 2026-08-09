@@ -93,6 +93,8 @@ var allowedOrigins = configOrigins.Concat(new[]
     "https://www.sigdef.pro",
     "https://sigdef.vercel.app",
     "https://www.sigdef.vercel.app",
+    "https://dgotech.org",
+    "https://www.dgotech.org",
     // Legacy Vercel (transición); preferir sporttrack.pro / sigdef.pro
     "https://sporttrack-fec.vercel.app",
     "https://oficialsporttrack.vercel.app"
