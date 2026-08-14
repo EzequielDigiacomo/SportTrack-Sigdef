@@ -258,7 +258,7 @@ namespace SportTrack_Sigdef.Controladores.Auth
                         throw new BadRequestException(
                             $"El plan '{planDto.Nombre}' no incluye dashboard/login Club. Actualizá a Profesional o superior.");
                     throw new BadRequestException(
-                        $"El plan '{planDto.Nombre}' no incluye consolas de juez (Largador/Cronometrista/Juez de Control). Requiere Ecosistema SportTrack o Pack Dúo.");
+                        $"El plan '{planDto.Nombre}' no incluye consolas de juez (Largador/Cronometrista/Juez de Control/Control técnico). Requiere Ecosistema SportTrack o Pack Dúo.");
                 }
             }
 

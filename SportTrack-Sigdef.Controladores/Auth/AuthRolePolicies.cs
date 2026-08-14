@@ -7,7 +7,7 @@ public static class AuthRolePolicies
 {
     /// <summary>Roles que pueden operar carrera / hub / mutaciones de fases y resultados.</summary>
     public const string CompetitionOperators =
-        "Admin,SuperAdmin,JuezControl,Largador,Cronometrista,soporte_tecnico";
+        "Admin,SuperAdmin,JuezControl,Largador,Cronometrista,ControlTecnico,soporte_tecnico";
 
     public const string Admins = "Admin,SuperAdmin,soporte_tecnico";
 
@@ -19,6 +19,7 @@ public static class AuthRolePolicies
         "Largador",
         "Cronometrista",
         "JuezControl",
+        "ControlTecnico",
         "soporte_tecnico"
     };
 }
