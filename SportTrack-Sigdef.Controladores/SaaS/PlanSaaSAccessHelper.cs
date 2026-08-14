@@ -11,7 +11,7 @@ namespace SportTrack_Sigdef.Controladores.SaaS
         private static readonly int[] SigdefOnlyIds = { 1, 2, 3 };
         private static readonly int[] SportTrackOnlyIds = { 4, 5, 6 };
         private static readonly int[] PackDuoIds = { 7, 8, 9 };
-        private static readonly string[] JudgeRoles = { "Largador", "Cronometrista", "JuezControl" };
+        private static readonly string[] JudgeRoles = { "Largador", "Cronometrista", "JuezControl", "ControlTecnico" };
 
         public static PlanSaaSDto FromEntity(PlanSaaS plan)
         {

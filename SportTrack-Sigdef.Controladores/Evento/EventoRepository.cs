@@ -13,7 +13,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
         private readonly SportTrackDbContext _context;
 
         private static readonly string[] RolesAdministrativos =
-            { "Admin", "Largador", "Cronometrista", "JuezControl", "Control" };
+            { "Admin", "Largador", "Cronometrista", "JuezControl", "ControlTecnico", "Control" };
 
         public EventoRepository(SportTrackDbContext context)
         {
