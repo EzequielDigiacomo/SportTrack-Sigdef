@@ -39,8 +39,9 @@ namespace SportTrack_Sigdef.Controladores.Participante
             {
                 participantes = await _participanteRepository.GetAllAsync();
             }
-            else if (string.Equals(rol, "Admin", StringComparison.OrdinalIgnoreCase)
-                && federacionId.HasValue && federacionId.Value > 0)
+            else if (federacionId.HasValue && federacionId.Value > 0
+                && (string.Equals(rol, "Admin", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(rol, "ControlTecnico", StringComparison.OrdinalIgnoreCase)))
             {
                 participantes = await _participanteRepository.GetByFederationIdAsync(federacionId.Value);
             }
