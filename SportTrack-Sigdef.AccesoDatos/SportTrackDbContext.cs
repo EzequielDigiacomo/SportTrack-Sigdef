@@ -152,6 +152,7 @@ namespace SportTrack_Sigdef.AccesoDatos
                 entity.HasOne(e => e.ClubOrigen)
                     .WithMany()
                     .HasForeignKey(e => e.IdClubOrigen)
+                    .IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.ClubDestino)
                     .WithMany()

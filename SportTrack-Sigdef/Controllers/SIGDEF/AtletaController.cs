@@ -70,6 +70,16 @@ namespace SIGDEF.API.Controllers
             return await _atletaServices.PutAtleta(id, atletaCreateDto);
         }
 
+        /// <summary>
+        /// El club da de baja al atleta (queda Agente Libre). Otro club puede solicitar traspaso;
+        /// la federación verifica deudas y aprueba.
+        /// </summary>
+        [HttpPost("{id:int}/liberar")]
+        public async Task<IActionResult> LiberarAtleta(int id)
+        {
+            return await _atletaServices.LiberarAtleta(id);
+        }
+
         // DELETE: api/Atleta/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAtleta(int id)

@@ -656,7 +656,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                 AtletaFederacion.PresentoAptoMedico = atletaCreateDto.PresentoAptoMedico;
                 AtletaFederacion.FechaAptoMedico = fechaAptoMedicoUtc;
 
-                if (cambiaClub && atletaCreateDto.IdClub.HasValue)
+                if (cambiaClub)
                 {
                     var participante = await _context.Participantes.FindAsync(id);
                     if (participante != null)
@@ -666,7 +666,7 @@ namespace SportTrack_Sigdef.Controladores.Services
 
                     await _auditService.RegistrarAccionAsync(
                         "TRASPASO_ADMIN_DIRECTO",
-                        $"Admin cambió club atleta {id}: {clubAnterior} → {atletaCreateDto.IdClub}",
+                        $"Admin cambió club atleta {id}: {clubAnterior} → {atletaCreateDto.IdClub?.ToString() ?? "Agente Libre"}",
                         null,
                         "Traspasos");
                 }
@@ -687,6 +687,76 @@ namespace SportTrack_Sigdef.Controladores.Services
                 }
             }
             catch (Exception ex)
+            {
+                return new StatusCodeResult(500);
+            }
+        }
+
+        // -------------------------------------------------
+        // POST: Liberar atleta (club → Agente Libre)
+        // -------------------------------------------------
+        public async Task<IActionResult> LiberarAtleta(int id)
+        {
+            try
+            {
+                var clubId = _tenantProvider.GetClubId();
+                if (!clubId.HasValue)
+                {
+                    return new UnauthorizedObjectResult(new
+                    {
+                        error = "Solo un club puede liberar atletas de su plantel."
+                    });
+                }
+
+                var atleta = await _context.AtletasFederados
+                    .FirstOrDefaultAsync(a => a.ParticipanteId == id);
+                if (atleta == null)
+                {
+                    return new NotFoundObjectResult(new { error = "Atleta no encontrado." });
+                }
+
+                var participante = await _context.Participantes.FindAsync(id);
+                var clubEfectivo = atleta.IdClub ?? participante?.IdClub;
+                if (!clubEfectivo.HasValue || clubEfectivo.Value != clubId.Value)
+                {
+                    return new BadRequestObjectResult(new
+                    {
+                        error = "Solo puede liberar atletas que pertenecen a su club."
+                    });
+                }
+
+                var tieneTraspasoActivo = await _context.SolicitudesTraspaso.AnyAsync(s =>
+                    s.ParticipanteId == id
+                    && (s.Estado == EstadoSolicitudTraspaso.PendienteOrigen
+                        || s.Estado == EstadoSolicitudTraspaso.PendienteFederacion));
+                if (tieneTraspasoActivo)
+                {
+                    return new BadRequestObjectResult(new
+                    {
+                        error = "El atleta tiene una solicitud de traspaso activa. Cancele o resuelva esa solicitud antes de liberarlo."
+                    });
+                }
+
+                var clubAnterior = clubEfectivo.Value;
+                atleta.IdClub = null;
+                if (participante != null)
+                    participante.IdClub = null;
+
+                await _context.SaveChangesAsync();
+
+                await _auditService.RegistrarAccionAsync(
+                    "LIBERAR_ATLETA",
+                    $"Club {clubAnterior} liberó atleta {id} (Agente Libre)",
+                    null,
+                    "Traspasos");
+
+                return new OkObjectResult(new
+                {
+                    message = "Atleta liberado. Quedó como Agente Libre; otro club puede solicitar el traspaso.",
+                    participanteId = id
+                });
+            }
+            catch (Exception)
             {
                 return new StatusCodeResult(500);
             }

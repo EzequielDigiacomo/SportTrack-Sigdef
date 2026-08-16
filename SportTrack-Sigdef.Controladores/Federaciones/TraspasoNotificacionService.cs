@@ -46,7 +46,10 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                     ? $"{solicitud.Participante.Nombre} {solicitud.Participante.Apellido}".Trim()
                     : $"Atleta #{solicitud.ParticipanteId}";
 
-                var origen = solicitud.ClubOrigen?.Nombre ?? $"Club #{solicitud.IdClubOrigen}";
+                var origen = solicitud.ClubOrigen?.Nombre
+                    ?? (solicitud.IdClubOrigen.HasValue
+                        ? $"Club #{solicitud.IdClubOrigen}"
+                        : "Agente Libre");
                 var destino = solicitud.ClubDestino?.Nombre ?? $"Club #{solicitud.IdClubDestino}";
 
                 var (asunto, cuerpo) = evento switch
@@ -68,7 +71,9 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                     ),
                     TraspasoNotificacionEvento.OrigenAcepto => (
                         $"Traspaso #{solicitud.IdSolicitudTraspaso} aceptado y ejecutado",
-                        $"El club {origen} aceptó el traspaso de {atletaNombre} hacia {destino}. El cambio de club ya fue ejecutado."
+                        solicitud.IdClubOrigen.HasValue
+                            ? $"El club {origen} aceptó el traspaso de {atletaNombre} hacia {destino}. El cambio de club ya fue ejecutado."
+                            : $"La federación aprobó el traspaso de {atletaNombre} (Agente Libre) hacia {destino}. El cambio de club ya fue ejecutado."
                     ),
                     TraspasoNotificacionEvento.OrigenRechazo => (
                         $"Traspaso #{solicitud.IdSolicitudTraspaso} rechazado por club origen",
@@ -116,7 +121,8 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
 
                 case TraspasoNotificacionEvento.FederacionHabilito:
                 case TraspasoNotificacionEvento.FederacionHabilitoForzado:
-                    AddUsuarios(ids, await _mensajeRepository.GetUsuariosActivosByClubAsync(solicitud.IdClubOrigen));
+                    if (solicitud.IdClubOrigen.HasValue)
+                        AddUsuarios(ids, await _mensajeRepository.GetUsuariosActivosByClubAsync(solicitud.IdClubOrigen.Value));
                     AddUsuarios(ids, await _mensajeRepository.GetUsuariosActivosByClubAsync(solicitud.IdClubDestino));
                     break;
 
@@ -135,7 +141,8 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                     break;
 
                 case TraspasoNotificacionEvento.Cancelado:
-                    AddUsuarios(ids, await _mensajeRepository.GetUsuariosActivosByClubAsync(solicitud.IdClubOrigen));
+                    if (solicitud.IdClubOrigen.HasValue)
+                        AddUsuarios(ids, await _mensajeRepository.GetUsuariosActivosByClubAsync(solicitud.IdClubOrigen.Value));
                     AddUsuarios(ids, await _mensajeRepository.GetUsuariosAdminByFederacionAsync(solicitud.IdFederacion));
                     break;
             }

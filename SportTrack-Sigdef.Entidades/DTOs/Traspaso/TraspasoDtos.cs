@@ -38,7 +38,7 @@ namespace SportTrack_Sigdef.Entidades.DTOs.Traspaso
         public int ParticipanteId { get; set; }
         public string ParticipanteNombre { get; set; } = string.Empty;
         public string? ParticipanteDocumento { get; set; }
-        public int IdClubOrigen { get; set; }
+        public int? IdClubOrigen { get; set; }
         public string ClubOrigenNombre { get; set; } = string.Empty;
         public int IdClubDestino { get; set; }
         public string ClubDestinoNombre { get; set; } = string.Empty;
@@ -84,8 +84,10 @@ namespace SportTrack_Sigdef.Entidades.DTOs.Traspaso
         public int ParticipanteId { get; set; }
         public string Nombre { get; set; } = string.Empty;
         public string? Documento { get; set; }
-        public int IdClub { get; set; }
+        /// <summary>Null = Agente Libre. Otro club puede solicitar traspaso; la federación verifica deudas.</summary>
+        public int? IdClub { get; set; }
         public string ClubNombre { get; set; } = string.Empty;
+        public bool SinClub => !IdClub.HasValue;
     }
 
     public class TraspasoAuditoriaDto
