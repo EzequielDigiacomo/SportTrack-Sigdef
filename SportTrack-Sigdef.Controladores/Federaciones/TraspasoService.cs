@@ -574,44 +574,50 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
 
         private async Task EjecutarTraspasoAsync(SolicitudTraspaso solicitud, bool forzado)
         {
-            await using var tx = await _context.Database.BeginTransactionAsync();
-            try
+            // NpgsqlRetryingExecutionStrategy no permite BeginTransaction directo:
+            // hay que ejecutar la unidad completa vía CreateExecutionStrategy().
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
             {
-                var atleta = await _context.AtletasFederados
-                    .FirstOrDefaultAsync(a => a.ParticipanteId == solicitud.ParticipanteId)
-                    ?? throw new NotFoundException("Atleta federado no encontrado.");
+                await using var tx = await _context.Database.BeginTransactionAsync();
+                try
+                {
+                    var atleta = await _context.AtletasFederados
+                        .FirstOrDefaultAsync(a => a.ParticipanteId == solicitud.ParticipanteId)
+                        ?? throw new NotFoundException("Atleta federado no encontrado.");
 
-                var participante = await _context.Participantes
-                    .FirstOrDefaultAsync(p => p.ParticipanteId == solicitud.ParticipanteId)
-                    ?? throw new NotFoundException("Participante no encontrado.");
+                    var participante = await _context.Participantes
+                        .FirstOrDefaultAsync(p => p.ParticipanteId == solicitud.ParticipanteId)
+                        ?? throw new NotFoundException("Participante no encontrado.");
 
-                atleta.IdClub = solicitud.IdClubDestino;
-                participante.IdClub = solicitud.IdClubDestino;
-                participante.PagoAfiliacionAlDia = false;
-                atleta.EstadoPago = EstadoPago.Pendiente;
+                    atleta.IdClub = solicitud.IdClubDestino;
+                    participante.IdClub = solicitud.IdClubDestino;
+                    participante.PagoAfiliacionAlDia = false;
+                    atleta.EstadoPago = EstadoPago.Pendiente;
 
-                solicitud.Estado = EstadoSolicitudTraspaso.Aprobado;
-                solicitud.FechaEjecucion = DateTime.UtcNow;
-                if (!solicitud.FechaRespuestaFederacion.HasValue)
-                    solicitud.FechaRespuestaFederacion = DateTime.UtcNow;
-                if (!solicitud.AprobadoPorUsuarioId.HasValue)
-                    solicitud.AprobadoPorUsuarioId = await GetCurrentUsuarioIdAsync();
+                    solicitud.Estado = EstadoSolicitudTraspaso.Aprobado;
+                    solicitud.FechaEjecucion = DateTime.UtcNow;
+                    if (!solicitud.FechaRespuestaFederacion.HasValue)
+                        solicitud.FechaRespuestaFederacion = DateTime.UtcNow;
+                    if (!solicitud.AprobadoPorUsuarioId.HasValue)
+                        solicitud.AprobadoPorUsuarioId = await GetCurrentUsuarioIdAsync();
 
-                await _context.SaveChangesAsync();
-                await tx.CommitAsync();
+                    await _context.SaveChangesAsync();
+                    await tx.CommitAsync();
+                }
+                catch
+                {
+                    await tx.RollbackAsync();
+                    throw;
+                }
+            });
 
-                var nota = forzado ? " (aprobación forzada)" : string.Empty;
-                await _auditService.RegistrarAccionAsync(
-                    "EJECUTAR_TRASPASO",
-                    $"Traspaso ejecutado #{solicitud.IdSolicitudTraspaso} atleta {solicitud.ParticipanteId}{nota}",
-                    null,
-                    "Traspasos");
-            }
-            catch
-            {
-                await tx.RollbackAsync();
-                throw;
-            }
+            var nota = forzado ? " (aprobación forzada)" : string.Empty;
+            await _auditService.RegistrarAccionAsync(
+                "EJECUTAR_TRASPASO",
+                $"Traspaso ejecutado #{solicitud.IdSolicitudTraspaso} atleta {solicitud.ParticipanteId}{nota}",
+                null,
+                "Traspasos");
         }
 
         private async Task<TraspasoValidacionDto> BuildValidacionesAsync(SolicitudTraspaso solicitud)
