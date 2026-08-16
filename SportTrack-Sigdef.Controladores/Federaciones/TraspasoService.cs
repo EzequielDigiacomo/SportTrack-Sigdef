@@ -8,6 +8,7 @@ using SportTrack_Sigdef.Entidades.Entidades;
 using SportTrack_Sigdef.Entidades.Enums;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
@@ -343,31 +344,93 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                 throw new BadRequestException("Ingrese al menos 2 caracteres para buscar.");
 
             var fedId = await RequireFederacionFromClubAsync(clubDestinoId);
-            var search = term.Trim().ToLower();
+            var searchRaw = term.Trim();
+            var search = Fold(searchRaw);
+            var tokens = search
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var digitsOnly = new string(searchRaw.Where(char.IsDigit).ToArray());
+            var hasDigits = digitsOnly.Length >= 2;
 
-            var list = await _context.AtletasFederados
+            // Scope en DB; matching de nombre/DNI en memoria (más fiable con acentos y nombre completo).
+            // Rechazos previos NO excluyen atletas.
+            var candidates = await _context.AtletasFederados
                 .AsNoTracking()
                 .Include(a => a.Participante)
                 .Include(a => a.Club)
-                .Where(a => a.IdFederacion == fedId
-                    && a.IdClub.HasValue
+                .Where(a => a.IdClub.HasValue
                     && a.IdClub != clubDestinoId
-                    && (a.Participante.Nombre.ToLower().Contains(search)
-                        || a.Participante.Apellido.ToLower().Contains(search)
-                        || (a.Participante.Documento != null && a.Participante.Documento.ToLower().Contains(search))))
-                .OrderBy(a => a.Participante.Apellido)
-                .ThenBy(a => a.Participante.Nombre)
-                .Take(30)
+                    && a.Participante != null
+                    && (a.IdFederacion == fedId
+                        || (a.Club != null && a.Club.IdFederacion == fedId)))
+                .OrderBy(a => a.Participante!.Apellido)
+                .ThenBy(a => a.Participante!.Nombre)
+                .Take(800)
                 .ToListAsync();
 
-            return list.Select(a => new AtletaTraspasoBusquedaDto
+            var filtered = candidates
+                .Where(a => MatchesAtletaBusqueda(a, search, tokens, digitsOnly, hasDigits))
+                .Take(30)
+                .ToList();
+
+            return filtered.Select(a => new AtletaTraspasoBusquedaDto
             {
                 ParticipanteId = a.ParticipanteId,
-                Nombre = $"{a.Participante.Nombre} {a.Participante.Apellido}".Trim(),
+                Nombre = $"{a.Participante!.Nombre} {a.Participante.Apellido}".Trim(),
                 Documento = a.Participante.Documento,
                 IdClub = a.IdClub!.Value,
                 ClubNombre = a.Club?.Nombre ?? string.Empty
             });
+        }
+
+        private static bool MatchesAtletaBusqueda(
+            AtletaFederacion a,
+            string search,
+            string[] tokens,
+            string digitsOnly,
+            bool hasDigits)
+        {
+            var p = a.Participante;
+            if (p == null) return false;
+
+            var nombre = Fold(p.Nombre);
+            var apellido = Fold(p.Apellido);
+            var full = $"{nombre} {apellido}".Trim();
+            var doc = Fold(p.Documento);
+            var docDigits = new string((p.Documento ?? string.Empty).Where(char.IsDigit).ToArray());
+
+            if (full.Contains(search) || nombre.Contains(search) || apellido.Contains(search) || doc.Contains(search))
+                return true;
+
+            if (hasDigits && docDigits.Contains(digitsOnly))
+                return true;
+
+            if (tokens.Length >= 2)
+            {
+                var first = tokens[0];
+                var last = tokens[^1];
+                if (nombre.Contains(first) && apellido.Contains(last))
+                    return true;
+                if (nombre.Contains(last) && apellido.Contains(first))
+                    return true;
+            }
+
+            return tokens.Any(t => t.Length >= 2 && (nombre.Contains(t) || apellido.Contains(t) || full.Contains(t)));
+        }
+
+        /// <summary>Normaliza texto para búsqueda: minúsculas + sin acentos.</summary>
+        private static string Fold(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+            var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+            var sb = new StringBuilder(normalized.Length);
+            foreach (var c in normalized)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                    sb.Append(c);
+            }
+
+            return sb.ToString().Normalize(NormalizationForm.FormC);
         }
 
         public async Task<IEnumerable<TraspasoAuditoriaDto>> GetAuditoriaAsync(int limit = 50)
