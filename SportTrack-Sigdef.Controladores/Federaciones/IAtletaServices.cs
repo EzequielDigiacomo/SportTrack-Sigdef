@@ -15,5 +15,6 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
         Task<ActionResult<AtletaDto>> PostAtleta(AtletaCreateDto atletaCreateDto);
         Task<ActionResult<AtletaDto>> PostAtletaFull(AtletaFullCreateDto atletaFullCreateDto);
         Task<IActionResult> PutAtleta(int id, AtletaCreateDto atletaCreateDto);
+        Task<IActionResult> LiberarAtleta(int id);
     }
 }

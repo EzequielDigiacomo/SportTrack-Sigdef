@@ -161,14 +161,24 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                 .FirstOrDefaultAsync(a => a.ParticipanteId == dto.ParticipanteId)
                 ?? throw new NotFoundException("Atleta no encontrado.");
 
-            if (!atleta.IdClub.HasValue)
-                throw new BadRequestException("El atleta no pertenece a ningún club.");
+            // Club efectivo: ficha atleta o participante. Null = Agente Libre (traspaso vía federación).
+            var idClubOrigen = atleta.IdClub ?? atleta.Participante?.IdClub;
 
-            var idClubOrigen = atleta.IdClub.Value;
-            if (idClubOrigen == clubDestinoId)
-                throw new BadRequestException("El club destino debe ser distinto al club actual del atleta.");
+            if (idClubOrigen.HasValue)
+            {
+                if (idClubOrigen.Value == clubDestinoId)
+                    throw new BadRequestException("El club destino debe ser distinto al club actual del atleta.");
 
-            await EnsureMismaFederacionAsync(idClubOrigen, clubDestinoId, fedId);
+                await EnsureMismaFederacionAsync(idClubOrigen.Value, clubDestinoId, fedId);
+
+                if (!atleta.IdClub.HasValue)
+                    atleta.IdClub = idClubOrigen;
+            }
+            else
+            {
+                await EnsureAtletaMismaFederacionAsync(atleta, fedId);
+            }
+
             await EnsureSinSolicitudActivaAsync(dto.ParticipanteId);
 
             var solicitud = new SolicitudTraspaso
@@ -187,9 +197,10 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
             await _context.SaveChangesAsync();
 
             await ReloadNavigationForDto(solicitud);
+            var origenLabel = idClubOrigen?.ToString() ?? "AgenteLibre";
             await _auditService.RegistrarAccionAsync(
                 "CREATE_TRASPASO_SOLICITUD",
-                $"Solicitud traspaso #{solicitud.IdSolicitudTraspaso} atleta {dto.ParticipanteId} {idClubOrigen}→{clubDestinoId}",
+                $"Solicitud traspaso #{solicitud.IdSolicitudTraspaso} atleta {dto.ParticipanteId} {origenLabel}→{clubDestinoId}",
                 null,
                 "Traspasos");
 
@@ -261,10 +272,27 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
             if (forzar && !IsGlobalAdmin())
                 throw new UnauthorizedException("Solo administradores globales pueden forzar la habilitación.");
 
-            solicitud.Estado = EstadoSolicitudTraspaso.PendienteOrigen;
             solicitud.FechaRespuestaFederacion = DateTime.UtcNow;
             solicitud.AprobadoPorUsuarioId = await GetCurrentUsuarioIdAsync();
             solicitud.MotivoRechazo = null;
+
+            // Agente Libre: no hay club origen que acepte → se ejecuta al aprobar la federación.
+            if (!solicitud.IdClubOrigen.HasValue)
+            {
+                await EjecutarTraspasoAsync(solicitud, forzado: forzar);
+
+                await ReloadNavigationForDto(solicitud);
+                await _auditService.RegistrarAccionAsync(
+                    "APROBAR_TRASPASO_AGENTE_LIBRE",
+                    $"Federación aprobó y ejecutó traspaso #{id} (Agente Libre){(forzar ? " (forzado)" : string.Empty)}",
+                    null,
+                    "Traspasos");
+
+                await _notificacionService.NotificarAsync(solicitud, TraspasoNotificacionEvento.OrigenAcepto);
+                return MapSolicitud(solicitud);
+            }
+
+            solicitud.Estado = EstadoSolicitudTraspaso.PendienteOrigen;
             await _context.SaveChangesAsync();
 
             await ReloadNavigationForDto(solicitud);
@@ -351,40 +379,64 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
             var digitsOnly = new string(searchRaw.Where(char.IsDigit).ToArray());
             var hasDigits = digitsOnly.Length >= 2;
 
-            // Clubes de la misma federación (más fiable que filtrar solo por Atleta.IdFederacion).
             var clubIdsFed = await _context.Clubes.AsNoTracking()
-                .Where(c => c.IdFederacion == fedId && c.IdClub != clubDestinoId)
+                .Where(c => c.IdFederacion == fedId)
                 .Select(c => c.IdClub)
                 .ToListAsync();
 
-            if (clubIdsFed.Count == 0)
-                return Array.Empty<AtletaTraspasoBusquedaDto>();
-
-            // Importante: la deuda (EstadoPago) NO filtra la búsqueda.
-            // Solo se usa al aprobar en federación. Rechazos previos tampoco excluyen.
+            // Deuda y rechazos NO filtran. Incluye Agente Libre (sin club) de la federación.
+            // Club efectivo = Atleta.IdClub ?? Participante.IdClub
             var candidates = await _context.AtletasFederados
                 .AsNoTracking()
                 .Include(a => a.Participante)
                 .Include(a => a.Club)
-                .Where(a => a.IdClub.HasValue
-                    && clubIdsFed.Contains(a.IdClub.Value)
-                    && a.Participante != null)
+                .Where(a => a.Participante != null
+                    && (
+                        a.IdFederacion == fedId
+                        || (a.IdClub.HasValue && clubIdsFed.Contains(a.IdClub.Value))
+                        || (a.Participante!.IdClub.HasValue && clubIdsFed.Contains(a.Participante.IdClub.Value))
+                    ))
                 .ToListAsync();
 
             var filtered = candidates
-                .Where(a => MatchesAtletaBusqueda(a, search, tokens, digitsOnly, hasDigits))
-                .OrderBy(a => a.Participante!.Apellido)
-                .ThenBy(a => a.Participante!.Nombre)
+                .Select(a =>
+                {
+                    var clubId = a.IdClub ?? a.Participante?.IdClub;
+                    return new { Atleta = a, ClubId = clubId };
+                })
+                // Excluir solo atletas que ya están en el club que busca (no tiene sentido traspasarse a sí mismo).
+                .Where(x => x.ClubId != clubDestinoId)
+                .Where(x => MatchesAtletaBusqueda(x.Atleta, search, tokens, digitsOnly, hasDigits))
+                .OrderBy(x => x.Atleta.Participante!.Apellido)
+                .ThenBy(x => x.Atleta.Participante!.Nombre)
                 .Take(30)
                 .ToList();
 
-            return filtered.Select(a => new AtletaTraspasoBusquedaDto
+            var clubNombres = await _context.Clubes.AsNoTracking()
+                .Where(c => clubIdsFed.Contains(c.IdClub))
+                .ToDictionaryAsync(c => c.IdClub, c => c.Nombre);
+
+            return filtered.Select(x =>
             {
-                ParticipanteId = a.ParticipanteId,
-                Nombre = $"{a.Participante!.Nombre} {a.Participante.Apellido}".Trim(),
-                Documento = a.Participante.Documento,
-                IdClub = a.IdClub!.Value,
-                ClubNombre = a.Club?.Nombre ?? string.Empty
+                var a = x.Atleta;
+                string clubNombre;
+                if (!x.ClubId.HasValue)
+                    clubNombre = "Agente Libre";
+                else if (a.Club != null && a.IdClub == x.ClubId)
+                    clubNombre = a.Club.Nombre;
+                else if (clubNombres.TryGetValue(x.ClubId.Value, out var nombre))
+                    clubNombre = nombre;
+                else
+                    clubNombre = $"Club #{x.ClubId.Value}";
+
+                return new AtletaTraspasoBusquedaDto
+                {
+                    ParticipanteId = a.ParticipanteId,
+                    Nombre = $"{a.Participante!.Nombre} {a.Participante.Apellido}".Trim(),
+                    Documento = a.Participante.Documento,
+                    IdClub = x.ClubId,
+                    ClubNombre = clubNombre
+                };
             });
         }
 
@@ -577,12 +629,27 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                 Detalle = periodoActivo == null ? "No hay periodo activo en la federación." : null
             });
 
-            var clubOrigen = await _context.Clubes.AsNoTracking()
-                .FirstOrDefaultAsync(c => c.IdClub == solicitud.IdClubOrigen);
+            var clubOrigen = solicitud.IdClubOrigen.HasValue
+                ? await _context.Clubes.AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.IdClub == solicitud.IdClubOrigen.Value)
+                : null;
             var clubDestino = await _context.Clubes.AsNoTracking()
                 .FirstOrDefaultAsync(c => c.IdClub == solicitud.IdClubDestino);
 
-            items.Add(BuildPagoClubItem("CLUB_ORIGEN", "Club origen al día", clubOrigen));
+            if (solicitud.IdClubOrigen.HasValue)
+                items.Add(BuildPagoClubItem("CLUB_ORIGEN", "Club origen al día", clubOrigen));
+            else
+            {
+                items.Add(new TraspasoValidacionItemDto
+                {
+                    Codigo = "CLUB_ORIGEN",
+                    Descripcion = "Club origen al día",
+                    Ok = true,
+                    Bloqueante = false,
+                    Detalle = "Agente Libre: no hay club origen."
+                });
+            }
+
             items.Add(BuildPagoClubItem("CLUB_DESTINO", "Club destino al día", clubDestino));
 
             var atleta = await _context.AtletasFederados.AsNoTracking()
@@ -761,6 +828,14 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                 throw new BadRequestException("Los clubes deben pertenecer a la misma federación.");
         }
 
+        private Task EnsureAtletaMismaFederacionAsync(AtletaFederacion atleta, int fedId)
+        {
+            if (atleta.IdFederacion.HasValue && atleta.IdFederacion.Value != fedId)
+                throw new BadRequestException("El atleta no pertenece a la misma federación que el club destino.");
+
+            return Task.CompletedTask;
+        }
+
         private int RequireClubDestinoId(int dtoClubDestino)
         {
             var tenantClub = _tenantProvider.GetClubId();
@@ -877,7 +952,8 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                 : string.Empty,
             ParticipanteDocumento = s.Participante?.Documento,
             IdClubOrigen = s.IdClubOrigen,
-            ClubOrigenNombre = s.ClubOrigen?.Nombre ?? string.Empty,
+            ClubOrigenNombre = s.ClubOrigen?.Nombre
+                ?? (s.IdClubOrigen.HasValue ? string.Empty : "Agente Libre"),
             IdClubDestino = s.IdClubDestino,
             ClubDestinoNombre = s.ClubDestino?.Nombre ?? string.Empty,
             Estado = s.Estado.ToString(),

@@ -12,8 +12,9 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public int ParticipanteId { get; set; }
         public Participante Participante { get; set; } = null!;
 
-        public int IdClubOrigen { get; set; }
-        public Club ClubOrigen { get; set; } = null!;
+        /// <summary>Null = el atleta era Agente Libre al solicitar el traspaso.</summary>
+        public int? IdClubOrigen { get; set; }
+        public Club? ClubOrigen { get; set; }
 
         public int IdClubDestino { get; set; }
         public Club ClubDestino { get; set; } = null!;
