@@ -25,11 +25,10 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
         public string NormalizarDocumento(string? documento)
         {
             if (string.IsNullOrWhiteSpace(documento)) return string.Empty;
-            return documento
-                .Replace(".", "", StringComparison.Ordinal)
-                .Replace("-", "", StringComparison.Ordinal)
-                .Replace(" ", "", StringComparison.Ordinal)
-                .Trim();
+            var chars = documento
+                .Where(c => !char.IsWhiteSpace(c) && c != '.' && c != '-' && c != '/')
+                .ToArray();
+            return new string(chars).Trim();
         }
 
         public async Task<Entidades.Entidades.Participante?> BuscarPorDocumentoAsync(string documento)
@@ -37,19 +36,43 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
             var normalizado = NormalizarDocumento(documento);
             if (string.IsNullOrEmpty(normalizado)) return null;
 
-            // Match exacto (forma habitual en DB)
-            var exacto = await _context.Participantes
-                .FirstOrDefaultAsync(p => p.Documento == normalizado || p.Documento == documento.Trim());
-            if (exacto != null) return exacto;
+            var raw = documento.Trim();
+            var sinCeros = normalizado.TrimStart('0');
+            if (string.IsNullOrEmpty(sinCeros)) sinCeros = normalizado;
 
-            // Match normalizando puntos/guiones/espacios en DB (entrenadores/atletas legacy)
+            // 1) Match exacto por columna Documento
+            var id = await _context.Participantes.AsNoTracking()
+                .Where(p => p.Documento == normalizado
+                    || p.Documento == raw
+                    || p.Documento == sinCeros)
+                .Select(p => (int?)p.ParticipanteId)
+                .FirstOrDefaultAsync();
+
+            // 2) Match normalizando formato en SQL (puntos/guiones/espacios)
+            if (!id.HasValue)
+            {
+                id = await _context.Participantes.AsNoTracking()
+                    .Where(p => p.Documento != null
+                        && p.Documento.Replace(".", "").Replace("-", "").Replace(" ", "").Replace("/", "") == normalizado)
+                    .Select(p => (int?)p.ParticipanteId)
+                    .FirstOrDefaultAsync();
+            }
+
+            // 3) Fallback: DNI en Usuarios → Participante vinculado
+            if (!id.HasValue)
+            {
+                id = await _context.Usuarios.AsNoTracking()
+                    .Where(u => u.ParticipanteId != null
+                        && (u.Dni == normalizado || u.Dni == raw || u.Dni == sinCeros
+                            || (u.Dni != null && u.Dni.Replace(".", "").Replace("-", "").Replace(" ", "") == normalizado)))
+                    .Select(u => u.ParticipanteId)
+                    .FirstOrDefaultAsync();
+            }
+
+            if (!id.HasValue) return null;
+
             return await _context.Participantes
-                .FirstOrDefaultAsync(p =>
-                    p.Documento != null
-                    && p.Documento
-                        .Replace(".", "")
-                        .Replace("-", "")
-                        .Replace(" ", "") == normalizado);
+                .FirstOrDefaultAsync(p => p.ParticipanteId == id.Value);
         }
 
         public AltaAtletaParticipanteInput FromPersonaCreateDto(PersonaCreateDto dto, int? idClub = null)

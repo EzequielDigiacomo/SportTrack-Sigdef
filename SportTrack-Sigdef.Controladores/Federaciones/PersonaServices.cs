@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SportTrack_Sigdef.Controladores.Federaciones;
+using SportTrack_Sigdef.Controladores.Auth;
 using Microsoft.AspNetCore.Mvc;
 using SportTrack_Sigdef.Entidades.Entidades;
 
@@ -164,14 +165,52 @@ namespace SportTrack_Sigdef.Controladores.Services
         {
             try
             {
-                // Usar Documento (columna real) vía AltaAtletaService — no filtrar por p.Dni
-                // (alias CLR que EF no traduce y devolvía 404 aunque el entrenador exista).
+                if (string.IsNullOrWhiteSpace(documento))
+                {
+                    return new BadRequestObjectResult(new { message = "Ingresá un DNI para buscar." });
+                }
+
+                var docNorm = _altaAtletaService.NormalizarDocumento(documento);
+                var raw = documento.Trim();
+
+                // Bloquear DNI de roles de alto poder aunque no tengan Participante
+                var usuariosConDni = await _context.Usuarios.AsNoTracking()
+                    .Where(u => u.Dni != null && (
+                        u.Dni == docNorm
+                        || u.Dni == raw
+                        || u.Dni.Replace(".", "").Replace("-", "").Replace(" ", "") == docNorm))
+                    .Select(u => new { u.RolFederacion, u.ParticipanteId })
+                    .ToListAsync();
+
+                if (usuariosConDni.Any(u => AuthRolePolicies.IsPrivilegedRole(u.RolFederacion)))
+                {
+                    return new NotFoundObjectResult(new
+                    {
+                        message = "Ese DNI no está disponible para esta operación."
+                    });
+                }
+
+                // Busca a cualquier persona (atleta, entrenador, tutor, delegado, etc.)
                 var p = await _altaAtletaService.BuscarPorDocumentoAsync(documento);
                 if (p == null)
                 {
                     return new NotFoundObjectResult(new
                     {
                         message = "No se encontró una persona con ese DNI."
+                    });
+                }
+
+                // Bloquear también si el Participante está vinculado a un usuario privilegiado
+                var rolesVinculados = await _context.Usuarios.AsNoTracking()
+                    .Where(u => u.ParticipanteId == p.ParticipanteId)
+                    .Select(u => u.RolFederacion)
+                    .ToListAsync();
+
+                if (rolesVinculados.Any(AuthRolePolicies.IsPrivilegedRole))
+                {
+                    return new NotFoundObjectResult(new
+                    {
+                        message = "Ese DNI no está disponible para esta operación."
                     });
                 }
 
