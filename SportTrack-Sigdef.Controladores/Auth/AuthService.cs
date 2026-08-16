@@ -275,6 +275,13 @@ namespace SportTrack_Sigdef.Controladores.Auth
 
             if (existing != null)
             {
+                // Nunca degradar Admin / SuperAdmin / soporte a Club
+                if (AuthRolePolicies.IsPrivilegedRole(existing.RolFederacion))
+                {
+                    throw new BadRequestException(
+                        "Ese DNI o email pertenece a una cuenta de administración y no se puede usar para login Club/delegado. Usá otra persona o contactá soporte.");
+                }
+
                 if (!isClubRole)
                     throw new BadRequestException("El nombre de usuario o DNI ya está registrado.");
 
