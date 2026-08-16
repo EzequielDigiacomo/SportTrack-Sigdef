@@ -7,6 +7,7 @@ using SportTrack_Sigdef.Controladores.SaaS.Dtos;
 using SportTrack_Sigdef.Controladores.Exceptions;
 using SportTrack_Sigdef.Entidades.Entidades;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace SportTrack_Sigdef.Controladores.Auth
@@ -193,8 +194,9 @@ namespace SportTrack_Sigdef.Controladores.Auth
 
         public async Task<bool> RegisterAsync(RegisterDto registerDto)
         {
-            if (await UserExistsAsync(registerDto.Username))
-                throw new BadRequestException("El nombre de usuario ya existe");
+            var username = (registerDto.Username ?? string.Empty).ToLower().Trim();
+            if (string.IsNullOrWhiteSpace(username))
+                throw new BadRequestException("El nombre de usuario es obligatorio.");
 
             var rol = (registerDto.RolFederacion ?? "Club").Trim();
 
@@ -262,23 +264,126 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 }
             }
 
+            var dni = string.IsNullOrWhiteSpace(registerDto.Dni) ? null : registerDto.Dni.Trim();
+            var email = (registerDto.Email ?? string.Empty).Trim();
+
+            // Reutilizar usuario existente (mismo username o DNI) al asignar login Club / delegado
+            var existing = await _context.Usuarios
+                .FirstOrDefaultAsync(u =>
+                    u.Username == username
+                    || (!string.IsNullOrEmpty(dni) && u.Dni == dni));
+
+            if (existing != null)
+            {
+                if (!isClubRole)
+                    throw new BadRequestException("El nombre de usuario o DNI ya está registrado.");
+
+                existing.RolFederacion = rol;
+                existing.IdClub = clubId;
+                existing.IdFederacion = federacionId;
+                existing.Nombre = registerDto.Nombre ?? existing.Nombre;
+                existing.Apellido = registerDto.Apellido ?? existing.Apellido;
+                existing.Telefono = registerDto.Telefono ?? existing.Telefono;
+                if (!string.IsNullOrEmpty(dni))
+                    existing.Dni = dni;
+                if (!string.IsNullOrWhiteSpace(email)
+                    && !string.Equals(existing.Email, email, StringComparison.OrdinalIgnoreCase))
+                {
+                    var emailTaken = await _context.Usuarios.AnyAsync(u =>
+                        u.Email == email && u.IdUsuario != existing.IdUsuario);
+                    if (emailTaken)
+                        throw new BadRequestException("Ya existe otro usuario con ese email. Usá otro email.");
+                    existing.Email = email;
+                }
+
+                await LinkParticipanteIfNeededAsync(existing, dni);
+                await EnsureDelegadoClubAsync(existing.ParticipanteId, federacionId, clubId);
+
+                await _context.SaveChangesAsync();
+                await _auditService.RegistrarAccionAsync("REGISTER_USER_REUSE",
+                    $"Usuario existente '{existing.Username}' reutilizado como Club (ClubId: {existing.IdClub}, FedId: {existing.IdFederacion})",
+                    null, "Auth");
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                var emailExists = await _context.Usuarios.AnyAsync(u => u.Email == email);
+                if (emailExists)
+                    throw new BadRequestException("Ya existe un usuario con ese email. Usá otro email.");
+            }
+
             var user = _mapper.Map<Usuario>(registerDto);
-            user.Username = registerDto.Username.ToLower().Trim();
+            user.Username = username;
             user.RolFederacion = rol;
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
             user.IdClub = clubId;
             user.IdFederacion = federacionId;
+            user.Email = string.IsNullOrWhiteSpace(email) ? $"{username}@sigdef.local" : email;
+            user.Dni = dni;
+            user.Nombre = registerDto.Nombre;
+            user.Apellido = registerDto.Apellido;
+            user.Telefono = registerDto.Telefono;
+
+            await LinkParticipanteIfNeededAsync(user, dni);
 
             _context.Usuarios.Add(user);
             var res = await _context.SaveChangesAsync() > 0;
 
             if (res)
             {
+                await EnsureDelegadoClubAsync(user.ParticipanteId, federacionId, clubId);
+                await _context.SaveChangesAsync();
+
                 await _auditService.RegistrarAccionAsync("REGISTER_USER",
                     $"Nuevo usuario registrado: '{user.Username}' (Rol: {user.RolFederacion}, ClubId: {user.IdClub}, FedId: {user.IdFederacion})", null, "Auth");
             }
 
             return res;
+        }
+
+        private async Task LinkParticipanteIfNeededAsync(Usuario user, string? dni)
+        {
+            if (user.ParticipanteId.HasValue || string.IsNullOrWhiteSpace(dni))
+                return;
+
+            var digits = new string(dni.Where(char.IsDigit).ToArray());
+            var participante = await _context.Participantes
+                .FirstOrDefaultAsync(p =>
+                    p.Documento == dni
+                    || p.Documento == digits);
+
+            if (participante != null)
+                user.ParticipanteId = participante.ParticipanteId;
+        }
+
+        private async Task EnsureDelegadoClubAsync(int? participanteId, int? federacionId, int? clubId)
+        {
+            if (!participanteId.HasValue || participanteId.Value <= 0)
+                return;
+
+            var exists = await _context.DelegadosClub
+                .AnyAsync(d => d.IdParticipante == participanteId.Value);
+            if (exists)
+                return;
+
+            // Rol 3 = Delegado Club (catálogo habitual)
+            var rolId = await _context.Roles
+                .Where(r => r.IdRol == 3)
+                .Select(r => (int?)r.IdRol)
+                .FirstOrDefaultAsync()
+                ?? await _context.Roles.Select(r => r.IdRol).FirstOrDefaultAsync();
+
+            if (rolId <= 0)
+                return;
+
+            _context.DelegadosClub.Add(new DelegadoFederacionClub
+            {
+                IdParticipante = participanteId.Value,
+                IdRol = rolId,
+                IdFederacion = federacionId,
+                ClubIdClub = clubId
+            });
         }
 
         public async Task<bool> UserExistsAsync(string username)
