@@ -351,24 +351,30 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
             var digitsOnly = new string(searchRaw.Where(char.IsDigit).ToArray());
             var hasDigits = digitsOnly.Length >= 2;
 
-            // Scope en DB; matching de nombre/DNI en memoria (más fiable con acentos y nombre completo).
-            // Rechazos previos NO excluyen atletas.
+            // Clubes de la misma federación (más fiable que filtrar solo por Atleta.IdFederacion).
+            var clubIdsFed = await _context.Clubes.AsNoTracking()
+                .Where(c => c.IdFederacion == fedId && c.IdClub != clubDestinoId)
+                .Select(c => c.IdClub)
+                .ToListAsync();
+
+            if (clubIdsFed.Count == 0)
+                return Array.Empty<AtletaTraspasoBusquedaDto>();
+
+            // Importante: la deuda (EstadoPago) NO filtra la búsqueda.
+            // Solo se usa al aprobar en federación. Rechazos previos tampoco excluyen.
             var candidates = await _context.AtletasFederados
                 .AsNoTracking()
                 .Include(a => a.Participante)
                 .Include(a => a.Club)
                 .Where(a => a.IdClub.HasValue
-                    && a.IdClub != clubDestinoId
-                    && a.Participante != null
-                    && (a.IdFederacion == fedId
-                        || (a.Club != null && a.Club.IdFederacion == fedId)))
-                .OrderBy(a => a.Participante!.Apellido)
-                .ThenBy(a => a.Participante!.Nombre)
-                .Take(800)
+                    && clubIdsFed.Contains(a.IdClub.Value)
+                    && a.Participante != null)
                 .ToListAsync();
 
             var filtered = candidates
                 .Where(a => MatchesAtletaBusqueda(a, search, tokens, digitsOnly, hasDigits))
+                .OrderBy(a => a.Participante!.Apellido)
+                .ThenBy(a => a.Participante!.Nombre)
                 .Take(30)
                 .ToList();
 
