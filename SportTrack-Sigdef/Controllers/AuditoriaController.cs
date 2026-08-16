@@ -42,6 +42,11 @@ namespace SportTrack_Sigdef.Controllers
 
             var query = _context.Auditoria.AsQueryable();
 
+            // No mostrar ERROR_FATAL espurios de Forbid("mensaje") (esquema de auth inválido).
+            const string forbidNoise = "No authentication handler is registered for the scheme";
+            query = query.Where(a =>
+                !(a.Accion == "ERROR_FATAL" && a.Detalle != null && a.Detalle.Contains(forbidNoise)));
+
             if (!isSuperAdmin)
             {
                 var fedId = _tenantProvider.GetFederacionId();

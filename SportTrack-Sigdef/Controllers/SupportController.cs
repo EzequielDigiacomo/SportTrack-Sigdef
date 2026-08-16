@@ -29,8 +29,15 @@ namespace SportTrack_Sigdef.Controllers
 
             if (userRole != "SuperAdmin" && userName != "soporte_tecnico" && userName != "admin")
             {
-                return Forbid("No tienes permisos para acceder a los registros de soporte.");
+                // Forbid(string) interpreta el argumento como esquema de auth, no como mensaje.
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    message = "No tienes permisos para acceder a los registros de soporte."
+                });
             }
+
+            // Limpia ERROR_FATAL causados por Forbid("mensaje") mal usado (ya corregido).
+            await PurgeForbidSchemeNoiseAsync();
 
             var query = _context.Auditoria.AsQueryable();
 
@@ -94,6 +101,19 @@ namespace SportTrack_Sigdef.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Logs de error eliminados." });
+        }
+
+        private async Task PurgeForbidSchemeNoiseAsync()
+        {
+            const string marker = "No authentication handler is registered for the scheme";
+            var noise = await _context.Auditoria
+                .Where(a => a.Accion == "ERROR_FATAL" && a.Detalle != null && a.Detalle.Contains(marker))
+                .ToListAsync();
+
+            if (noise.Count == 0) return;
+
+            _context.Auditoria.RemoveRange(noise);
+            await _context.SaveChangesAsync();
         }
     }
 }
