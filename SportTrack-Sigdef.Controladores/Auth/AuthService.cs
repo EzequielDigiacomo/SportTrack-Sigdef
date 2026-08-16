@@ -266,12 +266,12 @@ namespace SportTrack_Sigdef.Controladores.Auth
 
             var dni = string.IsNullOrWhiteSpace(registerDto.Dni) ? null : registerDto.Dni.Trim();
             var email = (registerDto.Email ?? string.Empty).Trim();
+            var dniDigits = string.IsNullOrEmpty(dni)
+                ? null
+                : new string(dni.Where(char.IsDigit).ToArray());
 
-            // Reutilizar usuario existente (mismo username o DNI) al asignar login Club / delegado
-            var existing = await _context.Usuarios
-                .FirstOrDefaultAsync(u =>
-                    u.Username == username
-                    || (!string.IsNullOrEmpty(dni) && u.Dni == dni));
+            // Reutilizar usuario: mismo username, mismo DNI, misma persona (Participante) o mismo email de esa persona
+            var existing = await ResolveReusableUsuarioAsync(username, dni, dniDigits, email, isClubRole);
 
             if (existing != null)
             {
@@ -285,18 +285,21 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 existing.Apellido = registerDto.Apellido ?? existing.Apellido;
                 existing.Telefono = registerDto.Telefono ?? existing.Telefono;
                 if (!string.IsNullOrEmpty(dni))
-                    existing.Dni = dni;
+                    existing.Dni = dniDigits ?? dni;
+                // Mismo email de la misma persona: se mantiene / actualiza sin conflicto
                 if (!string.IsNullOrWhiteSpace(email)
                     && !string.Equals(existing.Email, email, StringComparison.OrdinalIgnoreCase))
                 {
-                    var emailTaken = await _context.Usuarios.AnyAsync(u =>
-                        u.Email == email && u.IdUsuario != existing.IdUsuario);
-                    if (emailTaken)
+                    var emailTakenByOther = await _context.Usuarios.AnyAsync(u =>
+                        u.IdUsuario != existing.IdUsuario
+                        && u.Email != null
+                        && u.Email.ToLower() == email.ToLower());
+                    if (emailTakenByOther)
                         throw new BadRequestException("Ya existe otro usuario con ese email. Usá otro email.");
                     existing.Email = email;
                 }
 
-                await LinkParticipanteIfNeededAsync(existing, dni);
+                await LinkParticipanteIfNeededAsync(existing, dniDigits ?? dni);
                 await EnsureDelegadoClubAsync(existing.ParticipanteId, federacionId, clubId);
 
                 await _context.SaveChangesAsync();
@@ -308,7 +311,8 @@ namespace SportTrack_Sigdef.Controladores.Auth
 
             if (!string.IsNullOrWhiteSpace(email))
             {
-                var emailExists = await _context.Usuarios.AnyAsync(u => u.Email == email);
+                var emailExists = await _context.Usuarios.AnyAsync(u =>
+                    u.Email != null && u.Email.ToLower() == email.ToLower());
                 if (emailExists)
                     throw new BadRequestException("Ya existe un usuario con ese email. Usá otro email.");
             }
@@ -320,12 +324,12 @@ namespace SportTrack_Sigdef.Controladores.Auth
             user.IdClub = clubId;
             user.IdFederacion = federacionId;
             user.Email = string.IsNullOrWhiteSpace(email) ? $"{username}@sigdef.local" : email;
-            user.Dni = dni;
+            user.Dni = dniDigits ?? dni;
             user.Nombre = registerDto.Nombre;
             user.Apellido = registerDto.Apellido;
             user.Telefono = registerDto.Telefono;
 
-            await LinkParticipanteIfNeededAsync(user, dni);
+            await LinkParticipanteIfNeededAsync(user, dniDigits ?? dni);
 
             _context.Usuarios.Add(user);
             var res = await _context.SaveChangesAsync() > 0;
@@ -342,6 +346,107 @@ namespace SportTrack_Sigdef.Controladores.Auth
             return res;
         }
 
+        /// <summary>
+        /// Localiza un usuario reutilizable al crear login Club/delegado: username, DNI o email de la misma persona.
+        /// </summary>
+        private async Task<Usuario?> ResolveReusableUsuarioAsync(
+            string username,
+            string? dni,
+            string? dniDigits,
+            string email,
+            bool isClubRole)
+        {
+            var existing = await _context.Usuarios
+                .FirstOrDefaultAsync(u =>
+                    u.Username == username
+                    || (!string.IsNullOrEmpty(dni) && u.Dni == dni)
+                    || (!string.IsNullOrEmpty(dniDigits) && u.Dni == dniDigits));
+
+            if (existing != null)
+                return existing;
+
+            // Usuario vinculado al Participante con ese documento
+            if (!string.IsNullOrEmpty(dniDigits) || !string.IsNullOrEmpty(dni))
+            {
+                var participanteId = await _context.Participantes.AsNoTracking()
+                    .Where(p => p.Documento == dni
+                        || p.Documento == dniDigits
+                        || (p.Documento != null
+                            && p.Documento.Replace(".", "").Replace("-", "").Replace(" ", "") == dniDigits))
+                    .Select(p => (int?)p.ParticipanteId)
+                    .FirstOrDefaultAsync();
+
+                if (participanteId.HasValue)
+                {
+                    existing = await _context.Usuarios
+                        .FirstOrDefaultAsync(u => u.ParticipanteId == participanteId.Value);
+                    if (existing != null)
+                        return existing;
+                }
+            }
+
+            // Mismo email + misma persona: reutilizar al asignar delegado sobre entrenador
+            if (isClubRole && !string.IsNullOrWhiteSpace(email))
+            {
+                var byEmail = await _context.Usuarios
+                    .FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower());
+
+                if (byEmail == null)
+                    return null;
+
+                var emailDniDigits = string.IsNullOrWhiteSpace(byEmail.Dni)
+                    ? null
+                    : new string(byEmail.Dni.Where(char.IsDigit).ToArray());
+
+                // Mismo DNI en usuario / username
+                if (!string.IsNullOrEmpty(dniDigits)
+                    && (
+                        string.Equals(emailDniDigits, dniDigits, StringComparison.Ordinal)
+                        || string.Equals(byEmail.Username, username, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(byEmail.Username, dniDigits, StringComparison.OrdinalIgnoreCase)
+                    ))
+                {
+                    return byEmail;
+                }
+
+                // Misma ficha Participante (por id o por email+documento de la persona)
+                if (!string.IsNullOrEmpty(dniDigits))
+                {
+                    var persona = await _context.Participantes.AsNoTracking()
+                        .Where(p => p.Documento == dni
+                            || p.Documento == dniDigits
+                            || (p.Documento != null
+                                && p.Documento.Replace(".", "").Replace("-", "").Replace(" ", "") == dniDigits))
+                        .Select(p => new { p.ParticipanteId, p.Email, p.Documento })
+                        .FirstOrDefaultAsync();
+
+                    if (persona != null)
+                    {
+                        if (byEmail.ParticipanteId == persona.ParticipanteId)
+                            return byEmail;
+
+                        var personaEmail = (persona.Email ?? string.Empty).Trim();
+                        if (!string.IsNullOrEmpty(personaEmail)
+                            && string.Equals(personaEmail, email, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Email de la persona = email del usuario → misma persona (entrenador → delegado)
+                            return byEmail;
+                        }
+
+                        // Usuario sin DNI cargado: si no tiene otro DNI distinto, vincular/reusar
+                        if (string.IsNullOrEmpty(emailDniDigits)
+                            && (!byEmail.ParticipanteId.HasValue
+                                || byEmail.ParticipanteId == persona.ParticipanteId))
+                        {
+                            return byEmail;
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
         private async Task LinkParticipanteIfNeededAsync(Usuario user, string? dni)
         {
             if (user.ParticipanteId.HasValue || string.IsNullOrWhiteSpace(dni))
@@ -351,7 +456,9 @@ namespace SportTrack_Sigdef.Controladores.Auth
             var participante = await _context.Participantes
                 .FirstOrDefaultAsync(p =>
                     p.Documento == dni
-                    || p.Documento == digits);
+                    || p.Documento == digits
+                    || (p.Documento != null
+                        && p.Documento.Replace(".", "").Replace("-", "").Replace(" ", "") == digits));
 
             if (participante != null)
                 user.ParticipanteId = participante.ParticipanteId;
