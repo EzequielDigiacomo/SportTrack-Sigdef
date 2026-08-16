@@ -164,40 +164,51 @@ namespace SportTrack_Sigdef.Controladores.Services
         {
             try
             {
-                var p = await _context.Participantes
-                    .Include(x => x.Usuario)
-                    .Include(x => x.DelegadoFederacionClub)
-                    .Include(x => x.EntrenadorFederacion)
-                    .Include(x => x.TutorFederacion)
-                    .Include(x => x.AtletaFederacion)
-                    .Where(x => x.Dni == documento)
-                    .FirstOrDefaultAsync();
-
+                // Usar Documento (columna real) vía AltaAtletaService — no filtrar por p.Dni
+                // (alias CLR que EF no traduce y devolvía 404 aunque el entrenador exista).
+                var p = await _altaAtletaService.BuscarPorDocumentoAsync(documento);
                 if (p == null)
                 {
-                    return new NotFoundResult();
+                    return new NotFoundObjectResult(new
+                    {
+                        message = "No se encontró una persona con ese DNI."
+                    });
                 }
+
+                await _context.Entry(p).Reference(x => x.Usuario).LoadAsync();
+                await _context.Entry(p).Reference(x => x.DelegadoFederacionClub).LoadAsync();
+                await _context.Entry(p).Reference(x => x.EntrenadorFederacion).LoadAsync();
+                await _context.Entry(p).Reference(x => x.TutorFederacion).LoadAsync();
+                await _context.Entry(p).Reference(x => x.AtletaFederacion).LoadAsync();
+                await _context.Entry(p).Reference(x => x.Sexo).LoadAsync();
 
                 var personaDto = new PersonaDto
                 {
                     ParticipanteId = p.ParticipanteId,
                     Nombre = p.Nombre,
                     Apellido = p.Apellido,
-                    Documento = p.Dni,
+                    Documento = p.Documento,
                     FechaNacimiento = p.FechaNacimiento,
                     Email = p.Email,
                     Telefono = p.Telefono,
                     Direccion = p.Direccion,
                     Sexo = p.Sexo,
-                    SexoDisplay = p.Sexo.ToString(),
+                    SexoDisplay = p.Sexo?.ToString() ?? string.Empty,
                     Edad = CalcularEdad(p.FechaNacimiento),
-                    NombreCompleto = p.Nombre + " " + p.Apellido,
+                    NombreCompleto = $"{p.Nombre} {p.Apellido}".Trim(),
                     TipoPersona = GetTipoPersona(p)
                 };
 
                 return new OkObjectResult(personaDto);
             }
-            catch (Exception ex) { return new ObjectResult(new { error = ex.Message, inner = ex.InnerException?.Message }) { StatusCode = 500 }; }
+            catch (Exception)
+            {
+                return new ObjectResult(new
+                {
+                    message = "No se pudo buscar la persona. Intentá nuevamente."
+                })
+                { StatusCode = 500 };
+            }
         }
 
         public async Task<ActionResult<PersonaDto>> PostPersona(PersonaCreateDto personaCreateDto)

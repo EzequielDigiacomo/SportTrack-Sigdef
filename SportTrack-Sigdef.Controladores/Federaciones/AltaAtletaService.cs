@@ -25,7 +25,11 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
         public string NormalizarDocumento(string? documento)
         {
             if (string.IsNullOrWhiteSpace(documento)) return string.Empty;
-            return documento.Replace(".", "").Replace(" ", "").Trim();
+            return documento
+                .Replace(".", "", StringComparison.Ordinal)
+                .Replace("-", "", StringComparison.Ordinal)
+                .Replace(" ", "", StringComparison.Ordinal)
+                .Trim();
         }
 
         public async Task<Entidades.Entidades.Participante?> BuscarPorDocumentoAsync(string documento)
@@ -33,8 +37,19 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
             var normalizado = NormalizarDocumento(documento);
             if (string.IsNullOrEmpty(normalizado)) return null;
 
+            // Match exacto (forma habitual en DB)
+            var exacto = await _context.Participantes
+                .FirstOrDefaultAsync(p => p.Documento == normalizado || p.Documento == documento.Trim());
+            if (exacto != null) return exacto;
+
+            // Match normalizando puntos/guiones/espacios en DB (entrenadores/atletas legacy)
             return await _context.Participantes
-                .FirstOrDefaultAsync(p => p.Documento != null && p.Documento.Replace(".", "").Replace(" ", "") == normalizado);
+                .FirstOrDefaultAsync(p =>
+                    p.Documento != null
+                    && p.Documento
+                        .Replace(".", "")
+                        .Replace("-", "")
+                        .Replace(" ", "") == normalizado);
         }
 
         public AltaAtletaParticipanteInput FromPersonaCreateDto(PersonaCreateDto dto, int? idClub = null)
