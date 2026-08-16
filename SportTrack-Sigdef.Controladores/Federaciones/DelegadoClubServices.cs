@@ -180,16 +180,21 @@ namespace SportTrack_Sigdef.Controladores.Services
         {
             try
             {
+                if (!delegadoClubCreateDto.ParticipanteId.HasValue || delegadoClubCreateDto.ParticipanteId.Value <= 0)
+                {
+                    return new BadRequestObjectResult(new { message = "Falta el identificador de la persona." });
+                }
+
                 var personaExists = await _context.Participantes.AnyAsync(p => p.ParticipanteId == delegadoClubCreateDto.ParticipanteId);
                 if (!personaExists)
                 {
-                    return new BadRequestResult();
+                    return new BadRequestObjectResult(new { message = "No se encontró la persona. Buscá por DNI o creala primero." });
                 }
 
                 var rolExists = await _context.Roles.AnyAsync(r => r.IdRol == delegadoClubCreateDto.IdRol);
                 if (!rolExists)
                 {
-                    return new BadRequestResult();
+                    return new BadRequestObjectResult(new { message = "El rol indicado no es válido." });
                 }
 
                 if (delegadoClubCreateDto.IdFederacion.HasValue && delegadoClubCreateDto.IdFederacion.Value > 0)
@@ -213,7 +218,10 @@ namespace SportTrack_Sigdef.Controladores.Services
                 var delegadoExists = await _context.DelegadosClub.AnyAsync(d => d.IdParticipante == delegadoClubCreateDto.ParticipanteId);
                 if (delegadoExists)
                 {
-                    return new BadRequestResult();
+                    return new BadRequestObjectResult(new
+                    {
+                        message = "Esta persona ya figura como delegado. Podés editarla desde el listado."
+                    });
                 }
 
                 var delegadoClub = new DelegadoFederacionClub
@@ -265,13 +273,17 @@ namespace SportTrack_Sigdef.Controladores.Services
                 };
                 return result;
             }
-            catch (DbUpdateException dbEx)
+            catch (DbUpdateException)
             {
-                return new ObjectResult(new { error = "Error de base de datos", detail = dbEx.Message, inner = dbEx.InnerException?.Message }) { StatusCode = 500 };
+                return new ObjectResult(new
+                {
+                    message = "No se pudo guardar el delegado. Si la persona ya es entrenador, debería poder ser delegado también: verificá DNI y club."
+                })
+                { StatusCode = 500 };
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return new ObjectResult(new { error = ex.Message, inner = ex.InnerException?.Message }) { StatusCode = 500 };
+                return new ObjectResult(new { message = "Ocurrió un error al crear el delegado." }) { StatusCode = 500 };
             }
         }
 
