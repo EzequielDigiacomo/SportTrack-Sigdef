@@ -18,7 +18,9 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion.Dtos
         public bool Pagado { get; set; }
         public int? ClubId { get; set; }
         public int? ParticipanteClubId { get; set; }
+        public int? EventoId { get; set; }
         public string? EventoNombre { get; set; }
+        public DateTime? FechaEvento { get; set; }
         public string? PruebaNombre { get; set; }
 
         public ICollection<InscripcionTripulanteDto> Tripulantes { get; set; } = new List<InscripcionTripulanteDto>();

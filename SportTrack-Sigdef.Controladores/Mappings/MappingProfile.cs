@@ -63,7 +63,9 @@ namespace SportTrack_Sigdef.Controladores.Mappings
                 .ForMember(dest => dest.ClubSigla, opt => opt.MapFrom(src => src.Participante != null && src.Participante.Club != null ? src.Participante.Club.Siglas : null))
                 .ForMember(dest => dest.ClubId, opt => opt.MapFrom(src => src.Participante != null ? src.Participante.IdClub : null))
                 .ForMember(dest => dest.ParticipanteClubId, opt => opt.MapFrom(src => src.Participante != null ? src.Participante.IdClub : null))
+                .ForMember(dest => dest.EventoId, opt => opt.MapFrom(src => src.EventoPrueba != null ? (int?)src.EventoPrueba.IdEvento : null))
                 .ForMember(dest => dest.EventoNombre, opt => opt.MapFrom(src => src.EventoPrueba != null && src.EventoPrueba.Evento != null ? src.EventoPrueba.Evento.Nombre : null))
+                .ForMember(dest => dest.FechaEvento, opt => opt.MapFrom(src => src.EventoPrueba != null && src.EventoPrueba.Evento != null ? (DateTime?)src.EventoPrueba.Evento.Fecha : null))
                 .ForMember(dest => dest.PruebaNombre, opt => opt.MapFrom(src => 
                     src.EventoPrueba != null && src.EventoPrueba.Prueba != null
                     ? $"{src.EventoPrueba.Prueba.Categoria.Nombre} {src.EventoPrueba.Prueba.Bote.Tipo} {src.EventoPrueba.Prueba.Distancia.Descripcion} {(src.EventoPrueba.Prueba.Sexo != null ? src.EventoPrueba.Prueba.Sexo.Nombre : "")}".Trim()

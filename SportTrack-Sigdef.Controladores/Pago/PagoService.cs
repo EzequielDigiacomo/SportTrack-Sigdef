@@ -153,11 +153,12 @@ namespace SportTrack_Sigdef.Controladores.Pago
                     .FirstOrDefaultAsync(i => i.IdInscripcion == dto.InscripcionId.Value);
                 if (inscripcion == null) throw new NotFoundException($"Inscripción con ID {dto.InscripcionId.Value} no encontrada");
 
-                inscripcion.Pagado = true;
+                await ApplyPagoToEventoParticipanteAsync(inscripcion, pagado: true);
                 pago.InscripcionId = inscripcion.IdInscripcion;
+                pago.ParticipanteId = inscripcion.IdParticipante;
                 string atletaName = inscripcion.Participante != null ? $"{inscripcion.Participante.Nombre} {inscripcion.Participante.Apellido}" : "Atleta";
                 string eventoName = inscripcion.EventoPrueba?.Evento?.Nombre ?? "Evento";
-                detalleAuditoria = $"Pago de inscripción de {atletaName} a regata en '{eventoName}' registrado por ${dto.Monto} (Ref: {dto.Referencia}).";
+                detalleAuditoria = $"Pago de inscripción de {atletaName} al evento '{eventoName}' registrado por ${dto.Monto} (Ref: {dto.Referencia}).";
             }
             else
             {
@@ -262,8 +263,7 @@ namespace SportTrack_Sigdef.Controladores.Pago
                 .FirstOrDefaultAsync(i => i.IdInscripcion == inscripcionId);
             if (inscripcion == null) throw new NotFoundException($"Inscripción con ID {inscripcionId} no encontrada");
 
-            inscripcion.Pagado = pagado;
-            _context.Inscripciones.Update(inscripcion);
+            await ApplyPagoToEventoParticipanteAsync(inscripcion, pagado);
             var result = await _context.SaveChangesAsync() > 0;
 
             if (result)
@@ -271,10 +271,47 @@ namespace SportTrack_Sigdef.Controladores.Pago
                 string estadoStr = pagado ? "Pagado" : "Pendiente";
                 string atletaName = inscripcion.Participante != null ? $"{inscripcion.Participante.Nombre} {inscripcion.Participante.Apellido}" : "Atleta";
                 string eventoName = inscripcion.EventoPrueba?.Evento?.Nombre ?? "Evento";
-                await _auditService.RegistrarAccionAsync("TOGGLE_PAGO_INSCRIPCION", $"Se cambió el estado de pago de inscripción de '{atletaName}' para '{eventoName}' a '{estadoStr}'", null, "Pagos");
+                await _auditService.RegistrarAccionAsync("TOGGLE_PAGO_INSCRIPCION", $"Se cambió el estado de pago de inscripción de '{atletaName}' al evento '{eventoName}' a '{estadoStr}'", null, "Pagos");
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// El cobro es por atleta y evento: todas las pruebas de ese participante
+        /// en el mismo evento quedan con el mismo estado de pago.
+        /// </summary>
+        private async Task ApplyPagoToEventoParticipanteAsync(Entidades.Entidades.Inscripcion inscripcion, bool pagado)
+        {
+            var participanteId = inscripcion.IdParticipante;
+            var eventoId = inscripcion.EventoPrueba?.IdEvento ?? 0;
+
+            if (eventoId == 0)
+            {
+                eventoId = await _context.EventoPruebas
+                    .Where(ep => ep.IdEventoPrueba == inscripcion.IdEventoPrueba)
+                    .Select(ep => ep.IdEvento)
+                    .FirstOrDefaultAsync();
+            }
+
+            if (!participanteId.HasValue || eventoId == 0)
+            {
+                inscripcion.Pagado = pagado;
+                return;
+            }
+
+            var related = await _context.Inscripciones
+                .Where(i => i.IdParticipante == participanteId.Value && i.EventoPrueba.IdEvento == eventoId)
+                .ToListAsync();
+
+            if (related.Count == 0)
+            {
+                inscripcion.Pagado = pagado;
+                return;
+            }
+
+            foreach (var item in related)
+                item.Pagado = pagado;
         }
 
         public async Task<bool> EliminarPagoAsync(int pagoId, string eliminadoPor)
