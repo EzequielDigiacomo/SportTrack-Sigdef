@@ -4,6 +4,7 @@ using SportTrack_Sigdef.Controladores.Audience;
 using SportTrack_Sigdef.Controladores.Auth;
 using SportTrack_Sigdef.Controladores.Fase;
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace SportTrack_Sigdef.Controladores.Hubs
@@ -118,6 +119,25 @@ namespace SportTrack_Sigdef.Controladores.Hubs
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, TimingGroups.Operators);
             _audienceTracker.MarkOperator(Context.ConnectionId);
+        }
+
+        /// <summary>Notificaciones personales (mensajes internos).</summary>
+        [Authorize(Roles = "SuperAdmin,Admin,Club,JuezControl,Largador,Cronometrista,ControlTecnico,soporte_tecnico")]
+        public async Task JoinUserNotificationsGroup()
+        {
+            var username = Context.User?.FindFirstValue(ClaimTypes.Name)
+                ?? Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(username)) return;
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, TimingGroups.User(username));
+        }
+
+        /// <summary>Notificaciones de novedades para clubes/admins de una federación.</summary>
+        [Authorize(Roles = "SuperAdmin,Admin,Club,soporte_tecnico")]
+        public async Task JoinFederationNotificationsGroup(int federacionId)
+        {
+            if (federacionId <= 0) return;
+            await Groups.AddToGroupAsync(Context.ConnectionId, TimingGroups.Federation(federacionId));
         }
 
         [AllowAnonymous]
