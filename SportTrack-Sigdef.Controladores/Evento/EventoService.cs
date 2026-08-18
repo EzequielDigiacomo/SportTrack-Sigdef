@@ -2,6 +2,7 @@ using AutoMapper;
 using SportTrack_Sigdef.Controladores.Caching;
 using SportTrack_Sigdef.Controladores.Evento.Dtos;
 using SportTrack_Sigdef.Controladores.Exceptions;
+using SportTrack_Sigdef.Controladores.Notifications;
 using SportTrack_Sigdef.Entidades.Entidades;
 using SportTrack_Sigdef.Entidades.Enums;
 using System;
@@ -19,19 +20,22 @@ namespace SportTrack_Sigdef.Controladores.Evento
         private readonly Audit.IAuditService _auditService;
         private readonly IEventoEstadoSyncService _estadoSyncService;
         private readonly ILiveCacheService _liveCache;
+        private readonly INotificationBroadcastService _notificationBroadcast;
 
         public EventoService(
             IEventoRepository eventoRepository,
             IMapper mapper,
             Audit.IAuditService auditService,
             IEventoEstadoSyncService estadoSyncService,
-            ILiveCacheService liveCache)
+            ILiveCacheService liveCache,
+            INotificationBroadcastService notificationBroadcast)
         {
             _eventoRepository = eventoRepository;
             _mapper = mapper;
             _auditService = auditService;
             _estadoSyncService = estadoSyncService;
             _liveCache = liveCache;
+            _notificationBroadcast = notificationBroadcast;
         }
 
         public async Task<IEnumerable<EventoDto>> GetAllEventosAsync(
@@ -91,7 +95,26 @@ namespace SportTrack_Sigdef.Controladores.Evento
                 $"Evento creado: {result.Nombre} (Ubicación: {result.Ubicacion}, Fecha: {result.Fecha:dd/MM/yyyy})", null, "Eventos");
 
             _liveCache.InvalidateEvento(result.IdEvento);
-            return _mapper.Map<EventoDto>(fullEvento);
+
+            var createdEventoDto = _mapper.Map<EventoDto>(fullEvento);
+            await TryNotifyNewEventAsync(createdEventoDto);
+
+            return createdEventoDto;
+        }
+
+        private async Task TryNotifyNewEventAsync(EventoDto createdEventoDto)
+        {
+            if (!createdEventoDto.FederacionId.HasValue || createdEventoDto.FederacionId.Value <= 0) return;
+            if (createdEventoDto.Nombre.Contains("control", StringComparison.OrdinalIgnoreCase)) return;
+
+            await _notificationBroadcast.NotifyNewEventAsync(createdEventoDto.FederacionId.Value, new
+            {
+                eventoId = createdEventoDto.Id,
+                nombre = createdEventoDto.Nombre,
+                fecha = createdEventoDto.Fecha,
+                ubicacion = createdEventoDto.Ubicacion,
+                inscripcionesAbiertas = createdEventoDto.InscripcionesAbiertas,
+            });
         }
 
         public async Task<EventoDto> UpdateEventoAsync(int id, EventoUpdateDto eventoDto, int? clubId = null)

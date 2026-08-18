@@ -73,6 +73,13 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
             if (inscripcionDto.NumeroCompetidor != null)
                 existingInscripcion.NumeroCompetidor = inscripcionDto.NumeroCompetidor;
 
+            if (existingInscripcion.IdParticipante.HasValue && existingInscripcion.IdParticipante > 0)
+            {
+                await _inscripcionRepository.ValidarReglasInscripcionAsync(
+                    existingInscripcion.IdEventoPrueba,
+                    existingInscripcion.IdParticipante.Value);
+            }
+
             var updatedInscripcion = await _inscripcionRepository.UpdateAsync(existingInscripcion);
             
             // Auditoria

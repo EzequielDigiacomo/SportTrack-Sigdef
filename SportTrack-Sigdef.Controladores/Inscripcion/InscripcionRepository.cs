@@ -86,6 +86,10 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
                     i.IdParticipante == inscripcion.IdParticipante);
                 if (yaInscripto)
                     throw new BadRequestException("El participante ya está inscripto en esta prueba.");
+
+                await ValidarReglasInscripcionAsync(
+                    inscripcion.IdEventoPrueba,
+                    inscripcion.IdParticipante.Value);
             }
 
             _context.Inscripciones.Add(inscripcion);
@@ -258,6 +262,30 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
                 .OrderByDescending(i => i.FechaInscripcion)
                 .ThenBy(i => i.Participante != null ? i.Participante.Apellido : string.Empty)
                 .ToListAsync();
+        }
+
+        public async Task ValidarReglasInscripcionAsync(int eventoPruebaId, int participanteId)
+        {
+            var eventoPrueba = await _context.EventoPruebas
+                .Include(ep => ep.Evento)
+                .Include(ep => ep.Prueba)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(ep => ep.IdEventoPrueba == eventoPruebaId);
+
+            if (eventoPrueba?.Evento == null || eventoPrueba.Prueba == null)
+                throw new NotFoundException($"La prueba del evento {eventoPruebaId} no existe.");
+
+            var participante = await _context.Participantes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.ParticipanteId == participanteId);
+
+            if (participante == null)
+                throw new NotFoundException($"El participante {participanteId} no existe.");
+
+            InscripcionEligibilityHelper.ValidarSub23EnSenior(
+                eventoPrueba.Evento,
+                eventoPrueba.Prueba.CategoriaEdad,
+                participante);
         }
     }
 }

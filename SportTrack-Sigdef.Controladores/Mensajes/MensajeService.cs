@@ -1,5 +1,6 @@
 using SportTrack_Sigdef.Controladores.Exceptions;
 using SportTrack_Sigdef.Controladores.Mensajes.Dtos;
+using SportTrack_Sigdef.Controladores.Notifications;
 using SportTrack_Sigdef.Entidades.Entidades;
 
 namespace SportTrack_Sigdef.Controladores.Mensajes
@@ -7,10 +8,12 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
     public class MensajeService : IMensajeService
     {
         private readonly IMensajeRepository _repository;
+        private readonly INotificationBroadcastService _notificationBroadcast;
 
-        public MensajeService(IMensajeRepository repository)
+        public MensajeService(IMensajeRepository repository, INotificationBroadcastService notificationBroadcast)
         {
             _repository = repository;
+            _notificationBroadcast = notificationBroadcast;
         }
 
         public async Task<List<HiloListItemDto>> GetHilosAsync(string username, string sistemaOrigen, int? campanaId = null)
@@ -68,6 +71,8 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
 
             var creado = await _repository.GetHiloConMensajesAsync(hilo.IdHilo)
                 ?? throw new NotFoundException("No se pudo recuperar el hilo creado");
+
+            await NotifyMessageRecipientAsync(destinatario, creado, emisor, dto.Cuerpo.Trim());
 
             return MapHiloDetalle(creado, emisor.IdUsuario, EsSuperAdmin(emisor));
         }
@@ -140,6 +145,11 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             }
 
             await _repository.SaveChangesAsync();
+
+            foreach (var (hilo, destinatario) in hilosPendientes)
+            {
+                await NotifyMessageRecipientAsync(destinatario, hilo, emisor, campana.Cuerpo);
+            }
 
             var hilosCreados = hilosPendientes.Select(x => new HiloCampanaItemDto
             {
@@ -218,6 +228,8 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
 
             var actualizado = await _repository.GetHiloConMensajesAsync(hiloId)
                 ?? throw new NotFoundException("No se pudo recuperar el hilo actualizado");
+
+            await NotifyMessageRecipientAsync(destinatario, actualizado, emisor, dto.Cuerpo.Trim());
 
             return MapHiloDetalle(actualizado, emisor.IdUsuario, EsSuperAdmin(emisor));
         }
@@ -680,6 +692,18 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
         {
             var limpio = texto.Trim();
             return limpio.Length <= max ? limpio : limpio[..max] + "...";
+        }
+
+        private async Task NotifyMessageRecipientAsync(Usuario destinatario, Hilo hilo, Usuario remitente, string preview)
+        {
+            await _notificationBroadcast.NotifyNewMessageAsync(destinatario.Username, new
+            {
+                hiloId = hilo.IdHilo,
+                asunto = hilo.Asunto,
+                remitenteNombre = NombreDisplay(remitente),
+                preview = Truncar(preview, 120),
+                enviadoEn = DateTime.UtcNow,
+            });
         }
     }
 }

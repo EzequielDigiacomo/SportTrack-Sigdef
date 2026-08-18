@@ -26,5 +26,7 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
             int? clubIdFilter,
             int? participanteId,
             string? busqueda);
+
+        Task ValidarReglasInscripcionAsync(int eventoPruebaId, int participanteId);
     }
 }
