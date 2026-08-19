@@ -122,6 +122,15 @@ namespace SportTrack_Sigdef.Controllers.Auth
             return Ok(new { message = "Estado de cuenta actualizado correctamente" });
         }
 
+        [HttpDelete("usuarios/{id}")]
+        [Authorize(Roles = "Admin,SuperAdmin,soporte_tecnico")]
+        public async Task<ActionResult> DeleteUsuario(int id)
+        {
+            var username = User.Identity?.Name;
+            await _authService.DeleteUsuarioAsync(id, username);
+            return Ok(new { message = "Usuario eliminado correctamente" });
+        }
+
         [HttpGet("me")]
         [Authorize]
         public async Task<ActionResult<UsuarioDto>> GetMe()

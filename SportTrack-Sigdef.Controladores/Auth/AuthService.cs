@@ -699,6 +699,80 @@ namespace SportTrack_Sigdef.Controladores.Auth
             return result;
         }
 
+        public async Task<bool> DeleteUsuarioAsync(int id, string? requesterUsername = null)
+        {
+            var user = await _context.Usuarios
+                .Include(u => u.Club)
+                .FirstOrDefaultAsync(u => u.IdUsuario == id);
+
+            if (user == null)
+                throw new NotFoundException($"Usuario con ID {id} no encontrado");
+
+            if (string.Equals(user.RolFederacion, "SuperAdmin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(user.RolFederacion, "soporte_tecnico", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BadRequestException("No se puede eliminar una cuenta de administración del sistema.");
+            }
+
+            Usuario? requester = null;
+            if (!string.IsNullOrWhiteSpace(requesterUsername))
+            {
+                requester = await _context.Usuarios
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Username == requesterUsername.Trim().ToLower());
+            }
+
+            if (requester != null && requester.IdUsuario == id)
+                throw new BadRequestException("No podés eliminar tu propia cuenta desde este panel.");
+
+            if (requester != null)
+            {
+                var requesterRole = requester.RolFederacion ?? string.Empty;
+
+                if (string.Equals(requesterRole, "Admin", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.Equals(user.RolFederacion, "Admin", StringComparison.OrdinalIgnoreCase))
+                        throw new BadRequestException("Un administrador de federación no puede eliminar otra cuenta Admin.");
+
+                    var targetFedId = user.IdFederacion ?? user.Club?.IdFederacion;
+                    if (!requester.IdFederacion.HasValue
+                        || !targetFedId.HasValue
+                        || requester.IdFederacion.Value != targetFedId.Value)
+                    {
+                        throw new UnauthorizedException("No tenés permiso para eliminar usuarios de otra federación.");
+                    }
+                }
+                else if (!string.Equals(requesterRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase)
+                         && !string.Equals(requesterRole, "soporte_tecnico", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new UnauthorizedException("No tenés permiso para eliminar usuarios.");
+                }
+            }
+
+            var username = user.Username;
+            var rol = user.RolFederacion;
+
+            try
+            {
+                _context.Usuarios.Remove(user);
+                var result = await _context.SaveChangesAsync() > 0;
+
+                if (result)
+                {
+                    await _auditService.RegistrarAccionAsync("DELETE_USER",
+                        $"Usuario eliminado: '{username}' (Rol: {rol}, Id: {id})",
+                        requesterUsername, "Auth");
+                }
+
+                return result;
+            }
+            catch (DbUpdateException)
+            {
+                throw new BadRequestException(
+                    "No se pudo eliminar el usuario porque tiene registros asociados en el sistema.");
+            }
+        }
+
         /// <summary>
         /// Plan SaaS siempre vive en la federación.
         /// Admin → plan de su federación. Club → plan de la federación a la que pertenece.
