@@ -137,6 +137,8 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 }
             }
 
+            TenantScopeHelper.EnsureJudgeHasFederation(user.RolFederacion, user.IdFederacion);
+
             Console.WriteLine($"LOGIN EXITOSO: {cleanUsername}");
 
             var response = _mapper.Map<AuthResponseDto>(user);
@@ -328,7 +330,7 @@ namespace SportTrack_Sigdef.Controladores.Auth
             user.Username = username;
             user.RolFederacion = rol;
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
-            user.IdClub = clubId;
+            user.IdClub = isClubRole ? clubId : null;
             user.IdFederacion = federacionId;
             user.Email = string.IsNullOrWhiteSpace(email) ? $"{username}@sigdef.local" : email;
             user.Dni = dniDigits ?? dni;

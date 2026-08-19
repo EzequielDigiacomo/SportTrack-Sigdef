@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using SportTrack_Sigdef.Controladores.Auth;
+using SportTrack_Sigdef.Controladores.Auth.Dtos;
 using SportTrack_Sigdef.Controladores.Evento;
 using SportTrack_Sigdef.Controladores.Evento.Dtos;
 using System;
@@ -32,87 +34,79 @@ namespace SportTrack_Sigdef.Controllers.Eventos
             _authService = authService;
         }
 
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<EventoDto>>> GetEventos(
-            [FromQuery] int? clubId = null,
-            [FromQuery] int? federacionId = null)
+        private static int? ParseClaimId(string? value) =>
+            int.TryParse(value, out var id) && id > 0 ? id : null;
+
+        private async Task<TenantScopeHelper.EventListScope> ResolveEventScopeAsync(
+            int? queryClubId = null,
+            int? queryFederacionId = null)
         {
-            var username = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            var username = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                            ?? User.FindFirst(ClaimTypes.Name)?.Value;
-            
-            string role = string.Empty;
-            int? scopeClubId = clubId;
-            int? scopeFederacionId = federacionId;
 
             if (!string.IsNullOrEmpty(username))
             {
                 try
                 {
                     var userDb = await _authService.GetMeAsync(username);
-                    role = userDb.RolFederacion;
-                    
-                    // SuperAdmin: respeta filtros de query; no impone tenant propio.
-                    // Resto: fuerza federación/club del usuario (nunca FederacionId como ClubId).
-                    if (role != "SuperAdmin")
-                    {
-                        if (userDb.FederacionId.HasValue && userDb.FederacionId.Value > 0)
-                        {
-                            scopeFederacionId = userDb.FederacionId;
-                            scopeClubId = null;
-                        }
-                        else if (userDb.ClubId.HasValue && userDb.ClubId.Value > 0)
-                        {
-                            scopeClubId = userDb.ClubId;
-                            scopeFederacionId = null;
-                        }
-                    }
+                    return TenantScopeHelper.ResolveEventListScope(userDb, queryClubId, queryFederacionId);
                 }
                 catch
                 {
-                    role = User.FindFirst(ClaimTypes.Role)?.Value 
-                           ?? User.FindFirst("role")?.Value 
-                           ?? User.FindFirst("Rol")?.Value ?? "";
-                    
-                    if (role != "SuperAdmin")
-                    {
-                        var fedIdClaim = User.FindFirst("FederacionId")?.Value;
-                        if (int.TryParse(fedIdClaim, out int fid) && fid > 0)
-                        {
-                            scopeFederacionId = fid;
-                            scopeClubId = null;
-                        }
-                        else
-                        {
-                            var clubIdClaim = User.FindFirst("ClubId")?.Value;
-                            if (int.TryParse(clubIdClaim, out int cid) && cid > 0)
-                            {
-                                scopeClubId = cid;
-                                scopeFederacionId = null;
-                            }
-                        }
-                    }
+                    var role = User.FindFirst(ClaimTypes.Role)?.Value
+                               ?? User.FindFirst("role")?.Value
+                               ?? User.FindFirst("Rol")?.Value
+                               ?? string.Empty;
+
+                    return TenantScopeHelper.ResolveEventListScopeFromClaims(
+                        role,
+                        ParseClaimId(User.FindFirst("ClubId")?.Value),
+                        ParseClaimId(User.FindFirst("FederacionId")?.Value),
+                        queryClubId,
+                        queryFederacionId);
                 }
             }
 
-            var result = await _eventoService.GetAllEventosAsync(scopeClubId, role, scopeFederacionId);
+            return new TenantScopeHelper.EventListScope(string.Empty, null, null);
+        }
+
+        private async Task<bool> CanAccessEventoAsync(int eventoId, TenantScopeHelper.EventListScope scope)
+        {
+            if (TenantScopeHelper.IsSuperAdmin(scope.Role))
+                return true;
+
+            if (scope.FederacionId is > 0)
+                return await _eventoService.EventoBelongsToFederationAsync(eventoId, scope.FederacionId.Value);
+
+            if (scope.ClubId is > 0)
+            {
+                var evento = await _eventoService.GetEventoByIdAsync(eventoId);
+                return evento.ClubId == scope.ClubId;
+            }
+
+            return false;
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<EventoDto>>> GetEventos(
+            [FromQuery] int? clubId = null,
+            [FromQuery] int? federacionId = null)
+        {
+            var scope = await ResolveEventScopeAsync(clubId, federacionId);
+            var result = await _eventoService.GetAllEventosAsync(scope.ClubId, scope.Role, scope.FederacionId);
             return Ok(result);
         }
 
         [HttpGet("debug")]
         public async Task<ActionResult> DebugEvents()
         {
-            var role = User.FindFirst(ClaimTypes.Role)?.Value;
-            var clubIdClaim = User.FindFirst("ClubId")?.Value;
-            
-            int? clubId = null;
-            if (int.TryParse(clubIdClaim, out int id)) clubId = id;
-            
-            var result = await _eventoService.GetAllEventosAsync(clubId, role);
+            var scope = await ResolveEventScopeAsync();
+            var result = await _eventoService.GetAllEventosAsync(scope.ClubId, scope.Role, scope.FederacionId);
             return Ok(new {
-                Role = role,
-                RoleLength = role?.Length,
-                ClubIdClaim = clubIdClaim,
-                ParsedClubId = clubId,
+                Role = scope.Role,
+                RoleLength = scope.Role?.Length,
+                ClubId = scope.ClubId,
+                FederacionId = scope.FederacionId,
                 EventsCount = result.Count()
             });
         }
@@ -132,65 +126,18 @@ namespace SportTrack_Sigdef.Controllers.Eventos
             [FromQuery] int? clubId = null,
             [FromQuery] int? federacionId = null)
         {
-            string? role = null;
-            int? scopeClubId = clubId;
-            int? scopeFederacionId = federacionId;
+            TenantScopeHelper.EventListScope scope;
 
             if (User.Identity?.IsAuthenticated == true)
             {
-                var username = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                               ?? User.FindFirst(ClaimTypes.Name)?.Value;
-
-                if (!string.IsNullOrEmpty(username))
-                {
-                    try
-                    {
-                        var userDb = await _authService.GetMeAsync(username);
-                        role = userDb.RolFederacion;
-                        
-                        if (role != "SuperAdmin")
-                        {
-                            if (userDb.FederacionId.HasValue && userDb.FederacionId.Value > 0)
-                            {
-                                scopeFederacionId = userDb.FederacionId;
-                                scopeClubId = null;
-                            }
-                            else if (userDb.ClubId.HasValue && userDb.ClubId.Value > 0)
-                            {
-                                scopeClubId = userDb.ClubId;
-                                scopeFederacionId = null;
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        role = User.FindFirst(ClaimTypes.Role)?.Value 
-                               ?? User.FindFirst("role")?.Value 
-                               ?? User.FindFirst("Rol")?.Value;
-                        
-                        if (role != "SuperAdmin")
-                        {
-                            var fedIdClaim = User.FindFirst("FederacionId")?.Value;
-                            if (int.TryParse(fedIdClaim, out int fid) && fid > 0)
-                            {
-                                scopeFederacionId = fid;
-                                scopeClubId = null;
-                            }
-                            else
-                            {
-                                var clubIdClaim = User.FindFirst("ClubId")?.Value;
-                                if (int.TryParse(clubIdClaim, out int cid) && cid > 0)
-                                {
-                                    scopeClubId = cid;
-                                    scopeFederacionId = null;
-                                }
-                            }
-                        }
-                    }
-                }
+                scope = await ResolveEventScopeAsync(clubId, federacionId);
+            }
+            else
+            {
+                scope = new TenantScopeHelper.EventListScope(string.Empty, clubId, federacionId);
             }
 
-            var result = await _eventoService.GetProximosEventosAsync(scopeClubId, role, scopeFederacionId);
+            var result = await _eventoService.GetProximosEventosAsync(scope.ClubId, scope.Role, scope.FederacionId);
             return Ok(result);
         }
 
@@ -200,6 +147,17 @@ namespace SportTrack_Sigdef.Controllers.Eventos
         public async Task<ActionResult<EventoDto>> GetEvento(int id)
         {
             var result = await _eventoService.GetEventoByIdAsync(id);
+
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                var scope = await ResolveEventScopeAsync();
+                if (!TenantScopeHelper.IsSuperAdmin(scope.Role))
+                {
+                    if (!await CanAccessEventoAsync(id, scope))
+                        return NotFound(new { message = "Evento no encontrado." });
+                }
+            }
+
             return Ok(result);
         }
 
@@ -229,7 +187,7 @@ namespace SportTrack_Sigdef.Controllers.Eventos
                     if (role == "Club" || role == "Admin")
                     {
                         var clubIdClaim = User.FindFirst("ClubId")?.Value;
-                        if (int.TryParse(clubIdClaim, out int id) && id > 0) eventoDto.ClubId = id;
+                        if (int.TryParse(clubIdClaim, out int cid) && cid > 0) eventoDto.ClubId = cid;
 
                         var fedIdClaim = User.FindFirst("FederacionId")?.Value;
                         if (int.TryParse(fedIdClaim, out int fedId) && fedId > 0) eventoDto.FederacionId = fedId;
@@ -276,6 +234,16 @@ namespace SportTrack_Sigdef.Controllers.Eventos
         [EnableRateLimiting("live")]
         public async Task<ActionResult<IEnumerable<EventoPruebaDto>>> GetPruebas(int id)
         {
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                var scope = await ResolveEventScopeAsync();
+                if (!TenantScopeHelper.IsSuperAdmin(scope.Role))
+                {
+                    if (!await CanAccessEventoAsync(id, scope))
+                        return NotFound(new { message = "Evento no encontrado." });
+                }
+            }
+
             var result = await _eventoService.GetPruebasByEventoAsync(id);
             return Ok(result);
         }
@@ -320,4 +288,3 @@ namespace SportTrack_Sigdef.Controllers.Eventos
         }
     }
 }
-
