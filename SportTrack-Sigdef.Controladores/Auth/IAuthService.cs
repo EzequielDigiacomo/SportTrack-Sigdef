@@ -13,5 +13,6 @@ namespace SportTrack_Sigdef.Controladores.Auth
         Task<UsuarioDto> GetMeAsync(string username, string? clientApp = null);
         Task<bool> ToggleActivoAsync(int id);
         Task<bool> UpdatePerfilAsync(int id, UpdatePerfilDto dto);
+        Task<bool> DeleteUsuarioAsync(int id, string? requesterUsername = null);
     }
 }
