@@ -22,7 +22,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
         Task<FaseDto> IniciarFaseAsync(int id, DateTime? manualStartTime = null);
         Task<FaseDto> FinalizarFaseAsync(int id);
         Task<bool> DeleteFaseAsync(int id);
-        Task<FaseDto> ReiniciarFaseAsync(int id);
+        Task<FaseDto> ReiniciarFaseAsync(int id, string motivo, string? categoria = null);
         Task<FaseDto> EnviarARevisionAsync(int id);
         Task<IEnumerable<FaseDto>> GetFasesPorEventoAsync(int eventoId);
         Task BatchUpdateFasesAsync(List<FaseBatchUpdateDto> dto);
@@ -768,10 +768,15 @@ namespace SportTrack_Sigdef.Controladores.Fase
             return true;
         }
 
-        public async Task<FaseDto> ReiniciarFaseAsync(int id)
+        public async Task<FaseDto> ReiniciarFaseAsync(int id, string motivo, string? categoria = null)
         {
+            if (string.IsNullOrWhiteSpace(motivo) || motivo.Trim().Length < 5)
+                throw new ArgumentException("Debe indicar un motivo de al menos 5 caracteres para reiniciar la fase.");
+
             var fase = await _faseRepository.GetByIdAsync(id);
             if (fase == null) throw new KeyNotFoundException("Fase no encontrada");
+
+            var estadoPrevio = fase.Estado;
 
             // 1. Limpiar tiempos de la fase
             fase.FechaHoraInicioReal = null;
@@ -791,9 +796,12 @@ namespace SportTrack_Sigdef.Controladores.Fase
 
             await _faseRepository.UpdateAsync(fase);
 
-            // Auditoria
-            await _auditService.RegistrarAccionAsync("RESET_RACE", 
-                $"Carrera reiniciada: {fase.NombreFase} (ID: {id}). Se limpiaron los tiempos.", null, "Competencia");
+            var categoriaPart = string.IsNullOrWhiteSpace(categoria) ? string.Empty : $"[{categoria.Trim()}] ";
+            var detalleAuditoria =
+                $"Carrera reiniciada: {fase.NombreFase} (ID: {id}). Estado previo: {estadoPrevio}. " +
+                $"Motivo: {categoriaPart}{motivo.Trim()}";
+
+            await _auditService.RegistrarAccionAsync("RESET_RACE", detalleAuditoria, null, "Competencia");
 
             var scope = await ResolveFaseScopeAsync(fase, id);
             _liveCache.InvalidateFase(id, scope.EventoId, scope.EventoPruebaId);
