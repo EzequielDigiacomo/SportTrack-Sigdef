@@ -130,10 +130,20 @@ namespace SportTrack_Sigdef.Controllers
 
         [HttpPost("{id}/Reiniciar")]
         [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
-        public async Task<ActionResult<FaseDto>> Reiniciar(int id)
+        public async Task<ActionResult<FaseDto>> Reiniciar(int id, [FromBody] ReiniciarFaseDto dto)
         {
-            var fase = await _faseService.ReiniciarFaseAsync(id);
-            return Ok(fase);
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Motivo))
+                return BadRequest(new { message = "Debe indicar el motivo del reinicio." });
+
+            try
+            {
+                var fase = await _faseService.ReiniciarFaseAsync(id, dto.Motivo.Trim(), dto.Categoria?.Trim());
+                return Ok(fase);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPost("{id}/EnviarARevision")]

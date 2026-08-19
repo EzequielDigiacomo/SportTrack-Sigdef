@@ -218,9 +218,13 @@ namespace SportTrack_Sigdef.Controladores.Hubs
         }
 
         [Authorize(Roles = AuthRolePolicies.CompetitionOperators)]
-        public async Task RequestResetRace(int faseId)
+        public async Task RequestResetRace(int faseId, string motivo, string? categoria = null)
         {
-            await _faseService.ReiniciarFaseAsync(faseId);
+            var reason = string.IsNullOrWhiteSpace(motivo)
+                ? "Partida en falso confirmada por largador"
+                : motivo.Trim();
+            var cat = string.IsNullOrWhiteSpace(categoria) ? "mala_largada" : categoria.Trim();
+            await _faseService.ReiniciarFaseAsync(faseId, reason, cat);
         }
 
         [AllowAnonymous]
