@@ -1,3 +1,7 @@
+using SportTrack_Sigdef.Controladores.SaaS;
+using System;
+using System.Linq;
+
 namespace SportTrack_Sigdef.Controladores.Auth;
 
 /// <summary>
@@ -22,6 +26,8 @@ public static class AuthRolePolicies
     public static bool IsPrivilegedRole(string? rol) =>
         !string.IsNullOrWhiteSpace(rol)
         && PrivilegedRoles.Any(r => string.Equals(r, rol.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    public static bool IsJudgeRole(string? rol) => PlanSaaSAccessHelper.IsJudgeRole(rol);
 
     /// <summary>Roles permitidos al registrar vía API (nunca SuperAdmin desde cliente).</summary>
     public static readonly string[] RegisterableRoles =

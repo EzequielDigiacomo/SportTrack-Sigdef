@@ -48,6 +48,9 @@ namespace SportTrack_Sigdef.Controladores.Evento
             return _mapper.Map<IEnumerable<EventoDto>>(eventos);
         }
 
+        public Task<bool> EventoBelongsToFederationAsync(int eventoId, int federationId) =>
+            _eventoRepository.BelongsToFederationAsync(eventoId, federationId);
+
         public async Task<EventoDto> GetEventoByIdAsync(int id)
         {
             return await _liveCache.GetOrCreateAsync(

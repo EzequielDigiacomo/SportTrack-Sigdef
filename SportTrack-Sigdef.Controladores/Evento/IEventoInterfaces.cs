@@ -12,6 +12,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
         Task<Entidades.Entidades.Evento> UpdateAsync(Entidades.Entidades.Evento evento);
         Task<bool> DeleteAsync(int id);
         Task<bool> ExistsAsync(int id);
+        Task<bool> BelongsToFederationAsync(int eventoId, int federationId);
         Task<IEnumerable<Entidades.Entidades.Evento>> GetProximosAsync(int? clubId = null, string? rol = null, int? federacionId = null);
         Task<IEnumerable<Entidades.Entidades.EventoPrueba>> GetPruebasByEventoIdAsync(int eventoId);
         Task<Entidades.Entidades.EventoPrueba?> GetEventoPruebaByIdAsync(int id);
@@ -31,6 +32,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
         Task<EventoDto> CreateEventoAsync(EventoCreateDto eventoDto);
         Task<EventoDto> UpdateEventoAsync(int id, EventoUpdateDto eventoDto, int? clubId = null);
         Task<bool> DeleteEventoAsync(int id, int? clubId = null);
+        Task<bool> EventoBelongsToFederationAsync(int eventoId, int federationId);
         Task<IEnumerable<EventoDto>> GetProximosEventosAsync(int? clubId = null, string? rol = null, int? federacionId = null);
         Task<IEnumerable<EventoPruebaDto>> GetPruebasByEventoAsync(int eventoId);
         Task<EventoPruebaDto> AssignPruebaToEventoAsync(int eventoId, EventoPruebaCreateDto assignDto);

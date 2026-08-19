@@ -147,6 +147,19 @@ namespace SportTrack_Sigdef.Controladores.Evento
             return await _context.Eventos.AnyAsync(e => e.IdEvento == id);
         }
 
+        public async Task<bool> BelongsToFederationAsync(int eventoId, int federationId)
+        {
+            var clubIds = await _context.Clubes
+                .Where(c => c.IdFederacion == federationId)
+                .Select(c => c.IdClub)
+                .ToListAsync();
+
+            return await _context.Eventos.AnyAsync(e =>
+                e.IdEvento == eventoId &&
+                (e.IdFederacion == federationId ||
+                 (e.IdClub.HasValue && clubIds.Contains(e.IdClub.Value))));
+        }
+
         public async Task<IEnumerable<Entidades.Entidades.Evento>> GetProximosAsync(
             int? clubId = null,
             string? rol = null,
