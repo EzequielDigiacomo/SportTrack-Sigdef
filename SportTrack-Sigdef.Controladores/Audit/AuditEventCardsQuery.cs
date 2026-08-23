@@ -24,6 +24,9 @@ namespace SportTrack_Sigdef.Controladores.Audit
             if (EventRelatedModules.Contains(modulo, StringComparer.OrdinalIgnoreCase)) return true;
             if (accion.StartsWith("CLICK_", StringComparison.OrdinalIgnoreCase)) return true;
             if (accion.StartsWith("OPEN_", StringComparison.OrdinalIgnoreCase)) return true;
+            if (accion.StartsWith("TIMING_", StringComparison.OrdinalIgnoreCase)) return true;
+            if (accion.StartsWith("RACE_START_", StringComparison.OrdinalIgnoreCase)) return true;
+            if (accion.EndsWith("_FAILED", StringComparison.OrdinalIgnoreCase)) return true;
             return false;
         }
 
