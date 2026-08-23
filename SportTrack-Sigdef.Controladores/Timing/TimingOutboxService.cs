@@ -166,6 +166,66 @@ namespace SportTrack_Sigdef.Controladores.Timing
             await _context.SaveChangesAsync();
         }
 
+        public async Task RemoveByIdAsync(int id)
+        {
+            var row = await _context.TimingSubmissionOutbox.FirstOrDefaultAsync(x => x.Id == id);
+            if (row == null) return;
+
+            _context.TimingSubmissionOutbox.Remove(row);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task<IReadOnlyList<TimingOutboxSupportDto>> GetAllPendingForSupportAsync()
+        {
+            await PurgeExpiredAsync();
+
+            var rows = await _context.TimingSubmissionOutbox
+                .AsNoTracking()
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .ToListAsync();
+
+            if (rows.Count == 0)
+                return Array.Empty<TimingOutboxSupportDto>();
+
+            var faseIds = rows.Select(r => r.FaseId).Distinct().ToList();
+            var faseMeta = await _context.Fases
+                .AsNoTracking()
+                .Where(f => faseIds.Contains(f.Id))
+                .Select(f => new
+                {
+                    f.Id,
+                    f.NombreFase,
+                    EventoId = f.Etapa.EventoPrueba.IdEvento,
+                    EventoNombre = f.Etapa.EventoPrueba.Evento.Nombre,
+                })
+                .ToDictionaryAsync(x => x.Id);
+
+            var now = DateTime.UtcNow;
+            return rows.Select(row =>
+            {
+                var payload = DeserializePayload(row.PayloadJson);
+                faseMeta.TryGetValue(row.FaseId, out var meta);
+                var dto = MapToDto(row, payload);
+                return new TimingOutboxSupportDto
+                {
+                    Id = dto.Id,
+                    FaseId = dto.FaseId,
+                    EventoId = dto.EventoId ?? meta?.EventoId ?? row.EventoId,
+                    EventoNombre = dto.EventoNombre ?? meta?.EventoNombre,
+                    FaseNombre = dto.FaseNombre ?? meta?.NombreFase,
+                    SoloMode = dto.SoloMode,
+                    CreatedAtUtc = dto.CreatedAtUtc,
+                    ExpiresAtUtc = dto.ExpiresAtUtc,
+                    AttemptCount = dto.AttemptCount,
+                    Resultados = dto.Resultados,
+                    Username = row.Username,
+                    LastAttemptAtUtc = row.LastAttemptAtUtc,
+                    TiempoCount = dto.Resultados.Count(r => !string.IsNullOrWhiteSpace(r.TiempoOficial)),
+                    IsExpired = row.ExpiresAtUtc <= now,
+                };
+            }).ToList();
+        }
+
         public async Task PurgeExpiredAsync()
         {
             var expired = await _context.TimingSubmissionOutbox

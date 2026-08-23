@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SportTrack_Sigdef.AccesoDatos;
 using SportTrack_Sigdef.Controladores.Audit;
+using SportTrack_Sigdef.Controladores.Timing;
 using System;
 using System.Threading.Tasks;
 using System.Linq;
@@ -16,11 +17,16 @@ namespace SportTrack_Sigdef.Controllers
     {
         private readonly SportTrackDbContext _context;
         private readonly IAuditService _auditService;
+        private readonly ITimingOutboxService _timingOutboxService;
 
-        public SupportController(SportTrackDbContext context, IAuditService auditService)
+        public SupportController(
+            SportTrackDbContext context,
+            IAuditService auditService,
+            ITimingOutboxService timingOutboxService)
         {
             _context = context;
             _auditService = auditService;
+            _timingOutboxService = timingOutboxService;
         }
 
         [HttpGet("por-eventos")]
@@ -74,6 +80,53 @@ namespace SportTrack_Sigdef.Controllers
         {
             message = "No tienes permisos para acceder a los registros de soporte."
         });
+
+        [HttpGet("timing-outbox")]
+        public async Task<IActionResult> GetTimingOutboxPending()
+        {
+            if (!CanAccessSupportLogs()) return SupportForbidden();
+
+            var pending = await _timingOutboxService.GetAllPendingForSupportAsync();
+            return Ok(pending);
+        }
+
+        [HttpPost("timing-outbox/{faseId:int}/commit")]
+        public async Task<IActionResult> CommitTimingOutbox(int faseId, [FromBody] SupportTimingOutboxCommitDto dto)
+        {
+            if (!CanAccessSupportLogs()) return SupportForbidden();
+            if (string.IsNullOrWhiteSpace(dto?.Username))
+                return BadRequest(new { message = "Username requerido." });
+
+            var username = dto.Username.Trim();
+            var result = await _timingOutboxService.CommitAsync(username, faseId);
+
+            if (!result.Success)
+                return Conflict(result);
+
+            await _auditService.RegistrarAccionAsync(
+                "SUPPORT_TIMING_OUTBOX_COMMIT",
+                $"Soporte confirmó cola temporal fase {faseId} del usuario '{username}'.",
+                User.Identity?.Name,
+                "Soporte");
+
+            return Ok(result);
+        }
+
+        [HttpDelete("timing-outbox/{id:int}")]
+        public async Task<IActionResult> DiscardTimingOutbox(int id)
+        {
+            if (!CanAccessSupportLogs()) return SupportForbidden();
+
+            await _timingOutboxService.RemoveByIdAsync(id);
+
+            await _auditService.RegistrarAccionAsync(
+                "SUPPORT_TIMING_OUTBOX_DISCARD",
+                $"Soporte descartó cola temporal Id {id}.",
+                User.Identity?.Name,
+                "Soporte");
+
+            return NoContent();
+        }
 
         [HttpGet("logs")]
         public async Task<IActionResult> GetLogs([FromQuery] string modulo = null, [FromQuery] int limit = 100)
@@ -148,6 +201,11 @@ namespace SportTrack_Sigdef.Controllers
             public string? Modulo { get; set; }
             public int? EventoId { get; set; }
             public int? EventoPruebaId { get; set; }
+        }
+
+        public class SupportTimingOutboxCommitDto
+        {
+            public string Username { get; set; } = string.Empty;
         }
 
         [HttpDelete("logs/clear")]

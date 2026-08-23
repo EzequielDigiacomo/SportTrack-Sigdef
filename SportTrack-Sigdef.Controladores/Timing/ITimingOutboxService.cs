@@ -11,7 +11,9 @@ namespace SportTrack_Sigdef.Controladores.Timing
         Task<TimingOutboxCommitResultDto> CommitAsync(string username, int faseId);
         Task<IReadOnlyList<TimingOutboxCommitResultDto>> FlushPendingAsync(string username);
         Task RemoveAsync(string username, int faseId);
+        Task RemoveByIdAsync(int id);
         Task PurgeExpiredAsync();
+        Task<IReadOnlyList<TimingOutboxSupportDto>> GetAllPendingForSupportAsync();
     }
 
     public class TimingOutboxUpsertDto
@@ -53,5 +55,13 @@ namespace SportTrack_Sigdef.Controladores.Timing
         public int FaseId { get; set; }
         public bool Success { get; set; }
         public string? Message { get; set; }
+    }
+
+    public class TimingOutboxSupportDto : TimingOutboxDto
+    {
+        public string Username { get; set; } = string.Empty;
+        public DateTime? LastAttemptAtUtc { get; set; }
+        public int TiempoCount { get; set; }
+        public bool IsExpired { get; set; }
     }
 }
