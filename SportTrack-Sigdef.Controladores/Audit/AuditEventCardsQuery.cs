@@ -43,22 +43,9 @@ namespace SportTrack_Sigdef.Controladores.Audit
                 .ToListAsync();
 
             var relevant = allRecent.Where(IsEventRelatedLog).ToList();
-            var withEvento = relevant.Where(a => a.IdEvento.HasValue).ToList();
-            var withoutEvento = relevant.Where(a => !a.IdEvento.HasValue).ToList();
+            var legacyGroups = await AuditLegacyScopeResolver.GroupLegacyLogsByEventoAsync(context, relevant);
 
-            var legacyGroups = await AuditLegacyScopeResolver.GroupLegacyLogsByEventoAsync(context, withoutEvento);
-
-            var groupedMap = withEvento
-                .GroupBy(a => a.IdEvento!.Value)
-                .ToDictionary(
-                    g => g.Key,
-                    g => new GroupRow
-                    {
-                        EventoId = g.Key,
-                        UltimaActividad = g.Max(a => a.Fecha),
-                        Total = g.Count(),
-                        DirectLogs = g.ToList(),
-                    });
+            var groupedMap = new Dictionary<int, GroupRow>();
 
             foreach (var kv in legacyGroups)
             {

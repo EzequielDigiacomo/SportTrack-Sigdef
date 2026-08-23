@@ -15,10 +15,12 @@ namespace SportTrack_Sigdef.Controllers
     public class SupportController : ControllerBase
     {
         private readonly SportTrackDbContext _context;
+        private readonly IAuditService _auditService;
 
-        public SupportController(SportTrackDbContext context)
+        public SupportController(SportTrackDbContext context, IAuditService auditService)
         {
             _context = context;
+            _auditService = auditService;
         }
 
         [HttpGet("por-eventos")]
@@ -50,19 +52,14 @@ namespace SportTrack_Sigdef.Controllers
             var modulo = string.IsNullOrWhiteSpace(dto.Modulo) ? "Frontend" : dto.Modulo.Trim();
             var detalle = string.IsNullOrWhiteSpace(dto.Detalle) ? "{}" : dto.Detalle.Trim();
 
-            await _context.Auditoria.AddAsync(new SportTrack_Sigdef.Entidades.Entidades.Auditoria
-            {
-                Accion = accion,
-                Detalle = detalle,
-                Modulo = modulo,
-                Usuario = User.Identity?.Name ?? "Anónimo",
-                Fecha = DateTime.UtcNow,
-                IP = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0",
-                UserAgent = Request.Headers.UserAgent.ToString(),
-                IdEvento = dto.EventoId,
-                IdEventoPrueba = dto.EventoPruebaId,
-            });
-            await _context.SaveChangesAsync();
+            await _auditService.RegistrarAccionAsync(
+                accion,
+                detalle,
+                null,
+                modulo,
+                dto.EventoId,
+                dto.EventoPruebaId);
+
             return Ok(new { ok = true });
         }
 
