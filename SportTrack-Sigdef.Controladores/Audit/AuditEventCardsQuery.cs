@@ -37,7 +37,7 @@ namespace SportTrack_Sigdef.Controladores.Audit
             int logsPerEvento)
         {
             eventosLimit = Math.Clamp(eventosLimit, 1, 50);
-            logsPerEvento = Math.Clamp(logsPerEvento, 1, 30);
+            logsPerEvento = Math.Clamp(logsPerEvento, 1, 150);
 
             var allRecent = await scoped
                 .AsNoTracking()

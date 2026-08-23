@@ -76,7 +76,7 @@ namespace SportTrack_Sigdef.Controllers
             [FromQuery] int logsPerEvento = 8)
         {
             eventosLimit = Math.Clamp(eventosLimit, 1, 50);
-            logsPerEvento = Math.Clamp(logsPerEvento, 1, 30);
+            logsPerEvento = Math.Clamp(logsPerEvento, 1, 150);
 
             var scoped = BuildScopedQuery();
             var cards = await AuditEventCardsQuery.BuildCardsAsync(_context, scoped, eventosLimit, logsPerEvento);
@@ -111,6 +111,68 @@ namespace SportTrack_Sigdef.Controllers
                 dto.EventoPruebaId);
 
             return Ok(new { ok = true });
+        }
+
+        /// <summary>
+        /// Elimina un registro de auditoría (SuperAdmin / soporte).
+        /// </summary>
+        [HttpDelete("por-evento/{eventoId:int}/sin-problemas")]
+        public async Task<IActionResult> DeleteRegistrosSinProblemas(int eventoId)
+        {
+            if (!IsSuperAdmin()) return Forbid();
+
+            if (eventoId <= 0) return BadRequest(new { message = "Evento inválido." });
+
+            var eventoMarker = $"\"eventoId\":{eventoId}";
+            var eventoMarkerSpaced = $"\"eventoId\": {eventoId}";
+
+            var directMatches = await _context.Auditoria
+                .Where(a => a.Detalle.Contains(eventoMarker) || a.Detalle.Contains(eventoMarkerSpaced))
+                .ToListAsync();
+
+            var scoped = BuildScopedQuery();
+            var legacyPool = await scoped
+                .AsNoTracking()
+                .OrderByDescending(a => a.Fecha)
+                .Take(5000)
+                .ToListAsync();
+
+            var legacyGroups = await AuditLegacyScopeResolver.GroupLegacyLogsByEventoAsync(_context, legacyPool);
+            legacyGroups.TryGetValue(eventoId, out var legacyForEvent);
+
+            var candidates = directMatches
+                .Concat(legacyForEvent ?? new List<Entidades.Entidades.Auditoria>())
+                .GroupBy(a => a.Id)
+                .Select(g => g.First())
+                .Where(a => !AuditProblemActions.ShouldKeepOnBulkCleanup(a.Accion))
+                .ToList();
+
+            if (candidates.Count == 0)
+            {
+                return Ok(new { deleted = 0, message = "No hay registros OK para eliminar en este evento." });
+            }
+
+            _context.Auditoria.RemoveRange(candidates);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { deleted = candidates.Count, message = $"{candidates.Count} registro(s) eliminado(s)." });
+        }
+
+        /// <summary>
+        /// Elimina un registro de auditoría por Id (SuperAdmin / soporte).
+        /// </summary>
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> DeleteRegistro(int id)
+        {
+            if (!IsSuperAdmin()) return Forbid();
+
+            var row = await _context.Auditoria.FindAsync(id);
+            if (row == null) return NotFound(new { message = "Registro no encontrado." });
+
+            _context.Auditoria.Remove(row);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { ok = true, deleted = id });
         }
 
         public class ClientAuditDto
@@ -163,6 +225,18 @@ namespace SportTrack_Sigdef.Controllers
                 .Distinct();
 
             return query.Where(a => usernames.Contains(a.Usuario));
+        }
+
+        private bool IsSuperAdmin()
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value
+                ?? User.FindFirst("role")?.Value
+                ?? string.Empty;
+
+            return string.Equals(role, "SuperAdmin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(role, "soporte_tecnico", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(User.Identity?.Name, "admin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(User.Identity?.Name, "soporte_tecnico", StringComparison.OrdinalIgnoreCase);
         }
     }
 }
