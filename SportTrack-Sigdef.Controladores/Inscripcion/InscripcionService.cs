@@ -54,8 +54,10 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
             var result = await _inscripcionRepository.GetByIdAsync(createdInscripcion.IdInscripcion);
             
             // Auditoria
+            var eventoIdIns = result.EventoPrueba?.IdEvento;
+            var epId = result.IdEventoPrueba;
             await _auditService.RegistrarAccionAsync("CREATE_INSCRIPTION", 
-                $"Nueva inscripción: {result.Participante?.Nombre} {result.Participante?.Apellido} (ID: {result.IdInscripcion})", null, "Inscripciones");
+                $"Nueva inscripción: {result.Participante?.Nombre} {result.Participante?.Apellido} (ID: {result.IdInscripcion})", null, "Inscripciones", eventoIdIns, epId);
 
             return _mapper.Map<InscripcionDto>(result);
         }
@@ -83,8 +85,9 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
             var updatedInscripcion = await _inscripcionRepository.UpdateAsync(existingInscripcion);
             
             // Auditoria
+            var eventoIdUpd = updatedInscripcion.EventoPrueba?.IdEvento ?? existingInscripcion.EventoPrueba?.IdEvento;
             await _auditService.RegistrarAccionAsync("UPDATE_INSCRIPTION", 
-                $"Inscripción actualizada (ID: {id}, Carril: {updatedInscripcion.NumeroCompetidor})", null, "Inscripciones");
+                $"Inscripción actualizada (ID: {id}, Carril: {updatedInscripcion.NumeroCompetidor})", null, "Inscripciones", eventoIdUpd, updatedInscripcion.IdEventoPrueba);
 
             return _mapper.Map<InscripcionDto>(updatedInscripcion);
         }
@@ -106,8 +109,9 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
             
             // Auditoria
             if (res) {
+                var eventoIdDel = inscripcion.EventoPrueba?.IdEvento;
                 await _auditService.RegistrarAccionAsync("DELETE_INSCRIPTION", 
-                    $"Inscripción eliminada (ID: {id})", null, "Inscripciones");
+                    $"Inscripción eliminada (ID: {id})", null, "Inscripciones", eventoIdDel, inscripcion.IdEventoPrueba);
             }
 
             return res;

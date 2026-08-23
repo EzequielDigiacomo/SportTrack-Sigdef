@@ -190,6 +190,12 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<int?>("IdEvento")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("IdEventoPrueba")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Modulo")
                         .IsRequired()
                         .HasColumnType("text");
@@ -203,6 +209,8 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IdEvento", "Fecha");
 
                     b.ToTable("Auditoria");
                 });

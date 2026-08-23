@@ -95,7 +95,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
 
             // Auditoria
             await _auditService.RegistrarAccionAsync("CREATE_EVENT", 
-                $"Evento creado: {result.Nombre} (Ubicación: {result.Ubicacion}, Fecha: {result.Fecha:dd/MM/yyyy})", null, "Eventos");
+                $"Evento creado: {result.Nombre} (Ubicación: {result.Ubicacion}, Fecha: {result.Fecha:dd/MM/yyyy})", null, "Eventos", result.IdEvento);
 
             _liveCache.InvalidateEvento(result.IdEvento);
 
@@ -158,7 +158,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
 
             // Auditoria
             await _auditService.RegistrarAccionAsync("UPDATE_EVENT", 
-                $"Evento actualizado: {result.Nombre} (ID: {id})", null, "Eventos");
+                $"Evento actualizado: {result.Nombre} (ID: {id})", null, "Eventos", id);
 
             _liveCache.InvalidateEvento(id);
             return _mapper.Map<EventoDto>(fullEvento);
@@ -180,7 +180,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
             {
                 _liveCache.InvalidateEvento(id);
                 await _auditService.RegistrarAccionAsync("DELETE_EVENT", 
-                    $"Evento eliminado: {existing.Nombre} (ID: {id})", null, "Eventos");
+                    $"Evento eliminado: {existing.Nombre} (ID: {id})", null, "Eventos", id);
             }
 
             return res;

@@ -17,7 +17,13 @@ namespace SportTrack_Sigdef.Controladores.Audit
             _httpContextAccessor = httpContextAccessor;
         }
 
-        public async Task RegistrarAccionAsync(string accion, string detalle, string? usuario = null, string modulo = "General")
+        public async Task RegistrarAccionAsync(
+            string accion,
+            string detalle,
+            string? usuario = null,
+            string modulo = "General",
+            int? idEvento = null,
+            int? idEventoPrueba = null)
         {
             try
             {
@@ -36,7 +42,9 @@ namespace SportTrack_Sigdef.Controladores.Audit
                     Modulo = modulo,
                     Fecha = DateTime.UtcNow,
                     IP = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "0.0.0.0",
-                    UserAgent = _httpContextAccessor.HttpContext?.Request?.Headers["User-Agent"].ToString() ?? "N/A"
+                    UserAgent = _httpContextAccessor.HttpContext?.Request?.Headers["User-Agent"].ToString() ?? "N/A",
+                    IdEvento = idEvento,
+                    IdEventoPrueba = idEventoPrueba,
                 };
 
                 _context.Auditoria.Add(audit);
@@ -48,7 +56,7 @@ namespace SportTrack_Sigdef.Controladores.Audit
             }
         }
 
-        public async Task RegistrarErrorAsync(Exception ex, string modulo = "System")
+        public async Task RegistrarErrorAsync(Exception ex, string modulo = "System", int? idEvento = null, int? idEventoPrueba = null)
         {
             var detalle = new
             {
@@ -58,7 +66,13 @@ namespace SportTrack_Sigdef.Controladores.Audit
                 Source = ex.Source
             };
 
-            await RegistrarAccionAsync("ERROR_FATAL", System.Text.Json.JsonSerializer.Serialize(detalle), "System", modulo);
+            await RegistrarAccionAsync(
+                "ERROR_FATAL",
+                System.Text.Json.JsonSerializer.Serialize(detalle),
+                "System",
+                modulo,
+                idEvento,
+                idEventoPrueba);
         }
     }
 }

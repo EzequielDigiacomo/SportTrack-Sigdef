@@ -8,6 +8,7 @@ using SportTrack_Sigdef.Controladores.Caching;
 using SportTrack_Sigdef.Controladores.Fase.Dtos;
 using SportTrack_Sigdef.Controladores.Hubs;
 using SportTrack_Sigdef.Controladores.Resultado;
+using SportTrack_Sigdef.Controladores.Audit;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,17 +26,20 @@ namespace SportTrack_Sigdef.Controllers
         private readonly IHubContext<TimingHub> _hubContext;
         private readonly IMapper _mapper;
         private readonly ILiveCacheService _liveCache;
+        private readonly IAuditService _auditService;
 
         public ResultadosController(
             IResultadoRepository resultadoRepository,
             IHubContext<TimingHub> hubContext,
             IMapper mapper,
-            ILiveCacheService liveCache)
+            ILiveCacheService liveCache,
+            IAuditService auditService)
         {
             _resultadoRepository = resultadoRepository;
             _hubContext = hubContext;
             _mapper = mapper;
             _liveCache = liveCache;
+            _auditService = auditService;
         }
 
         [HttpGet("Fase/{faseId}")]
@@ -120,15 +124,28 @@ namespace SportTrack_Sigdef.Controllers
 
             if (guardados.Any())
             {
+                var first = guardados.First();
+                var eventoId = first.Fase?.Etapa?.EventoPrueba?.IdEvento;
+                var eventoPruebaId = first.Fase?.Etapa?.EventoPruebaId;
+                var faseId = first.FaseId;
+                var conTiempo = guardados.Count(r => r.TiempoOficial.HasValue);
+                await _auditService.RegistrarAccionAsync(
+                    "SAVE_TIMING",
+                    $"Tiempos guardados: fase {faseId}, {guardados.Count()} filas ({conTiempo} con tiempo).",
+                    null,
+                    "Competencia",
+                    eventoId,
+                    eventoPruebaId);
+
                 foreach (var r in guardados)
                 {
-                    var eventoId = r.Fase?.Etapa?.EventoPrueba?.IdEvento;
-                    var eventoPruebaId = r.Fase?.Etapa?.EventoPruebaId;
-                    _liveCache.InvalidateFase(r.FaseId, eventoId, eventoPruebaId);
+                    var evId = r.Fase?.Etapa?.EventoPrueba?.IdEvento;
+                    var evPruebaId = r.Fase?.Etapa?.EventoPruebaId;
+                    _liveCache.InvalidateFase(r.FaseId, evId, evPruebaId);
 
-                    if (eventoId.HasValue && r.Fase?.Etapa != null)
+                    if (evId.HasValue && r.Fase?.Etapa != null)
                     {
-                        await _hubContext.Clients.Group(TimingGroups.Event(eventoId.Value)).SendAsync(
+                        await _hubContext.Clients.Group(TimingGroups.Event(evId.Value)).SendAsync(
                             "ResultadoActualizado",
                             r.Fase.Etapa.EventoPruebaId,
                             _mapper.Map<ResultadoFaseDto>(r));
