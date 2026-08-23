@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SportTrack_Sigdef.AccesoDatos;
 using SportTrack_Sigdef.Controladores.Audit;
+using System;
 using System.Threading.Tasks;
 using System.Linq;
 
@@ -20,6 +21,63 @@ namespace SportTrack_Sigdef.Controllers
             _context = context;
         }
 
+        [HttpGet("por-eventos")]
+        public async Task<IActionResult> GetActividadPorEventos(
+            [FromQuery] int eventosLimit = 12,
+            [FromQuery] int logsPerEvento = 8)
+        {
+            if (!CanAccessSupportLogs()) return SupportForbidden();
+
+            await PurgeForbidSchemeNoiseAsync();
+
+            const string forbidNoise = "No authentication handler is registered for the scheme";
+            var scoped = _context.Auditoria.Where(a =>
+                !(a.Accion == "ERROR_FATAL" && a.Detalle != null && a.Detalle.Contains(forbidNoise)));
+
+            var cards = await AuditEventCardsQuery.BuildCardsAsync(_context, scoped, eventosLimit, logsPerEvento);
+            return Ok(cards);
+        }
+
+        [HttpPost("client-action")]
+        public async Task<IActionResult> PostClientAction([FromBody] ClientAuditDto dto)
+        {
+            if (!CanAccessSupportLogs()) return SupportForbidden();
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Accion))
+                return BadRequest(new { message = "Acción requerida." });
+
+            var accion = dto.Accion.Trim();
+            if (accion.Length > 100) accion = accion[..100];
+            var modulo = string.IsNullOrWhiteSpace(dto.Modulo) ? "Frontend" : dto.Modulo.Trim();
+            var detalle = string.IsNullOrWhiteSpace(dto.Detalle) ? "{}" : dto.Detalle.Trim();
+
+            await _context.Auditoria.AddAsync(new SportTrack_Sigdef.Entidades.Entidades.Auditoria
+            {
+                Accion = accion,
+                Detalle = detalle,
+                Modulo = modulo,
+                Usuario = User.Identity?.Name ?? "Anónimo",
+                Fecha = DateTime.UtcNow,
+                IP = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0",
+                UserAgent = Request.Headers.UserAgent.ToString(),
+                IdEvento = dto.EventoId,
+                IdEventoPrueba = dto.EventoPruebaId,
+            });
+            await _context.SaveChangesAsync();
+            return Ok(new { ok = true });
+        }
+
+        private bool CanAccessSupportLogs()
+        {
+            var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            var userName = User.Identity?.Name;
+            return userRole == "SuperAdmin" || userName == "soporte_tecnico" || userName == "admin";
+        }
+
+        private IActionResult SupportForbidden() => StatusCode(StatusCodes.Status403Forbidden, new
+        {
+            message = "No tienes permisos para acceder a los registros de soporte."
+        });
+
         [HttpGet("logs")]
         public async Task<IActionResult> GetLogs([FromQuery] string modulo = null, [FromQuery] int limit = 100)
         {
@@ -30,10 +88,7 @@ namespace SportTrack_Sigdef.Controllers
             if (userRole != "SuperAdmin" && userName != "soporte_tecnico" && userName != "admin")
             {
                 // Forbid(string) interpreta el argumento como esquema de auth, no como mensaje.
-                return StatusCode(StatusCodes.Status403Forbidden, new
-                {
-                    message = "No tienes permisos para acceder a los registros de soporte."
-                });
+                return SupportForbidden();
             }
 
             // Limpia ERROR_FATAL causados por Forbid("mensaje") mal usado (ya corregido).
@@ -87,6 +142,15 @@ namespace SportTrack_Sigdef.Controllers
             public string Url { get; set; }
             public string Stack { get; set; }
             public string BrowserInfo { get; set; }
+        }
+
+        public class ClientAuditDto
+        {
+            public string Accion { get; set; } = string.Empty;
+            public string? Detalle { get; set; }
+            public string? Modulo { get; set; }
+            public int? EventoId { get; set; }
+            public int? EventoPruebaId { get; set; }
         }
 
         [HttpDelete("logs/clear")]
