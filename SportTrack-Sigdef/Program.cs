@@ -22,6 +22,7 @@ using SportTrack_Sigdef.Controladores.Mappings;
 using SportTrack_Sigdef.Controladores.Pago;
 using SportTrack_Sigdef.Controladores.Participante;
 using SportTrack_Sigdef.Controladores.Resultado;
+using SportTrack_Sigdef.Controladores.Timing;
 using SportTrack_Sigdef.Controladores.SaaS;
 using SportTrack_Sigdef.Controladores.Federaciones;
 using SportTrack_Sigdef.Controladores.Mensajes;
@@ -225,6 +226,8 @@ builder.Services.AddScoped<IEtapaRepository, EtapaRepository>();
 builder.Services.AddScoped<IFaseRepository, FaseRepository>();
 builder.Services.AddScoped<IFaseService, FaseService>();
 builder.Services.AddScoped<IResultadoRepository, ResultadoRepository>();
+builder.Services.AddScoped<IResultadoBatchUpdateService, ResultadoBatchUpdateService>();
+builder.Services.AddScoped<ITimingOutboxService, TimingOutboxService>();
 // Clubes
 builder.Services.AddScoped<IClubService, ClubService>();
 builder.Services.AddScoped<IClubRepository, ClubRepository>();
