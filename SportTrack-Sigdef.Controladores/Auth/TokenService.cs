@@ -44,6 +44,9 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 "TokenKey no configurado. Definí la variable de entorno TokenKey antes de iniciar en producción.");
         }
 
+        public TimeSpan GetSessionLifetime(Usuario usuario) =>
+            SessionLifetimePolicy.ForRole(usuario.RolFederacion);
+
         public string CreateToken(Usuario usuario)
         {
             var claims = new List<Claim>
@@ -56,11 +59,12 @@ namespace SportTrack_Sigdef.Controladores.Auth
             };
 
             var creds = new SigningCredentials(_key, SecurityAlgorithms.HmacSha512Signature);
+            var lifetime = GetSessionLifetime(usuario);
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.Now.AddHours(5),
+                Expires = DateTime.UtcNow.Add(lifetime),
                 SigningCredentials = creds
             };
 

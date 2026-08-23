@@ -48,6 +48,7 @@ namespace SportTrack_Sigdef.AccesoDatos
         public DbSet<Resultado> Resultados { get; set; }
         public DbSet<Penalizacion> Penalizaciones { get; set; }
         public DbSet<Auditoria> Auditoria { get; set; }
+        public DbSet<TimingSubmissionOutbox> TimingSubmissionOutbox { get; set; }
         public DbSet<AudiencePeakSnapshot> AudiencePeakSnapshots { get; set; }
         public DbSet<AudienceMonitorSettings> AudienceMonitorSettings { get; set; }
         public DbSet<Pago> Pagos { get; set; }
@@ -834,6 +835,19 @@ namespace SportTrack_Sigdef.AccesoDatos
                 entity.HasIndex(e => e.CapturedAtUtc).HasDatabaseName("IX_AudiencePeakSnapshots_CapturedAtUtc");
                 entity.HasIndex(e => new { e.IsPeakRecord, e.TotalConnections })
                     .HasDatabaseName("IX_AudiencePeakSnapshots_Peak_Total");
+            });
+
+            modelBuilder.Entity<TimingSubmissionOutbox>(entity =>
+            {
+                entity.ToTable("TimingSubmissionOutbox");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Username).HasMaxLength(100).IsRequired();
+                entity.Property(e => e.PayloadJson).IsRequired();
+                entity.HasIndex(e => new { e.FaseId, e.Username })
+                    .IsUnique()
+                    .HasDatabaseName("IX_TimingSubmissionOutbox_Fase_Username");
+                entity.HasIndex(e => new { e.Username, e.ExpiresAtUtc })
+                    .HasDatabaseName("IX_TimingSubmissionOutbox_Username_Expires");
             });
 
             modelBuilder.Entity<AudienceMonitorSettings>(entity =>

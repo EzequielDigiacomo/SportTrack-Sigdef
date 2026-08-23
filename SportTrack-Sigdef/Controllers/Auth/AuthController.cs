@@ -32,12 +32,13 @@ namespace SportTrack_Sigdef.Controllers.Auth
             var clientApp = Request.Headers["X-Client-App"].FirstOrDefault();
             var result = await _authService.LoginAsync(loginDto, clientApp);
 
+            var sessionLifetime = SessionLifetimePolicy.ForRole(result.RolFederacion);
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
                 Secure = Request.IsHttps,
                 SameSite = Request.IsHttps ? SameSiteMode.None : SameSiteMode.Lax,
-                Expires = DateTime.UtcNow.AddHours(5)
+                Expires = DateTime.UtcNow.Add(sessionLifetime)
             };
 
             Response.Cookies.Append("X-Access-Token", result.Token, cookieOptions);

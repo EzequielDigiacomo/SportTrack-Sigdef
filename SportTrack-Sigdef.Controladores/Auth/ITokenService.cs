@@ -5,5 +5,6 @@ namespace SportTrack_Sigdef.Controladores.Auth
     public interface ITokenService
     {
         string CreateToken(Usuario usuario);
+        TimeSpan GetSessionLifetime(Usuario usuario);
     }
 }
