@@ -206,8 +206,9 @@ namespace SportTrack_Sigdef.Controladores.Fase
             }
             
             // Auditoria
+            var eventoIdGen = await _faseRepository.GetEventoIdByEventoPruebaIdAsync(eventoPruebaId);
             await _auditService.RegistrarAccionAsync("GENERATE_HEATS_AUTO", 
-                $"Sorteo automático generado para la Prueba ID {eventoPruebaId}. Se crearon {numSeries} series.", null, "Competencia");
+                $"Sorteo automático generado para la Prueba ID {eventoPruebaId}. Se crearon {numSeries} series.", null, "Competencia", eventoIdGen, eventoPruebaId);
 
             return await GetFasesPorEventoPruebaFreshAsync(eventoPruebaId);
         }
@@ -477,10 +478,11 @@ namespace SportTrack_Sigdef.Controladores.Fase
                 etapas,
                 etapaActual.Tipo == SportTrack_Sigdef.Entidades.Enums.TipoEtapaEnum.Eliminatoria);
 
+            var eventoIdPromo = await _faseRepository.GetEventoIdByEventoPruebaIdAsync(eventoPruebaId);
             await _auditService.RegistrarAccionAsync("PROMOTE_STAGE",
                 $"Promoción ICF ({planId}) ejecutada para Prueba ID {eventoPruebaId}. Etapa: {etapaActual.Nombre}. " +
                 $"Destinos: {string.Join(", ", progression.Destinos.Keys)}",
-                null, "Competencia");
+                null, "Competencia", eventoIdPromo, eventoPruebaId);
 
             return await GetFasesPorEventoPruebaFreshAsync(eventoPruebaId);
         }
@@ -695,11 +697,11 @@ namespace SportTrack_Sigdef.Controladores.Fase
             fase.Estado = "En Carrera";
             await _faseRepository.UpdateAsync(fase);
 
-            // Auditoria
+            var scopeStart = await ResolveFaseScopeAsync(fase, id);
             await _auditService.RegistrarAccionAsync("START_RACE", 
-                $"Carrera iniciada: {fase.NombreFase} (ID: {id}) a las {fase.FechaHoraInicioReal}", null, "Competencia");
+                $"Carrera iniciada: {fase.NombreFase} (ID: {id}) a las {fase.FechaHoraInicioReal}", null, "Competencia", scopeStart.EventoId, scopeStart.EventoPruebaId);
 
-            var scope = await ResolveFaseScopeAsync(fase, id);
+            var scope = scopeStart;
             _liveCache.InvalidateFase(id, scope.EventoId, scope.EventoPruebaId);
 
             await _hubContext.Clients.Group(TimingGroups.Race(id)).SendAsync("RaceStarted", id, fase.FechaHoraInicioReal);
@@ -747,11 +749,11 @@ namespace SportTrack_Sigdef.Controladores.Fase
 
             await _faseRepository.UpdateAsync(fase);
 
-            // Auditoria
+            var scopeFinish = await ResolveFaseScopeAsync(fase, id);
             await _auditService.RegistrarAccionAsync("FINISH_RACE", 
-                $"Carrera oficializada: {fase.NombreFase} (ID: {id})", null, "Competencia");
+                $"Carrera oficializada: {fase.NombreFase} (ID: {id})", null, "Competencia", scopeFinish.EventoId, scopeFinish.EventoPruebaId);
 
-            var scope = await ResolveFaseScopeAsync(fase, id);
+            var scope = scopeFinish;
             _liveCache.InvalidateFase(id, scope.EventoId, scope.EventoPruebaId);
 
             await _hubContext.Clients.Group(TimingGroups.Race(id)).SendAsync("RaceFinished", id);
@@ -801,9 +803,10 @@ namespace SportTrack_Sigdef.Controladores.Fase
                 $"Carrera reiniciada: {fase.NombreFase} (ID: {id}). Estado previo: {estadoPrevio}. " +
                 $"Motivo: {categoriaPart}{motivo.Trim()}";
 
-            await _auditService.RegistrarAccionAsync("RESET_RACE", detalleAuditoria, null, "Competencia");
+            var scopeReset = await ResolveFaseScopeAsync(fase, id);
+            await _auditService.RegistrarAccionAsync("RESET_RACE", detalleAuditoria, null, "Competencia", scopeReset.EventoId, scopeReset.EventoPruebaId);
 
-            var scope = await ResolveFaseScopeAsync(fase, id);
+            var scope = scopeReset;
             _liveCache.InvalidateFase(id, scope.EventoId, scope.EventoPruebaId);
 
             await _hubContext.Clients.Group(TimingGroups.Race(id)).SendAsync("RaceReset", id);
@@ -835,13 +838,13 @@ namespace SportTrack_Sigdef.Controladores.Fase
 
             await _faseRepository.UpdateAsync(fase);
             
-            // Auditoria
+            var scopeReview = await ResolveFaseScopeAsync(fase, id);
             await _auditService.RegistrarAccionAsync("REVIEW_RACE", 
-                $"Carrera enviada a revisión: {fase.NombreFase} (ID: {id})", null, "Competencia");
+                $"Carrera enviada a revisión: {fase.NombreFase} (ID: {id})", null, "Competencia", scopeReview.EventoId, scopeReview.EventoPruebaId);
 
             Console.WriteLine($"[SignalR-Debug] Emitting GlobalRaceInReview for Fase {fase.Id}: {fase.NombreFase}");
 
-            var scope = await ResolveFaseScopeAsync(fase, id);
+            var scope = scopeReview;
             _liveCache.InvalidateFase(id, scope.EventoId, scope.EventoPruebaId);
 
             await _hubContext.Clients.Group(TimingGroups.Race(id)).SendAsync("RaceInReview", id);
@@ -1140,11 +1143,14 @@ namespace SportTrack_Sigdef.Controladores.Fase
 
             await _faseRepository.CreateAsync(fase);
 
+            var eventoIdMaraton = await _faseRepository.GetEventoIdByEventoPruebaIdAsync(representative.IdEventoPrueba);
             await _auditService.RegistrarAccionAsync(
                 "GENERATE_LARGADA_MARATON",
                 $"Largada Maratón generada (EP rep {representative.IdEventoPrueba}, {ordered.Count} inscritos, grupo [{string.Join(",", ids)}]).",
                 null,
-                "Competencia");
+                "Competencia",
+                eventoIdMaraton,
+                representative.IdEventoPrueba);
 
             foreach (var id in ids)
                 await InvalidateByEventoPruebaAsync(id);

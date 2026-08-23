@@ -26,5 +26,11 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public string Modulo { get; set; } = string.Empty; // Auth, Atletas, Eventos, etc.
 
         public string UserAgent { get; set; } = string.Empty; // Navegador y sistema operativo.
+
+        /** Evento al que pertenece la acción (nullable para logs globales como LOGIN). */
+        public int? IdEvento { get; set; }
+
+        /** Prueba del evento, si aplica. */
+        public int? IdEventoPrueba { get; set; }
     }
 }

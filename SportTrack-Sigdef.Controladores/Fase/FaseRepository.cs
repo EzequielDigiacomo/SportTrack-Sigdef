@@ -27,6 +27,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
         Task UpdateResultadoAsync(SportTrack_Sigdef.Entidades.Entidades.Resultado resultado);
         Task<int?> GetEventoIdByFaseIdAsync(int faseId);
         Task<int?> GetEventoIdByResultadoIdAsync(int resultadoId);
+        Task<int?> GetEventoIdByEventoPruebaIdAsync(int eventoPruebaId);
         Task<(int? EventoId, int? EventoPruebaId)> GetScopeByFaseIdAsync(int faseId);
     }
 
@@ -208,6 +209,15 @@ namespace SportTrack_Sigdef.Controladores.Fase
                 .AsNoTracking()
                 .Where(r => r.Id == resultadoId)
                 .Select(r => (int?)r.Fase.Etapa.EventoPrueba.IdEvento)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<int?> GetEventoIdByEventoPruebaIdAsync(int eventoPruebaId)
+        {
+            return await _context.EventoPruebas
+                .AsNoTracking()
+                .Where(ep => ep.IdEventoPrueba == eventoPruebaId)
+                .Select(ep => (int?)ep.IdEvento)
                 .FirstOrDefaultAsync();
         }
 
