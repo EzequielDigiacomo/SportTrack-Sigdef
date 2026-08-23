@@ -49,7 +49,6 @@ namespace SportTrack_Sigdef.Controllers
         [HttpPost("client-action")]
         public async Task<IActionResult> PostClientAction([FromBody] ClientAuditDto dto)
         {
-            if (!CanAccessSupportLogs()) return SupportForbidden();
             if (dto == null || string.IsNullOrWhiteSpace(dto.Accion))
                 return BadRequest(new { message = "Acción requerida." });
 
