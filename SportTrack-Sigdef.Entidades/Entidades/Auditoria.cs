@@ -27,10 +27,11 @@ namespace SportTrack_Sigdef.Entidades.Entidades
 
         public string UserAgent { get; set; } = string.Empty; // Navegador y sistema operativo.
 
-        /** Evento al que pertenece la acción (nullable para logs globales como LOGIN). */
+        /** Scope por evento: NotMapped hasta migración BD en prod; va embebido en Detalle. */
+        [NotMapped]
         public int? IdEvento { get; set; }
 
-        /** Prueba del evento, si aplica. */
+        [NotMapped]
         public int? IdEventoPrueba { get; set; }
     }
 }

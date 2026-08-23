@@ -62,14 +62,17 @@ namespace SportTrack_Sigdef.Controladores.Audit
             foreach (var log in legacyLogs)
             {
                 var detalle = log.Detalle ?? string.Empty;
-                int? eventoId = null;
+                int? eventoId = AuditScopeDetalle.TryExtract(detalle).EventoId;
 
-                var faseMatch = FaseIdPattern.Match(detalle);
-                if (faseMatch.Success
-                    && int.TryParse(faseMatch.Groups[1].Value, out var faseId)
-                    && faseScope.TryGetValue(faseId, out var scope))
+                if (!eventoId.HasValue)
                 {
-                    eventoId = scope.EventoId;
+                    var faseMatch = FaseIdPattern.Match(detalle);
+                    if (faseMatch.Success
+                        && int.TryParse(faseMatch.Groups[1].Value, out var faseId)
+                        && faseScope.TryGetValue(faseId, out var scope))
+                    {
+                        eventoId = scope.EventoId;
+                    }
                 }
 
                 if (!eventoId.HasValue)

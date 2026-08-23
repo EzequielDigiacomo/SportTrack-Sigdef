@@ -34,10 +34,12 @@ namespace SportTrack_Sigdef.Controladores.Audit
                                     ?? user?.FindFirst("nameid")?.Value 
                                     ?? "System/Anonymous";
 
+                var detalleFinal = AuditScopeDetalle.Enrich(detalle, idEvento, idEventoPrueba);
+
                 var audit = new Auditoria
                 {
                     Accion = accion,
-                    Detalle = detalle,
+                    Detalle = detalleFinal,
                     Usuario = usuario ?? currentUserName,
                     Modulo = modulo,
                     Fecha = DateTime.UtcNow,
