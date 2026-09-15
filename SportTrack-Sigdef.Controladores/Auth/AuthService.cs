@@ -47,7 +47,7 @@ namespace SportTrack_Sigdef.Controladores.Auth
             {
                 Console.WriteLine($"USUARIO NO ENCONTRADO: {cleanUsername}");
                 await _auditService.RegistrarAccionAsync("LOGIN_FAILED", $"Intento fallido: Usuario '{cleanUsername}' no encontrado.", cleanUsername, "Auth");
-                throw new UnauthorizedException("Usuario no encontrado en la base de datos");
+                throw new UnauthorizedException("Usuario o contraseña incorrectos.");
             }
 
             Console.WriteLine($"USUARIO ENCONTRADO. Verificando hash para: {cleanUsername}");
@@ -78,7 +78,7 @@ namespace SportTrack_Sigdef.Controladores.Auth
                     await _context.SaveChangesAsync();
                     
                     await _auditService.RegistrarAccionAsync("ACCOUNT_LOCKED", $"Cuenta '{cleanUsername}' bloqueada por 5 intentos fallidos.", cleanUsername, "Auth");
-                    throw new UnauthorizedException("Tu cuenta ha sido deshabilitada por superar el límite de intentos. Contactá al administrador (desarrollador) para habilitarla. Se recomienda cambiar la contraseña.");
+                    throw new UnauthorizedException("Tu cuenta quedó bloqueada por demasiados intentos fallidos. Pedile al administrador que la habilite y te reinicie la contraseña.");
                 }
 
                 _context.Usuarios.Update(user);
@@ -86,7 +86,8 @@ namespace SportTrack_Sigdef.Controladores.Auth
 
                 Console.WriteLine($"CONTRASEÑA INCORRECTA para: {cleanUsername}. Quedan {intentosRestantes} intentos.");
                 await _auditService.RegistrarAccionAsync("LOGIN_FAILED", $"Contraseña incorrecta para '{cleanUsername}'. Quedan {intentosRestantes} intentos.", cleanUsername, "Auth");
-                throw new UnauthorizedException($"Contraseña incorrecta. Te quedan {intentosRestantes} intentos antes del bloqueo.");
+                var intentosLabel = intentosRestantes == 1 ? "1 intento" : $"{intentosRestantes} intentos";
+                throw new UnauthorizedException($"Contraseña incorrecta. Te quedan {intentosLabel} antes de que se bloquee la cuenta.");
             }
 
             // Si el login fue exitoso, reseteamos el contador
@@ -102,7 +103,7 @@ namespace SportTrack_Sigdef.Controladores.Auth
             {
                 Console.WriteLine($"CUENTA DESHABILITADA: {cleanUsername}");
                 await _auditService.RegistrarAccionAsync("LOGIN_BLOCKED", $"Acceso bloqueado: cuenta '{cleanUsername}' está deshabilitada.", cleanUsername, "Auth");
-                throw new UnauthorizedException("Tu cuenta está temporalmente deshabilitada. Contactá al administrador.");
+                throw new UnauthorizedException("Tu cuenta está bloqueada. Pedile al administrador que la habilite.");
             }
 
             // SaaS Enforcement: Verificar si la entidad está activa y pagos
@@ -119,21 +120,21 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 {
                     Console.WriteLine($"ENTIDAD SUSPENDIDA: {nombreInst} para usuario {cleanUsername}");
                     await _auditService.RegistrarAccionAsync("LOGIN_BLOCKED", $"Acceso bloqueado: '{nombreInst}' está suspendida.", cleanUsername, "Auth");
-                    throw new UnauthorizedException("El acceso de tu institución ha sido suspendido temporalmente por el administrador del sistema.");
+                    throw new UnauthorizedException("El acceso de tu federación está deshabilitado. Contactá al administrador del sistema.");
                 }
 
                 if (bloqueado)
                 {
                     Console.WriteLine($"ENTIDAD BLOQUEADA POR PAGO: {nombreInst} para usuario {cleanUsername}");
                     await _auditService.RegistrarAccionAsync("LOGIN_BLOCKED", $"Acceso bloqueado: '{nombreInst}' está bloqueada por falta de pago.", cleanUsername, "Auth");
-                    throw new UnauthorizedException("El acceso de tu institución se encuentra bloqueado por falta de pago. Por favor, regularice su situación.");
+                    throw new UnauthorizedException("El acceso de tu federación está bloqueado por falta de pago. Regularizá la situación para volver a ingresar.");
                 }
 
                 if (vencimiento.HasValue && vencimiento.Value.Date < DateTime.UtcNow.Date)
                 {
                     Console.WriteLine($"ENTIDAD VENCIDA: {nombreInst} para usuario {cleanUsername}");
                     await _auditService.RegistrarAccionAsync("LOGIN_BLOCKED", $"Acceso bloqueado: la suscripción de '{nombreInst}' se encuentra vencida.", cleanUsername, "Auth");
-                    throw new UnauthorizedException("La suscripción de tu institución ha vencido. Por favor, regularice el pago para reactivar el acceso.");
+                    throw new UnauthorizedException("La suscripción de tu federación venció. Renová el plan desde el panel del SuperAdmin para volver a ingresar.");
                 }
             }
 
