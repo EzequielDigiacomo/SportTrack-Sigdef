@@ -570,9 +570,30 @@ namespace SportTrack_Sigdef.Controladores.Auth
                 throw new NotFoundException($"Usuario con ID {id} no encontrado");
             }
 
+            // Restablecer la contraseña también desbloquea la cuenta: al acumular 5
+            // intentos fallidos la cuenta queda deshabilitada (EstaActivo = false) y el
+            // login la rechaza incluso con la contraseña nueva hasta que se habilite.
+            var estabaDeshabilitada = !user.EstaActivo;
+
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            user.IntentosFallidos = 0;
+            user.EstaActivo = true;
             _context.Usuarios.Update(user);
-            return await _context.SaveChangesAsync() > 0;
+
+            var guardado = await _context.SaveChangesAsync() > 0;
+
+            if (guardado)
+            {
+                await _auditService.RegistrarAccionAsync(
+                    "PASSWORD_RESET",
+                    estabaDeshabilitada
+                        ? $"Contraseña restablecida para '{user.Username}' (rol: {user.RolFederacion}) y cuenta habilitada nuevamente."
+                        : $"Contraseña restablecida para '{user.Username}' (rol: {user.RolFederacion}).",
+                    null,
+                    "Auth");
+            }
+
+            return guardado;
         }
 
         public async Task<UsuarioDto> GetMeAsync(string username, string? clientApp = null)
