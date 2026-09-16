@@ -30,6 +30,7 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public bool PermitirMasterBajarASenior { get; set; }
         public bool PermitirCompletarK4 { get; set; }
         public bool LimitacionBotesAB { get; set; }
+        public bool PermitirMezclarCategorias { get; set; }
         public string HoraInicioEvento { get; set; } = "08:00";
         public int CarrilesDisponibles { get; set; }
         public string PerfilTiempo { get; set; } = "Estandar";
@@ -61,6 +62,7 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public bool PermitirMasterBajarASenior { get; set; } = false;
         public bool PermitirCompletarK4 { get; set; } = false;
         public bool LimitacionBotesAB { get; set; } = false;
+        public bool PermitirMezclarCategorias { get; set; } = false;
         public int? ClubId { get; set; }
         public int? FederacionId { get; set; }
         /// <summary>Velocidad | Maraton</summary>
@@ -95,6 +97,7 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public bool? PermitirMasterBajarASenior { get; set; }
         public bool? PermitirCompletarK4 { get; set; }
         public bool? LimitacionBotesAB { get; set; }
+        public bool? PermitirMezclarCategorias { get; set; }
         public bool? InscripcionesHabilitadas { get; set; }
         public int? ClubId { get; set; }
         /// <summary>Velocidad | Maraton</summary>
