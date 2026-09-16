@@ -51,6 +51,10 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public bool PermitirMasterBajarASenior { get; set; } = false;
         public bool PermitirCompletarK4 { get; set; } = false;
         public bool LimitacionBotesAB { get; set; } = false;
+        /// <summary>
+        /// Permite pruebas con categoría abierta (Todas): inscripción por sexo/bote sin filtrar edad.
+        /// </summary>
+        public bool PermitirMezclarCategorias { get; set; } = false;
         
         // Configuración de Cronograma Inteligente
         public TimeSpan HoraInicioEvento { get; set; } = new TimeSpan(8, 0, 0); // 08:00 default
