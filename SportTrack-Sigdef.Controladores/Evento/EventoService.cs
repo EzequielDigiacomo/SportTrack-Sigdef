@@ -131,6 +131,13 @@ namespace SportTrack_Sigdef.Controladores.Evento
                 throw new UnauthorizedAccessException("No tenés permisos para modificar un evento de otro club.");
             }
             
+            var fechaAnterior = existing.Fecha;
+            var fechaFinAnterior = existing.FechaFin;
+
+            // Normalizar alias del front ("Programado" → "Programada") antes del map.
+            if (string.Equals(eventoDto.Estado, "Programado", StringComparison.OrdinalIgnoreCase))
+                eventoDto.Estado = nameof(EstadoEventoEnum.Programada);
+
             _mapper.Map(eventoDto, existing);
 
             if (!string.IsNullOrWhiteSpace(eventoDto.Modalidad))
@@ -150,6 +157,24 @@ namespace SportTrack_Sigdef.Controladores.Evento
             {
                 existing.FechaFinInscripciones = DateTime.SpecifyKind(existing.FechaFinInscripciones.Value, DateTimeKind.Utc);
             }
+
+            // Si cambiaron las fechas (o el estado quedó "Finalizado" con fechas futuras),
+            // recalcular permitiendo volver a Programada/EnCurso. Cancelado se respeta.
+            var fechasCambiaron = existing.Fecha.Date != fechaAnterior.Date
+                || existing.FechaFin?.Date != fechaFinAnterior?.Date;
+
+            if (existing.Estado != EstadoEventoEnum.Cancelado)
+            {
+                var estadoSegunFechas = EventoEstadoSyncHelper.ComputeEstado(existing, DateTime.UtcNow);
+                if (fechasCambiaron
+                    || (existing.Estado == EstadoEventoEnum.Finalizado
+                        && estadoSegunFechas != EstadoEventoEnum.Finalizado))
+                {
+                    existing.Estado = estadoSegunFechas;
+                }
+            }
+
+            existing.FechaActualizacion = DateTime.UtcNow;
 
             var result = await _eventoRepository.UpdateAsync(existing);
             
