@@ -892,6 +892,47 @@ namespace SportTrack_Sigdef.Controladores.Fase
                 }
             }
 
+            // Sincronizar Armar Schedule (EventoPrueba.FechaHora):
+            // - 1 fase tocada de esa prueba → esa hora
+            // - varias fases (p.ej. Reprogramar) → la más temprana del bloque
+            var updatedByEp = dto
+                .GroupBy(item => item.Id)
+                .Select(g => g.First())
+                .ToDictionary(item => item.Id, item => item.FechaHoraProgramada);
+
+            foreach (var epId in touchedEventoPruebas)
+            {
+                var fasesEp = (await _faseRepository.GetByEventoPruebaIdAsync(epId)).ToList();
+                var touchedOfEp = fasesEp.Where(f => updatedByEp.ContainsKey(f.Id)).ToList();
+                if (touchedOfEp.Count == 0) continue;
+
+                DateTime nuevaHoraEp;
+                if (touchedOfEp.Count == 1)
+                {
+                    nuevaHoraEp = touchedOfEp[0].FechaHoraProgramada
+                        ?? updatedByEp[touchedOfEp[0].Id];
+                }
+                else
+                {
+                    var horarios = fasesEp
+                        .Where(f => f.FechaHoraProgramada.HasValue)
+                        .Select(f => f.FechaHoraProgramada!.Value)
+                        .ToList();
+                    if (horarios.Count == 0) continue;
+                    nuevaHoraEp = horarios.Min();
+                }
+
+                if (nuevaHoraEp.Kind != DateTimeKind.Utc)
+                    nuevaHoraEp = DateTime.SpecifyKind(nuevaHoraEp, DateTimeKind.Utc);
+
+                var ep = await _eventoRepository.GetEventoPruebaByIdAsync(epId);
+                if (ep == null) continue;
+
+                ep.FechaHora = nuevaHoraEp;
+                await _eventoRepository.UpdateEventoPruebaAsync(ep);
+                _liveCache.InvalidateEventoPrueba(epId, ep.IdEvento);
+            }
+
             foreach (var epId in touchedEventoPruebas)
                 _liveCache.Remove(LiveCacheKeys.FasesByEventoPrueba(epId));
             foreach (var evId in touchedEventos)
