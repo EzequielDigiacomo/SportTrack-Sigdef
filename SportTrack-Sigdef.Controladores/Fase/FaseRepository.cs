@@ -177,7 +177,9 @@ namespace SportTrack_Sigdef.Controladores.Fase
                         .ThenInclude(i => i.Tripulantes)
                             .ThenInclude(t => t.Participante)
                 .Where(f => f.Etapa.EventoPrueba.IdEvento == eventoId)
-                .OrderBy(f => f.Etapa.EventoPrueba.FechaHora)
+                // Horario real de la serie (permite reordenar tras editar horas en Start List)
+                .OrderBy(f => f.FechaHoraProgramada)
+                .ThenBy(f => f.Etapa.EventoPrueba.FechaHora)
                 .ThenBy(f => f.Etapa.Orden)
                 .ThenBy(f => f.NumeroFase)
                 .ToListAsync();
