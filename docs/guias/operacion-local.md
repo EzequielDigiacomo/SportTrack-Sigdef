@@ -1,11 +1,15 @@
 # Operación local
 
+> Requiere **.NET 10 SDK** (target `net10.0`).
+
 ```powershell
 cd SportTrack-Sigdef
 dotnet run
 ```
 
-Swagger: `http://localhost:5029/swagger`
+Swagger (solo Development): `http://localhost:5012/swagger`
+
+> Corrección 2026-09-27: el puerto real es **5012** (no 5029) según `launchSettings.json`.
 
 ## Migraciones
 

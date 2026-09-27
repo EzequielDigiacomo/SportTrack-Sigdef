@@ -4,6 +4,12 @@ Fecha: 2026-07-16
 A+B+C+D+E+F+G implementados (2026-07-16). Carga manual sin jueces; MaxAtletas por fed; imágenes; Live flag; Home copy.  
 Matriz de producto: plan Cursor `inventario_planes_saas`
 
+> ⚠️ **Nota de estado (2026-09-27, corrección de entrega):**
+> - **`MaxAtletas` NO está aplicado**: `AltaAtletaService` no valida el tope del plan (ver §5.3). Queda como **deuda técnica**.
+> - **`MaxTorneosActivos` no tiene enforcement**: la migración `RemovePlanTournamentLimits` lo deja en `-1`.
+> - **Cookie-first JWT ya está implementado**: `OnMessageReceived` prioriza `Authorization: Bearer` → `?access_token` → cookie `X-Access-Token`. No es "fuera de alcance".
+> Ver [../Entrega/05-Manual-Tecnico.md](../Entrega/05-Manual-Tecnico.md#13-deuda-técnica-y-discrepancias-conocidas).
+
 ---
 
 ## 1. Objetivo
@@ -117,6 +123,8 @@ Archivo: [`PlanSaaSAccessHelper.cs`](c:\Users\EZEQU\source\repos\SportTrack-Sigd
 - SuperAdmin creando para una fed: **aplicar plan de esa fed** (no bypass), salvo flag interno opcional.
 
 ### 5.3 Atletas / participantes
+
+> ⚠️ **Deuda (2026-09-27): el enforcement de `MaxAtletas` descripto abajo NO está implementado** en `AltaAtletaService`.
 
 - `Create*`: contar atletas activos del scope federación; si `MaxAtletas > 0` y count ≥ max → 400.  
 - Fuente del plan: **Federacion.PlanSaaSId** (no solo Club).

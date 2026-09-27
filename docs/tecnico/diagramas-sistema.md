@@ -1,7 +1,9 @@
 # Diagramas del sistema — índice (SportTrack-Sigdef API)
 
 **Fecha:** 2026-07-12  
-**Proyecto:** API unificada .NET 8 (SportTrack + SIGDEF) + PostgreSQL + SignalR
+**Proyecto:** API unificada .NET 10 (SportTrack + SIGDEF) + PostgreSQL + SignalR
+
+> Corrección 2026-09-27: el target real es `net10.0` (migrado desde .NET 8). Ver [Entrega/05](../Entrega/05-Manual-Tecnico.md).
 
 Este es el **origen de verdad** del modelo de datos y de la capa de aplicación backend. Los fronts documentan su UI en:
 

@@ -11,7 +11,7 @@ flowchart TB
     end
 
     subgraph EsteRepo["SportTrack-Sigdef"]
-        API[ASP.NET Core 8]
+        API[ASP.NET Core 10]
     end
 
     subgraph Ext
@@ -100,7 +100,7 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph Local
-        SW[Swagger :5029]
+        SW[Swagger :5012]
         MIG[MigrateAsync on startup]
         PGL[(PG local/remoto)]
     end
