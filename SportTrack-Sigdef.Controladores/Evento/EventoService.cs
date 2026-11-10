@@ -79,6 +79,10 @@ namespace SportTrack_Sigdef.Controladores.Evento
             {
                 evento.FechaFinInscripciones = DateTime.SpecifyKind(evento.FechaFinInscripciones.Value, DateTimeKind.Utc);
             }
+            if (evento.FechaLimiteCambiosDelegados.HasValue)
+            {
+                evento.FechaLimiteCambiosDelegados = DateTime.SpecifyKind(evento.FechaLimiteCambiosDelegados.Value, DateTimeKind.Utc);
+            }
             
             // Scope de tenant seteado por el Controller desde Claims / GetMe
             evento.IdClub = eventoDto.ClubId;
@@ -156,6 +160,10 @@ namespace SportTrack_Sigdef.Controladores.Evento
             if (existing.FechaFinInscripciones.HasValue)
             {
                 existing.FechaFinInscripciones = DateTime.SpecifyKind(existing.FechaFinInscripciones.Value, DateTimeKind.Utc);
+            }
+            if (existing.FechaLimiteCambiosDelegados.HasValue)
+            {
+                existing.FechaLimiteCambiosDelegados = DateTime.SpecifyKind(existing.FechaLimiteCambiosDelegados.Value, DateTimeKind.Utc);
             }
 
             // Si cambiaron las fechas (o el estado quedó "Finalizado" con fechas futuras),

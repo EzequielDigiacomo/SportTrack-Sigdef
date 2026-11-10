@@ -213,6 +213,8 @@ builder.Services.AddScoped<IDistanciaRepository, DistanciaRepository>();
 // Inscripciones
 builder.Services.AddScoped<IInscripcionService, InscripcionService>();
 builder.Services.AddScoped<IInscripcionRepository, InscripcionRepository>();
+builder.Services.AddScoped<IInscripcionLiveOpsService, InscripcionLiveOpsService>();
+builder.Services.AddScoped<ITokenAccesoCambiosService, TokenAccesoCambiosService>();
 // Participantes
 builder.Services.AddScoped<IParticipanteService, ParticipanteService>();
 builder.Services.AddScoped<IParticipanteRepository, ParticipanteRepository>();

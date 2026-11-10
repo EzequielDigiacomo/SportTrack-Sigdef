@@ -15,10 +15,21 @@ namespace SportTrack_Sigdef.Controllers.Inscripciones
     public class InscripcionesController : ControllerBase
     {
         private readonly IInscripcionService _inscripcionService;
+        private readonly IInscripcionLiveOpsService _liveOpsService;
 
-        public InscripcionesController(IInscripcionService inscripcionService)
+        public InscripcionesController(
+            IInscripcionService inscripcionService,
+            IInscripcionLiveOpsService liveOpsService)
         {
             _inscripcionService = inscripcionService;
+            _liveOpsService = liveOpsService;
+        }
+
+        private bool IsAdminRole()
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            return string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(role, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
         }
 
         private static int? ParseClaimId(string? value)
@@ -126,6 +137,84 @@ namespace SportTrack_Sigdef.Controllers.Inscripciones
         {
             await _inscripcionService.ToggleEsCabezaDeSerieAsync(id);
             return Ok();
+        }
+
+        /// <summary>Corrección de tripulación pre-delegados (Club) o admin.</summary>
+        [HttpPatch("{id}/tripulacion")]
+        [Authorize]
+        public async Task<ActionResult<InscripcionDto>> UpdateTripulacion(int id, InscripcionTripulacionUpdateDto dto)
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            var isAdmin = IsAdminRole();
+            int? clubScope = null;
+            if (string.Equals(role, "Club", StringComparison.OrdinalIgnoreCase))
+                clubScope = ParseClaimId(User.FindFirst("ClubId")?.Value);
+
+            var result = await _inscripcionService.UpdateTripulacionAsync(
+                id,
+                dto,
+                clubScope,
+                bypassDeadline: isAdmin,
+                requireSameClub: true);
+            return Ok(result);
+        }
+
+        // ===== Live ops (solo Admin / SuperAdmin) =====
+
+        [HttpPatch("live/{id}/tripulacion")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
+        public async Task<ActionResult<InscripcionDto>> LiveUpdateTripulacion(int id, InscripcionTripulacionUpdateDto dto)
+        {
+            var result = await _liveOpsService.UpdateTripulacionAdminAsync(id, dto);
+            return Ok(result);
+        }
+
+        [HttpPatch("live/participantes/{participanteId}/nombre")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
+        public async Task<IActionResult> LivePatchNombre(int participanteId, ParticipanteNombrePatchDto dto)
+        {
+            await _liveOpsService.PatchParticipanteNombreAsync(participanteId, dto);
+            return NoContent();
+        }
+
+        [HttpPatch("live/{id}/numero")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
+        public async Task<ActionResult<InscripcionDto>> LiveUpdateNumero(int id, [FromBody] InscripcionUpdateDto dto)
+        {
+            var result = await _liveOpsService.UpdateNumeroCompetidorAsync(id, dto.NumeroCompetidor ?? string.Empty);
+            return Ok(result);
+        }
+
+        [HttpPut("live/fases/{faseId}/carriles")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
+        public async Task<IActionResult> LiveReasignarCarriles(int faseId, LiveCarrilesBatchDto dto)
+        {
+            await _liveOpsService.ReasignarCarrilesAsync(faseId, dto);
+            return NoContent();
+        }
+
+        [HttpDelete("live/{id}")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
+        public async Task<IActionResult> LiveBaja(int id, [FromQuery] bool force = false)
+        {
+            await _liveOpsService.BajaBoteAsync(id, force);
+            return NoContent();
+        }
+
+        [HttpPost("live/agregar")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
+        public async Task<ActionResult<InscripcionDto>> LiveAgregar(LiveAgregarBoteDto dto)
+        {
+            var result = await _liveOpsService.AgregarBoteAsync(dto);
+            return Ok(result);
+        }
+
+        [HttpPost("live/{id}/mover-prueba")]
+        [Authorize(Roles = "Admin,SuperAdmin")]
+        public async Task<ActionResult<InscripcionDto>> LiveMover(int id, LiveMoverPruebaDto dto)
+        {
+            var result = await _liveOpsService.MoverPruebaAsync(id, dto);
+            return Ok(result);
         }
     }
 }

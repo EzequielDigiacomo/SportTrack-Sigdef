@@ -29,6 +29,7 @@ namespace SportTrack_Sigdef.Controladores.Fase.Dtos
         public int? ParticipanteId { get; set; }
         public string? NumeroCompetidor { get; set; }
         public string? ParticipanteNombre { get; set; }
+        public int? ClubId { get; set; }
         public string? ClubNombre { get; set; }
         public string? ClubSigla { get; set; }
         

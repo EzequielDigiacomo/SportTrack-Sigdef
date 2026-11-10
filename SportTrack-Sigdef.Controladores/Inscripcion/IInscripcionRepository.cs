@@ -28,5 +28,21 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
             string? busqueda);
 
         Task ValidarReglasInscripcionAsync(int eventoPruebaId, int participanteId);
+
+        Task ReplaceTripulacionAsync(
+            Entidades.Entidades.Inscripcion inscripcion,
+            int nuevoTitularId,
+            IEnumerable<(int ParticipanteId, int? PosicionEnBote)> tripulantes);
+
+        Task<Entidades.Entidades.Participante?> GetParticipanteAsync(int participanteId);
+        Task SaveParticipanteAsync(Entidades.Entidades.Participante participante);
+        Task RemoveResultadosByInscripcionAsync(int inscripcionId, bool force);
+        Task AddResultadoAsync(Entidades.Entidades.Resultado resultado);
+        Task<Entidades.Entidades.Resultado?> GetResultadoByIdAsync(int resultadoId);
+        Task SaveResultadosAsync(IEnumerable<Entidades.Entidades.Resultado> resultados);
+        Task<Entidades.Entidades.Fase?> GetFaseByIdAsync(int faseId);
+        Task<Entidades.Entidades.Fase?> GetPrimeraFaseByEventoPruebaAsync(int eventoPruebaId);
+        Task<IEnumerable<Entidades.Entidades.Resultado>> GetResultadosByFaseAsync(int faseId);
+        Task<Entidades.Entidades.EventoPrueba?> GetEventoPruebaAsync(int eventoPruebaId);
     }
 }

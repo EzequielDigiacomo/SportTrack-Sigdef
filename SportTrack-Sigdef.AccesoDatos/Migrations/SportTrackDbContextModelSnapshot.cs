@@ -17,7 +17,7 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.0")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -496,7 +496,7 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
 
             modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.DelegadoFederacionClub", b =>
                 {
-                    b.Property<int?>("IdParticipante")
+                    b.Property<int>("IdParticipante")
                         .HasColumnType("integer");
 
                     b.Property<int?>("ClubIdClub")
@@ -761,6 +761,11 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.Property<string>("BotesHabilitados")
                         .HasColumnType("text");
 
+                    b.Property<bool>("CambiosDelegadosHabilitados")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<int>("CarrilesDisponibles")
                         .HasColumnType("integer");
 
@@ -810,6 +815,9 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("FechaInicioInscripciones")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaLimiteCambiosDelegados")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("GapEntrePruebas")
@@ -2109,6 +2117,56 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.ToTable("TimingSubmissionOutbox", (string)null);
                 });
 
+            modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.TokenAccesoCambios", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreadoPor")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("ExpiraEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.Property<int>("IdClub")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("IdEvento")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Revocado")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Usos")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdClub");
+
+                    b.HasIndex("Token")
+                        .IsUnique()
+                        .HasDatabaseName("IX_TokensAccesoCambios_Token");
+
+                    b.HasIndex("IdEvento", "IdClub")
+                        .HasDatabaseName("IX_TokensAccesoCambios_Evento_Club");
+
+                    b.ToTable("TokensAccesoCambios", "regatas");
+                });
+
             modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.TutorFederacion", b =>
                 {
                     b.Property<int>("ParticipanteId")
@@ -2729,6 +2787,25 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.Navigation("Federacion");
 
                     b.Navigation("Participante");
+                });
+
+            modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.TokenAccesoCambios", b =>
+                {
+                    b.HasOne("SportTrack_Sigdef.Entidades.Entidades.Club", "Club")
+                        .WithMany()
+                        .HasForeignKey("IdClub")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SportTrack_Sigdef.Entidades.Entidades.Evento", "Evento")
+                        .WithMany()
+                        .HasForeignKey("IdEvento")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Club");
+
+                    b.Navigation("Evento");
                 });
 
             modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.TutorFederacion", b =>

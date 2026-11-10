@@ -42,6 +42,7 @@ namespace SportTrack_Sigdef.AccesoDatos
         public DbSet<Participante> Participantes { get; set; }
         public DbSet<Inscripcion> Inscripciones { get; set; }
         public DbSet<InscripcionTripulante> InscripcionTripulantes { get; set; }
+        public DbSet<TokenAccesoCambios> TokensAccesoCambios { get; set; }
         public DbSet<Etapa> Etapas { get; set; }
         public DbSet<Fase> Fases { get; set; }
         public DbSet<ReglaProgresion> ReglasProgresion { get; set; }
@@ -366,6 +367,40 @@ namespace SportTrack_Sigdef.AccesoDatos
                     .HasForeignKey(e => e.IdFederacion)
                     .OnDelete(DeleteBehavior.SetNull);
 
+                entity.Property(e => e.CambiosDelegadosHabilitados)
+                    .HasDefaultValue(true);
+
+            });
+
+            // Tabla: TokenAccesoCambios (links mágicos pre-delegados)
+            modelBuilder.Entity<TokenAccesoCambios>(entity =>
+            {
+                entity.ToTable("TokensAccesoCambios", "regatas");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Token)
+                    .IsRequired()
+                    .HasMaxLength(64);
+
+                entity.HasIndex(e => e.Token)
+                    .IsUnique()
+                    .HasDatabaseName("IX_TokensAccesoCambios_Token");
+
+                entity.HasIndex(e => new { e.IdEvento, e.IdClub })
+                    .HasDatabaseName("IX_TokensAccesoCambios_Evento_Club");
+
+                entity.Property(e => e.FechaCreacion)
+                    .HasDefaultValueSql("NOW()");
+
+                entity.HasOne(e => e.Evento)
+                    .WithMany()
+                    .HasForeignKey(e => e.IdEvento)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Club)
+                    .WithMany()
+                    .HasForeignKey(e => e.IdClub)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // Tabla: Prueba

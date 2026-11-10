@@ -16,6 +16,16 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
         Task<IEnumerable<InscripcionDto>> GetInscripcionesByEventoAndClubAsync(int eventoId, int clubId);
         Task<bool> ToggleEsCabezaDeSerieAsync(int id);
 
+        /// <summary>
+        /// Reemplaza titular + tripulantes preservando InscripcionId (y heats).
+        /// </summary>
+        Task<InscripcionDto> UpdateTripulacionAsync(
+            int id,
+            InscripcionTripulacionUpdateDto dto,
+            int? clubScope,
+            bool bypassDeadline,
+            bool requireSameClub);
+
         Task<IEnumerable<RegistroInscripcionDto>> GetRegistroInscripcionesAsync(
             int? clubScope,
             int? federacionScope,

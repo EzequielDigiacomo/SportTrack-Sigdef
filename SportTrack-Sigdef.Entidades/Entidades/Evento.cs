@@ -19,6 +19,15 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public EstadoEventoEnum Estado { get; set; } = EstadoEventoEnum.Programada; // Usando enum
         public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
         public DateTime? FechaFinInscripciones { get; set; }
+
+        /// <summary>
+        /// Límite para que clubes (o link mágico) corrijan tripulaciones antes de la reunión de delegados.
+        /// Si es null, se usa FechaFinInscripciones como fallback.
+        /// </summary>
+        public DateTime? FechaLimiteCambiosDelegados { get; set; }
+
+        /// <summary>Habilita correcciones de tripulación pre-delegados (club / token).</summary>
+        public bool CambiosDelegadosHabilitados { get; set; } = true;
         
         // Missing fields for SIGDEF compatibility
         public bool EstaActivo { get; set; } = true;

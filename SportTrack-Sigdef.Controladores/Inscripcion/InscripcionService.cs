@@ -177,6 +177,128 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
             return true;
         }
 
+        public async Task<InscripcionDto> UpdateTripulacionAsync(
+            int id,
+            InscripcionTripulacionUpdateDto dto,
+            int? clubScope,
+            bool bypassDeadline,
+            bool requireSameClub)
+        {
+            if (dto == null || dto.ParticipanteId <= 0)
+                throw new BadRequestException("Debe indicar el participante titular.");
+
+            var inscripcion = await _inscripcionRepository.GetByIdAsync(id);
+            if (inscripcion == null)
+                throw new NotFoundException($"Inscripción con ID {id} no encontrada");
+
+            var evento = inscripcion.EventoPrueba?.Evento
+                ?? throw new BadRequestException("La inscripción no tiene evento asociado.");
+
+            if (!bypassDeadline && !EventoCambiosPolicy.PermiteCambiosDelegados(evento))
+                throw new BadRequestException("La ventana de cambios de tripulación está cerrada para este evento.");
+
+            if (bypassDeadline && !EventoCambiosPolicy.PermiteLiveOpsAdmin(evento))
+                throw new BadRequestException("El evento no admite cambios en vivo (cancelado).");
+
+            var clubInscripcion = ResolveClubId(inscripcion);
+            if (clubScope.HasValue)
+            {
+                if (!clubInscripcion.HasValue || clubInscripcion.Value != clubScope.Value)
+                    throw new UnauthorizedAccessException("No podés modificar inscripciones de otro club.");
+            }
+
+            var nuevoTitular = await _inscripcionRepository.GetParticipanteAsync(dto.ParticipanteId)
+                ?? throw new NotFoundException($"Participante {dto.ParticipanteId} no encontrado");
+
+            if (requireSameClub && clubInscripcion.HasValue && nuevoTitular.IdClub != clubInscripcion.Value)
+                throw new BadRequestException("El titular debe pertenecer al mismo club de la inscripción.");
+
+            var tripulantesNorm = NormalizeTripulantes(dto.ParticipanteId, dto.Tripulantes);
+            var allIds = new List<int> { dto.ParticipanteId };
+            allIds.AddRange(tripulantesNorm.Select(t => t.ParticipanteId));
+            if (allIds.Distinct().Count() != allIds.Count)
+                throw new BadRequestException("Hay atletas duplicados en la tripulación.");
+
+            foreach (var pid in allIds)
+            {
+                var p = pid == dto.ParticipanteId
+                    ? nuevoTitular
+                    : await _inscripcionRepository.GetParticipanteAsync(pid)
+                        ?? throw new NotFoundException($"Participante {pid} no encontrado");
+
+                if (requireSameClub && clubInscripcion.HasValue && p.IdClub != clubInscripcion.Value)
+                    throw new BadRequestException($"El atleta {p.Nombre} {p.Apellido} no pertenece al club de la inscripción.");
+
+                await _inscripcionRepository.ValidarReglasInscripcionAsync(inscripcion.IdEventoPrueba, pid);
+            }
+
+            var oldTitular = inscripcion.Participante != null
+                ? $"{inscripcion.Participante.Nombre} {inscripcion.Participante.Apellido}".Trim()
+                : $"#{inscripcion.IdParticipante}";
+            var oldCrew = string.Join(", ",
+                inscripcion.Tripulantes
+                    .Where(t => t.Participante != null)
+                    .Select(t => $"{t.Participante!.Nombre} {t.Participante.Apellido}".Trim()));
+
+            await _inscripcionRepository.ReplaceTripulacionAsync(
+                inscripcion,
+                dto.ParticipanteId,
+                tripulantesNorm.Select(t => (t.ParticipanteId, t.PosicionEnBote)));
+
+            var result = await _inscripcionRepository.GetByIdAsync(id);
+            var newTitularName = result?.Participante != null
+                ? $"{result.Participante.Nombre} {result.Participante.Apellido}".Trim()
+                : $"#{dto.ParticipanteId}";
+            var newCrew = string.Join(", ",
+                (result?.Tripulantes ?? Array.Empty<Entidades.Entidades.InscripcionTripulante>())
+                    .Where(t => t.Participante != null)
+                    .Select(t => $"{t.Participante!.Nombre} {t.Participante.Apellido}".Trim()));
+
+            await _auditService.RegistrarAccionAsync(
+                "CREW_UPDATE",
+                $"Tripulación insc. {id}: salió [{oldTitular}; {oldCrew}] → entró [{newTitularName}; {newCrew}]",
+                null,
+                "Inscripciones",
+                evento.IdEvento,
+                inscripcion.IdEventoPrueba);
+
+            return _mapper.Map<InscripcionDto>(result!);
+        }
+
+        private static int? ResolveClubId(Entidades.Entidades.Inscripcion inscripcion)
+        {
+            if (inscripcion.Participante?.IdClub != null)
+                return inscripcion.Participante.IdClub;
+
+            var fromCrew = inscripcion.Tripulantes
+                .FirstOrDefault(t => t.Participante?.IdClub != null)?.Participante?.IdClub;
+            return fromCrew;
+        }
+
+        /// <summary>
+        /// Acepta tripulantes con o sin el titular duplicado; excluye al titular de la lista de Tripulantes.
+        /// </summary>
+        private static List<InscripcionTripulanteCreateDto> NormalizeTripulantes(
+            int titularId,
+            ICollection<InscripcionTripulanteCreateDto> tripulantes)
+        {
+            var list = (tripulantes ?? Array.Empty<InscripcionTripulanteCreateDto>())
+                .Where(t => t != null && t.ParticipanteId > 0 && t.ParticipanteId != titularId)
+                .GroupBy(t => t.ParticipanteId)
+                .Select(g => g.First())
+                .ToList();
+
+            var pos = 2;
+            foreach (var t in list)
+            {
+                if (!t.PosicionEnBote.HasValue || t.PosicionEnBote < 2)
+                    t.PosicionEnBote = pos;
+                pos++;
+            }
+
+            return list;
+        }
+
         public async Task<IEnumerable<RegistroInscripcionDto>> GetRegistroInscripcionesAsync(
             int? clubScope,
             int? federacionScope,

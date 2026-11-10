@@ -119,6 +119,7 @@ namespace SportTrack_Sigdef.Controladores.Mappings
                 .ForMember(dest => dest.EventoPruebaId, opt => opt.MapFrom(src => src.Inscripcion != null ? (int?)src.Inscripcion.IdEventoPrueba : null))
                 .ForMember(dest => dest.ParticipanteId, opt => opt.MapFrom(src => src.Inscripcion != null ? src.Inscripcion.IdParticipante : null))
                 .ForMember(dest => dest.ParticipanteNombre, opt => opt.MapFrom(src => src.Inscripcion != null && src.Inscripcion.Participante != null ? $"{src.Inscripcion.Participante.Nombre} {src.Inscripcion.Participante.Apellido}" : string.Empty))
+                .ForMember(dest => dest.ClubId, opt => opt.MapFrom(src => src.Inscripcion != null && src.Inscripcion.Participante != null ? src.Inscripcion.Participante.IdClub : null))
                 .ForMember(dest => dest.ClubNombre, opt => opt.MapFrom(src => src.Inscripcion != null && src.Inscripcion.Participante != null && src.Inscripcion.Participante.Club != null ? src.Inscripcion.Participante.Club.Nombre : string.Empty))
                 .ForMember(dest => dest.ClubSigla, opt => opt.MapFrom(src => src.Inscripcion != null && src.Inscripcion.Participante != null && src.Inscripcion.Participante.Club != null ? src.Inscripcion.Participante.Club.Siglas : string.Empty))
                 .ForMember(dest => dest.NumeroCompetidor, opt => opt.MapFrom(src => src.Inscripcion != null ? src.Inscripcion.NumeroCompetidor : string.Empty))

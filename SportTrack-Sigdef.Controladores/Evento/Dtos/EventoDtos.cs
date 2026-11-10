@@ -16,6 +16,8 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public string Estado { get; set; } = string.Empty;
         public DateTime FechaCreacion { get; set; }
         public DateTime? FechaFinInscripciones { get; set; }
+        public DateTime? FechaLimiteCambiosDelegados { get; set; }
+        public bool CambiosDelegadosHabilitados { get; set; } = true;
         public int? ClubId { get; set; }
         public int? FederacionId { get; set; }
         public string? ClubNombre { get; set; }
@@ -23,6 +25,12 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public string Modalidad { get; set; } = "Velocidad";
         public bool InscripcionesHabilitadas { get; set; }
         public bool InscripcionesAbiertas => InscripcionesHabilitadas && Estado == "Programada" && (!FechaFinInscripciones.HasValue || FechaFinInscripciones.Value > DateTime.UtcNow);
+        public bool CambiosDelegadosAbiertos =>
+            CambiosDelegadosHabilitados
+            && Estado != "Finalizado"
+            && Estado != "Cancelado"
+            && (!(FechaLimiteCambiosDelegados ?? FechaFinInscripciones).HasValue
+                || (FechaLimiteCambiosDelegados ?? FechaFinInscripciones)!.Value > DateTime.UtcNow);
         
         // Reglas de Competencia
         public bool RestringirSoloCategoriaPropia { get; set; }
@@ -57,6 +65,8 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public DateTime? FechaFin { get; set; }
         public string? Ubicacion { get; set; }
         public DateTime? FechaFinInscripciones { get; set; }
+        public DateTime? FechaLimiteCambiosDelegados { get; set; }
+        public bool CambiosDelegadosHabilitados { get; set; } = true;
         public bool RestringirSoloCategoriaPropia { get; set; } = false;
         public bool PermitirSub23EnSenior { get; set; } = false;
         public bool PermitirMasterBajarASenior { get; set; } = false;
@@ -92,6 +102,8 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public string? Ubicacion { get; set; }
         public string? Estado { get; set; }
         public DateTime? FechaFinInscripciones { get; set; }
+        public DateTime? FechaLimiteCambiosDelegados { get; set; }
+        public bool? CambiosDelegadosHabilitados { get; set; }
         public bool? RestringirSoloCategoriaPropia { get; set; }
         public bool? PermitirSub23EnSenior { get; set; }
         public bool? PermitirMasterBajarASenior { get; set; }
