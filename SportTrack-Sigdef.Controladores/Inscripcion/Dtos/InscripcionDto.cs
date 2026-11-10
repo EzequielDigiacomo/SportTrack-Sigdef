@@ -22,6 +22,10 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion.Dtos
         public string? EventoNombre { get; set; }
         public DateTime? FechaEvento { get; set; }
         public string? PruebaNombre { get; set; }
+        /// <summary>Categoría de la prueba (para filtrar reemplazos).</summary>
+        public int? CategoriaId { get; set; }
+        /// <summary>Sexo de la prueba (1 Masc, 2 Fem, 3 Mixto).</summary>
+        public int? SexoId { get; set; }
 
         public ICollection<InscripcionTripulanteDto> Tripulantes { get; set; } = new List<InscripcionTripulanteDto>();
     }

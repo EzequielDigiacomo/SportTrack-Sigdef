@@ -136,7 +136,9 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
                 {
                     Id = p.ParticipanteId,
                     Nombre = p.Nombre,
-                    Apellido = p.Apellido
+                    Apellido = p.Apellido,
+                    CategoriaId = p.CategoriaId,
+                    SexoId = p.SexoId
                 })
                 .ToListAsync();
 

@@ -86,5 +86,7 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion.Dtos
         public int Id { get; set; }
         public string Nombre { get; set; } = string.Empty;
         public string Apellido { get; set; } = string.Empty;
+        public int? CategoriaId { get; set; }
+        public int SexoId { get; set; }
     }
 }
