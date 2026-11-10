@@ -158,6 +158,13 @@ namespace SportTrack_Sigdef.Controladores.Evento
                     : "Velocidad";
             }
 
+            // Asegurar tenant de federación (el front ya manda federacionId en el update).
+            if (eventoDto.FederacionId.HasValue && eventoDto.FederacionId.Value > 0)
+                existing.IdFederacion = eventoDto.FederacionId;
+            else if ((!existing.IdFederacion.HasValue || existing.IdFederacion.Value <= 0)
+                     && existing.Club?.IdFederacion is int fedClub && fedClub > 0)
+                existing.IdFederacion = fedClub;
+
             existing.Fecha = DateTime.SpecifyKind(existing.Fecha, DateTimeKind.Utc);
             if (existing.FechaFin.HasValue)
             {

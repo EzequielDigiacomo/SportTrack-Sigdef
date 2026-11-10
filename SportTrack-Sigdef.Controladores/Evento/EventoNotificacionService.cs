@@ -128,18 +128,30 @@ namespace SportTrack_Sigdef.Controladores.Evento
             {
                 if (before == null || after == null) return;
 
-                var fedId = after.IdFederacion ?? before.IdFederacion;
+                var fedId = ResolveFederacionId(after, before);
                 if (!fedId.HasValue || fedId.Value <= 0)
                 {
-                    _logger.LogWarning("Evento {EventoId}: sin FederacionId en update, no se envía mensaje.", after.IdEvento);
+                    _logger.LogWarning(
+                        "Evento {EventoId}: sin FederacionId (ni en evento ni en club), no se envía mensaje de update.",
+                        after.IdEvento);
                     return;
                 }
+
+                // Backfill en memoria para próximos usos (persistido si el update ya mandó FederacionId).
+                if (!after.IdFederacion.HasValue || after.IdFederacion.Value <= 0)
+                    after.IdFederacion = fedId;
 
                 if (EsControl(after.Nombre) || EsControl(before.Nombre)) return;
 
                 var tz = ResolveTimeZone(after.TimeZoneId ?? before.TimeZoneId);
                 var cambios = DetectarCambios(before, after, tz);
-                if (cambios.Count == 0) return;
+                if (cambios.Count == 0)
+                {
+                    _logger.LogInformation(
+                        "Evento {EventoId}: update sin cambios notificados a clubes (fechas/lugar/config).",
+                        after.IdEvento);
+                    return;
+                }
 
                 var nombre = (after.Nombre ?? before.Nombre ?? string.Empty).Trim();
                 var asunto = $"Evento actualizado: {nombre}";
@@ -156,6 +168,14 @@ namespace SportTrack_Sigdef.Controladores.Evento
             {
                 _logger.LogError(ex, "Evento {EventoId}: falló el mensaje privado de actualización.", after?.IdEvento);
             }
+        }
+
+        private static int? ResolveFederacionId(Entidades.Entidades.Evento after, EventoSnapshot before)
+        {
+            if (after.IdFederacion is int fedAfter && fedAfter > 0) return fedAfter;
+            if (before.IdFederacion is int fedBefore && fedBefore > 0) return fedBefore;
+            if (after.Club?.IdFederacion is int fedClub && fedClub > 0) return fedClub;
+            return null;
         }
 
         private async Task EnviarAClubesAsync(int fedId, int eventoId, string asunto, string cuerpo)

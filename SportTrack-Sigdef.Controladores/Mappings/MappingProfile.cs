@@ -109,6 +109,8 @@ namespace SportTrack_Sigdef.Controladores.Mappings
                 .ForMember(dest => dest.PerfilTiempo, opt => opt.MapFrom(src => Enum.Parse<PerfilTiempoEnum>(src.PerfilTiempo)));
 
             CreateMap<EventoUpdateDto, Entidades.Entidades.Evento>()
+                .ForMember(dest => dest.IdClub, opt => opt.MapFrom(src => src.ClubId))
+                .ForMember(dest => dest.IdFederacion, opt => opt.MapFrom(src => src.FederacionId))
                 .ForMember(dest => dest.HoraInicioEvento, opt => opt.MapFrom(src => string.IsNullOrEmpty(src.HoraInicioEvento) ? default : TimeSpan.Parse(src.HoraInicioEvento)))
                 .ForMember(dest => dest.HoraInicioReceso, opt => opt.MapFrom(src => string.IsNullOrEmpty(src.HoraInicioReceso) ? default : TimeSpan.Parse(src.HoraInicioReceso)))
                 .ForMember(dest => dest.HoraFinReceso, opt => opt.MapFrom(src => string.IsNullOrEmpty(src.HoraFinReceso) ? default : TimeSpan.Parse(src.HoraFinReceso)))

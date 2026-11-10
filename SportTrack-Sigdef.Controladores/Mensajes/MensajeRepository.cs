@@ -126,8 +126,9 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             var admin = await _context.Usuarios
                 .AsNoTracking()
                 .Where(u => u.EstaActivo
-                    && u.RolFederacion == "Admin"
-                    && u.IdFederacion == idFederacion)
+                    && u.IdFederacion == idFederacion
+                    && u.RolFederacion != null
+                    && (u.RolFederacion == "Admin" || u.RolFederacion == "admin"))
                 .OrderBy(u => u.IdUsuario)
                 .FirstOrDefaultAsync();
 
@@ -135,7 +136,9 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
 
             return await _context.Usuarios
                 .AsNoTracking()
-                .Where(u => u.EstaActivo && u.RolFederacion == "SuperAdmin")
+                .Where(u => u.EstaActivo
+                    && u.RolFederacion != null
+                    && (u.RolFederacion == "SuperAdmin" || u.RolFederacion == "superadmin"))
                 .OrderBy(u => u.IdUsuario)
                 .FirstOrDefaultAsync();
         }
@@ -146,20 +149,31 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 .Where(u => u.EstaActivo && u.IdClub == clubId)
                 .ToListAsync();
 
-        public Task<List<Usuario>> GetUsuariosActivosClubesByFederacionAsync(int idFederacion) =>
-            _context.Usuarios
+        public async Task<List<Usuario>> GetUsuariosActivosClubesByFederacionAsync(int idFederacion)
+        {
+            var clubIds = await _context.Clubes
+                .AsNoTracking()
+                .Where(c => c.IdFederacion == idFederacion)
+                .Select(c => c.IdClub)
+                .ToListAsync();
+
+            // Usuarios de clubes de la federación (excluye Admin/SuperAdmin).
+            // No exigimos Rol exacto "Club": en datos reales a veces viene con otra capitalización.
+            return await _context.Usuarios
                 .AsNoTracking()
                 .Where(u => u.EstaActivo
                     && u.IdClub != null
-                    && u.RolFederacion != null
-                    && u.RolFederacion.ToLower() == "club"
                     && (
-                        u.IdFederacion == idFederacion
-                        || _context.Clubes.Any(c =>
-                            c.IdClub == u.IdClub
-                            && c.IdFederacion == idFederacion)
-                    ))
+                        clubIds.Contains(u.IdClub.Value)
+                        || u.IdFederacion == idFederacion
+                    )
+                    && (u.RolFederacion == null
+                        || (u.RolFederacion != "Admin"
+                            && u.RolFederacion != "admin"
+                            && u.RolFederacion != "SuperAdmin"
+                            && u.RolFederacion != "superadmin")))
                 .ToListAsync();
+        }
 
         public Task<List<Usuario>> GetUsuariosAdminByFederacionAsync(int idFederacion) =>
             _context.Usuarios

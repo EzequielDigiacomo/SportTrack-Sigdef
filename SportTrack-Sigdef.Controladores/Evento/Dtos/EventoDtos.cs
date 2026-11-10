@@ -112,6 +112,7 @@ namespace SportTrack_Sigdef.Controladores.Evento.Dtos
         public bool? PermitirMezclarCategorias { get; set; }
         public bool? InscripcionesHabilitadas { get; set; }
         public int? ClubId { get; set; }
+        public int? FederacionId { get; set; }
         /// <summary>Velocidad | Maraton</summary>
         public string? Modalidad { get; set; }
         public string? HoraInicioEvento { get; set; }
