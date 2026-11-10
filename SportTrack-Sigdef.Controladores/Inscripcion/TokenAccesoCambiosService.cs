@@ -137,6 +137,7 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
                     Id = p.ParticipanteId,
                     Nombre = p.Nombre,
                     Apellido = p.Apellido,
+                    ClubId = p.IdClub,
                     CategoriaId = p.CategoriaId,
                     SexoId = p.SexoId
                 })
