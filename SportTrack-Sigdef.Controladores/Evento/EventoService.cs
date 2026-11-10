@@ -142,6 +142,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
             
             var fechaAnterior = existing.Fecha;
             var fechaFinAnterior = existing.FechaFin;
+            var snapshotAntes = EventoSnapshot.From(existing);
 
             // Normalizar alias del front ("Programado" → "Programada") antes del map.
             if (string.Equals(eventoDto.Estado, "Programado", StringComparison.OrdinalIgnoreCase))
@@ -199,6 +200,10 @@ namespace SportTrack_Sigdef.Controladores.Evento
                 $"Evento actualizado: {result.Nombre} (ID: {id})", null, "Eventos", id);
 
             _liveCache.InvalidateEvento(id);
+
+            if (fullEvento != null)
+                await _eventoNotificacion.NotificarEventoActualizadoAsync(snapshotAntes, fullEvento);
+
             return _mapper.Map<EventoDto>(fullEvento);
         }
 
