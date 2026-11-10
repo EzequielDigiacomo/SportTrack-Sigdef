@@ -36,14 +36,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
                 .AsNoTracking()
                 .ToListAsync();
 
-            // Corrección al vuelo para atletas afectados por el hueco de edad (36-39)
-            foreach (var p in list)
-            {
-                if (p.CategoriaId == 11 && p.Edad >= 36 && p.Edad <= 39)
-                {
-                    p.Categoria = new Entidades.Entidades.Categoria { Id = 7, Nombre = "Senior" };
-                }
-            }
+            await ApplyCategoriaPorEdadAsync(list);
             return list;
         }
 
@@ -55,10 +48,8 @@ namespace SportTrack_Sigdef.Controladores.Participante
                 .Include(p => p.Club)
                 .FirstOrDefaultAsync(p => p.ParticipanteId == id);
 
-            if (p != null && p.CategoriaId == 11 && p.Edad >= 36 && p.Edad <= 39)
-            {
-                p.Categoria = new Entidades.Entidades.Categoria { Id = 7, Nombre = "Senior" };
-            }
+            if (p != null)
+                await ApplyCategoriaPorEdadAsync(new[] { p });
             return p;
         }
 
@@ -72,14 +63,7 @@ namespace SportTrack_Sigdef.Controladores.Participante
                 .AsNoTracking()
                 .ToListAsync();
 
-            // Corrección al vuelo para la grilla
-            foreach (var p in list)
-            {
-                if (p.CategoriaId == 11 && p.Edad >= 36 && p.Edad <= 39)
-                {
-                    p.Categoria = new Entidades.Entidades.Categoria { Id = 7, Nombre = "Senior" };
-                }
-            }
+            await ApplyCategoriaPorEdadAsync(list);
             return list;
         }
 
@@ -99,15 +83,43 @@ namespace SportTrack_Sigdef.Controladores.Participante
                 .AsNoTracking()
                 .ToListAsync();
 
-            // Corrección al vuelo para la grilla
-            foreach (var p in list)
-            {
-                if (p.CategoriaId == 11 && p.Edad >= 36 && p.Edad <= 39)
-                {
-                    p.Categoria = new Entidades.Entidades.Categoria { Id = 7, Nombre = "Senior" };
-                }
-            }
+            await ApplyCategoriaPorEdadAsync(list);
             return list;
+        }
+
+        /// <summary>
+        /// Alinea la categoría mostrada con el rango de edad real (evita "Menor" en atletas de 12, etc.).
+        /// Solo corrige en memoria para listados; no persiste.
+        /// </summary>
+        private async Task ApplyCategoriaPorEdadAsync(IEnumerable<Entidades.Entidades.Participante> participantes)
+        {
+            var cats = await _context.Categorias
+                .AsNoTracking()
+                .Where(c => c.Nombre != "Control")
+                .ToListAsync();
+
+            foreach (var p in participantes)
+            {
+                var edad = p.Edad;
+                // Hueco legacy 36-39 que quedó en Control
+                if (p.CategoriaId == 11 && edad >= 36 && edad <= 39)
+                {
+                    p.CategoriaId = 7;
+                    p.Categoria = cats.FirstOrDefault(c => c.Id == 7)
+                        ?? new Entidades.Entidades.Categoria { Id = 7, Nombre = "Senior" };
+                    continue;
+                }
+
+                var porEdad = cats.FirstOrDefault(c =>
+                    (c.EdadMin == null || edad >= c.EdadMin) &&
+                    (c.EdadMax == null || edad <= c.EdadMax));
+
+                if (porEdad == null) continue;
+                if (p.CategoriaId == porEdad.Id) continue;
+
+                p.CategoriaId = porEdad.Id;
+                p.Categoria = porEdad;
+            }
         }
 
         public async Task<Entidades.Entidades.Participante> CreateAsync(Entidades.Entidades.Participante participante)

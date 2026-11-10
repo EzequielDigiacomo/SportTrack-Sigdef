@@ -47,6 +47,10 @@ namespace SportTrack_Sigdef.Controladores.Inscripcion
             if (!inscripcionDto.ParticipanteId.HasValue || inscripcionDto.ParticipanteId <= 0)
                 throw new BadRequestException("Debe indicar el participante titular de la inscripción.");
 
+            // Si no viene Nº, usar el id del atleta titular (dato único estable; evita placeholders tipo BOTE-xxxx).
+            if (string.IsNullOrWhiteSpace(inscripcionDto.NumeroCompetidor))
+                inscripcionDto.NumeroCompetidor = inscripcionDto.ParticipanteId.Value.ToString();
+
             var inscripcion = _mapper.Map<Entidades.Entidades.Inscripcion>(inscripcionDto);
             var createdInscripcion = await _inscripcionRepository.CreateAsync(inscripcion);
             
