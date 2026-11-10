@@ -364,6 +364,11 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             string sistemaOrigen = MensajeriaSistemaOrigen.Sigdef)
         {
             var emisor = await _repository.GetEmisorNotificacionFederacionAsync(idFederacion);
+            if (emisor == null)
+            {
+                var supers = await _repository.GetUsuariosSuperAdminAsync();
+                emisor = supers.FirstOrDefault();
+            }
             if (emisor == null) return;
 
             ValidarContenido(asunto, cuerpo);

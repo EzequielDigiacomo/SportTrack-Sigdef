@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using SportTrack_Sigdef.Controladores.Evento.Dtos;
 using SportTrack_Sigdef.Controladores.Mensajes;
 using SportTrack_Sigdef.Entidades.Entidades;
@@ -21,15 +22,21 @@ namespace SportTrack_Sigdef.Controladores.Evento
     public class EventoNotificacionService : IEventoNotificacionService
     {
         private const string DefaultTimeZoneId = "America/Argentina/Buenos_Aires";
+        private const string WindowsArgentinaTimeZoneId = "Argentina Standard Time";
         private static readonly CultureInfo EsAr = CultureInfo.GetCultureInfo("es-AR");
 
         private readonly IMensajeRepository _mensajeRepository;
         private readonly IMensajeService _mensajeService;
+        private readonly ILogger<EventoNotificacionService> _logger;
 
-        public EventoNotificacionService(IMensajeRepository mensajeRepository, IMensajeService mensajeService)
+        public EventoNotificacionService(
+            IMensajeRepository mensajeRepository,
+            IMensajeService mensajeService,
+            ILogger<EventoNotificacionService> logger)
         {
             _mensajeRepository = mensajeRepository;
             _mensajeService = mensajeService;
+            _logger = logger;
         }
 
         public async Task NotificarEventoCreadoAsync(EventoDto evento)
@@ -37,28 +44,43 @@ namespace SportTrack_Sigdef.Controladores.Evento
             try
             {
                 if (evento == null) return;
-                if (!evento.FederacionId.HasValue || evento.FederacionId.Value <= 0) return;
+                if (!evento.FederacionId.HasValue || evento.FederacionId.Value <= 0)
+                {
+                    _logger.LogWarning("Evento {EventoId}: sin FederacionId, no se envía mensaje a clubes.", evento.Id);
+                    return;
+                }
                 if (evento.Nombre.Contains("control", StringComparison.OrdinalIgnoreCase)) return;
 
+                var fedId = evento.FederacionId.Value;
                 var destinatarios = await _mensajeRepository
-                    .GetUsuariosActivosClubesByFederacionAsync(evento.FederacionId.Value);
+                    .GetUsuariosActivosClubesByFederacionAsync(fedId);
 
                 var ids = destinatarios.Select(u => u.IdUsuario).Distinct().ToList();
-                if (ids.Count == 0) return;
+                if (ids.Count == 0)
+                {
+                    _logger.LogWarning(
+                        "Evento {EventoId} fed {FedId}: no hay usuarios Club activos para mensaje privado.",
+                        evento.Id, fedId);
+                    return;
+                }
 
                 var tz = ResolveTimeZone(evento.TimeZoneId);
                 var (asunto, cuerpo) = ConstruirMensaje(evento, tz);
 
                 await _mensajeService.EnviarNotificacionAutomaticaAsync(
-                    evento.FederacionId.Value,
+                    fedId,
                     ids,
                     asunto,
                     cuerpo,
                     MensajeriaSistemaOrigen.SportTrack);
+
+                _logger.LogInformation(
+                    "Evento {EventoId}: mensaje privado enviado a {Count} usuarios Club (fed {FedId}).",
+                    evento.Id, ids.Count, fedId);
             }
-            catch
+            catch (Exception ex)
             {
-                // No interrumpir la creación del evento si falla el aviso.
+                _logger.LogError(ex, "Evento {EventoId}: falló el mensaje privado de creación.", evento?.Id);
             }
         }
 
@@ -98,40 +120,44 @@ namespace SportTrack_Sigdef.Controladores.Evento
 
         private static string FormatearFecha(DateTime utc, TimeZoneInfo tz)
         {
-            var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), tz);
+            var local = TimeZoneInfo.ConvertTimeFromUtc(AsUtc(utc), tz);
             return local.ToString("dd/MM/yyyy", EsAr);
         }
 
         private static string FormatearFechaHora(DateTime utc, TimeZoneInfo tz)
         {
-            var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), tz);
+            var local = TimeZoneInfo.ConvertTimeFromUtc(AsUtc(utc), tz);
             return local.ToString("dd/MM/yyyy HH:mm", EsAr);
         }
 
+        private static DateTime AsUtc(DateTime value) =>
+            value.Kind == DateTimeKind.Utc
+                ? value
+                : DateTime.SpecifyKind(value, DateTimeKind.Utc);
+
         private static TimeZoneInfo ResolveTimeZone(string? timeZoneId)
         {
-            if (string.IsNullOrWhiteSpace(timeZoneId))
-                timeZoneId = DefaultTimeZoneId;
-
-            try
+            foreach (var id in new[]
+                     {
+                         timeZoneId,
+                         DefaultTimeZoneId,
+                         WindowsArgentinaTimeZoneId,
+                     })
             {
-                return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
-            }
-            catch (TimeZoneNotFoundException)
-            {
+                if (string.IsNullOrWhiteSpace(id)) continue;
                 try
                 {
-                    return TimeZoneInfo.FindSystemTimeZoneById(DefaultTimeZoneId);
+                    return TimeZoneInfo.FindSystemTimeZoneById(id);
                 }
-                catch
-                {
-                    return TimeZoneInfo.Utc;
-                }
+                catch (TimeZoneNotFoundException) { }
+                catch (InvalidTimeZoneException) { }
             }
-            catch (InvalidTimeZoneException)
-            {
-                return TimeZoneInfo.FindSystemTimeZoneById(DefaultTimeZoneId);
-            }
+
+            return TimeZoneInfo.CreateCustomTimeZone(
+                "SportTrack-ART",
+                TimeSpan.FromHours(-3),
+                "Argentina",
+                "Argentina");
         }
     }
 }

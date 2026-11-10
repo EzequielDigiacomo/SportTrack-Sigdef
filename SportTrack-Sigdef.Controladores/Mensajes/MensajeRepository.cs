@@ -151,10 +151,14 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 .AsNoTracking()
                 .Where(u => u.EstaActivo
                     && u.IdClub != null
-                    && u.RolFederacion == "Club"
-                    && _context.Clubes.Any(c =>
-                        c.IdClub == u.IdClub
-                        && c.IdFederacion == idFederacion))
+                    && u.RolFederacion != null
+                    && u.RolFederacion.ToLower() == "club"
+                    && (
+                        u.IdFederacion == idFederacion
+                        || _context.Clubes.Any(c =>
+                            c.IdClub == u.IdClub
+                            && c.IdFederacion == idFederacion)
+                    ))
                 .ToListAsync();
 
         public Task<List<Usuario>> GetUsuariosAdminByFederacionAsync(int idFederacion) =>
