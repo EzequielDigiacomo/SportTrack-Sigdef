@@ -146,6 +146,17 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                 .Where(u => u.EstaActivo && u.IdClub == clubId)
                 .ToListAsync();
 
+        public Task<List<Usuario>> GetUsuariosActivosClubesByFederacionAsync(int idFederacion) =>
+            _context.Usuarios
+                .AsNoTracking()
+                .Where(u => u.EstaActivo
+                    && u.IdClub != null
+                    && u.RolFederacion == "Club"
+                    && _context.Clubes.Any(c =>
+                        c.IdClub == u.IdClub
+                        && c.IdFederacion == idFederacion))
+                .ToListAsync();
+
         public Task<List<Usuario>> GetUsuariosAdminByFederacionAsync(int idFederacion) =>
             _context.Usuarios
                 .AsNoTracking()

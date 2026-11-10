@@ -24,7 +24,7 @@ namespace SportTrack_Sigdef.Controladores.Fase
         Task<bool> DeleteFaseAsync(int id);
         Task<FaseDto> ReiniciarFaseAsync(int id, string motivo, string? categoria = null);
         Task<FaseDto> EnviarARevisionAsync(int id);
-        Task<IEnumerable<FaseDto>> GetFasesPorEventoAsync(int eventoId);
+        Task<IEnumerable<FaseDto>> GetFasesPorEventoAsync(int eventoId, bool bypassCache = false);
         Task BatchUpdateFasesAsync(List<FaseBatchUpdateDto> dto);
         Task<IEnumerable<FaseDto>> GenerarFasesManualAsync(int eventoPruebaId, List<ManualPlacementDto> placements);
         /// <summary>Maratón: una fase "Largada" con todos los inscritos de las EventoPrueba del grupo.</summary>
@@ -856,8 +856,11 @@ namespace SportTrack_Sigdef.Controladores.Fase
             return _mapper.Map<FaseDto>(fase);
         }
 
-        public async Task<IEnumerable<FaseDto>> GetFasesPorEventoAsync(int eventoId)
+        public async Task<IEnumerable<FaseDto>> GetFasesPorEventoAsync(int eventoId, bool bypassCache = false)
         {
+            if (bypassCache)
+                _liveCache.InvalidateEvento(eventoId);
+
             return await _liveCache.GetOrCreateAsync(
                 LiveCacheKeys.FasesByEvento(eventoId),
                 LiveReadTtl,

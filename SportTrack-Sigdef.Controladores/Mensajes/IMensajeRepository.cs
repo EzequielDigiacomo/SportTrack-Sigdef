@@ -19,6 +19,7 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
         Task<int> CountNoLeidosAsync(int usuarioId, string sistemaOrigen);
         Task<Usuario?> GetEmisorNotificacionFederacionAsync(int idFederacion);
         Task<List<Usuario>> GetUsuariosActivosByClubAsync(int clubId);
+        Task<List<Usuario>> GetUsuariosActivosClubesByFederacionAsync(int idFederacion);
         Task<List<Usuario>> GetUsuariosAdminByFederacionAsync(int idFederacion);
         Task<List<Usuario>> GetUsuariosSuperAdminAsync();
     }

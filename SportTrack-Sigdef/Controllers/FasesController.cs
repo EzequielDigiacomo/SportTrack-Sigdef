@@ -34,9 +34,9 @@ namespace SportTrack_Sigdef.Controllers
         [HttpGet("all-by-evento/{eventoId}")]
         [AllowAnonymous]
         [EnableRateLimiting("live")]
-        public async Task<ActionResult<IEnumerable<FaseDto>>> GetFasesPorEvento(int eventoId)
+        public async Task<ActionResult<IEnumerable<FaseDto>>> GetFasesPorEvento(int eventoId, [FromQuery] bool refresh = false)
         {
-            var fases = await _faseService.GetFasesPorEventoAsync(eventoId);
+            var fases = await _faseService.GetFasesPorEventoAsync(eventoId, bypassCache: refresh);
             return Ok(fases);
         }
 

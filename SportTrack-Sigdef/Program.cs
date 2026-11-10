@@ -222,6 +222,7 @@ builder.Services.AddScoped<IParticipanteRepository, ParticipanteRepository>();
 builder.Services.AddScoped<IEventoService, EventoService>();
 builder.Services.AddScoped<IEventoRepository, EventoRepository>();
 builder.Services.AddScoped<IEventoEstadoSyncService, EventoEstadoSyncService>();
+builder.Services.AddScoped<IEventoNotificacionService, EventoNotificacionService>();
 builder.Services.AddHostedService<EventoEstadoBackgroundService>();
 // Fases y Resultados
 builder.Services.AddScoped<IEtapaRepository, EtapaRepository>();

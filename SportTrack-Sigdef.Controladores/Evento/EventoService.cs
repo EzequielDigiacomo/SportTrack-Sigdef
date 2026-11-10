@@ -21,6 +21,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
         private readonly IEventoEstadoSyncService _estadoSyncService;
         private readonly ILiveCacheService _liveCache;
         private readonly INotificationBroadcastService _notificationBroadcast;
+        private readonly IEventoNotificacionService _eventoNotificacion;
 
         public EventoService(
             IEventoRepository eventoRepository,
@@ -28,7 +29,8 @@ namespace SportTrack_Sigdef.Controladores.Evento
             Audit.IAuditService auditService,
             IEventoEstadoSyncService estadoSyncService,
             ILiveCacheService liveCache,
-            INotificationBroadcastService notificationBroadcast)
+            INotificationBroadcastService notificationBroadcast,
+            IEventoNotificacionService eventoNotificacion)
         {
             _eventoRepository = eventoRepository;
             _mapper = mapper;
@@ -36,6 +38,7 @@ namespace SportTrack_Sigdef.Controladores.Evento
             _estadoSyncService = estadoSyncService;
             _liveCache = liveCache;
             _notificationBroadcast = notificationBroadcast;
+            _eventoNotificacion = eventoNotificacion;
         }
 
         public async Task<IEnumerable<EventoDto>> GetAllEventosAsync(
@@ -122,6 +125,8 @@ namespace SportTrack_Sigdef.Controladores.Evento
                 ubicacion = createdEventoDto.Ubicacion,
                 inscripcionesAbiertas = createdEventoDto.InscripcionesAbiertas,
             });
+
+            await _eventoNotificacion.NotificarEventoCreadoAsync(createdEventoDto);
         }
 
         public async Task<EventoDto> UpdateEventoAsync(int id, EventoUpdateDto eventoDto, int? clubId = null)

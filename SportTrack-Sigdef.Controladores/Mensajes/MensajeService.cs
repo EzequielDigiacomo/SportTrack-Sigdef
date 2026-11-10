@@ -380,6 +380,9 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
             if (activos.Count == 0) return;
 
             var ahora = DateTime.UtcNow;
+            var cuerpoTrim = cuerpo.Trim();
+            var pendientes = new List<(Hilo Hilo, Usuario Destinatario)>();
+
             foreach (var destinatario in activos)
             {
                 var hilo = new Hilo
@@ -395,15 +398,21 @@ namespace SportTrack_Sigdef.Controladores.Mensajes
                     Hilo = hilo,
                     RemitenteId = emisor.IdUsuario,
                     DestinatarioId = destinatario.IdUsuario,
-                    Cuerpo = cuerpo.Trim(),
+                    Cuerpo = cuerpoTrim,
                     EnviadoEn = ahora
                 };
 
                 await _repository.AddHiloAsync(hilo);
                 await _repository.AddMensajeAsync(mensaje);
+                pendientes.Add((hilo, destinatario));
             }
 
             await _repository.SaveChangesAsync();
+
+            foreach (var (hilo, destinatario) in pendientes)
+            {
+                await NotifyMessageRecipientAsync(destinatario, hilo, emisor, cuerpoTrim);
+            }
         }
 
         private async Task<Usuario> RequireUsuarioAsync(string username)
