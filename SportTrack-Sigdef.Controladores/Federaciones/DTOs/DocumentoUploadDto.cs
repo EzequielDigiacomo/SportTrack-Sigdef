@@ -8,5 +8,6 @@ namespace SportTrack_Sigdef.Entidades.DTOs
         public IFormFile File { get; set; }
         public int PersonaId { get; set; }
         public int TipoDocumento { get; set; }
+        public DateTime? FechaVencimiento { get; set; }
     }
 }

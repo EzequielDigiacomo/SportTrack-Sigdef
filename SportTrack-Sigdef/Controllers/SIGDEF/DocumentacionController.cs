@@ -33,7 +33,7 @@ namespace SIGDEF.API.Controllers
                 if (dto.PersonaId <= 0)
                     return BadRequest(new { success = false, error = "PersonaId inválido." });
 
-                var result = await _documentacionService.UploadAsync(dto.File, dto.PersonaId, dto.TipoDocumento);
+                var result = await _documentacionService.UploadAsync(dto.File, dto.PersonaId, dto.TipoDocumento, dto.FechaVencimiento);
                 return Ok(result);
             }
             catch (KeyNotFoundException ex)

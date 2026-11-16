@@ -26,8 +26,20 @@ namespace SportTrack_Sigdef.Entidades.DTOs.AtletaFederacion
         public decimal MontoBeca { get; set; }
         public bool PresentoAptoMedico { get; set; }
         public DateTime? FechaAptoMedico { get; set; }
-         public DateTime FechaCreacion { get; set; }
-        // Información relacionada
+        public DateTime? FechaVencimientoApto { get; set; }
+        public DateTime FechaCreacion { get; set; }
+
+        public EstadoFichaje EstadoFichaje { get; set; }
+        public DateTime? FechaEnvioFichaje { get; set; }
+        public DateTime? FechaRevision { get; set; }
+        public string? MotivoRevision { get; set; }
+
+        public bool EstaHabilitado { get; set; }
+        public string EstadoHabilitacion { get; set; } = "NoHabilitado";
+        public string EstadoApto { get; set; } = "Faltante";
+        public List<string> MotivosBloqueo { get; set; } = new();
+        public List<string> DocsFaltantes { get; set; } = new();
+
         public PersonaDto? Participante { get; set; }
         public ClubDto? Club { get; set; }
         public List<InscripcionDto>? Inscripciones { get; set; }

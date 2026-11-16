@@ -28,6 +28,7 @@ namespace SportTrack_Sigdef.AccesoDatos
         public DbSet<EntrenadorFederacion> Entrenadores { get; set; }
         public DbSet<TutorFederacion> Tutores { get; set; }
         public DbSet<AtletaFederacion> AtletasFederados { get; set; }
+        public DbSet<FichajeRevisionHistorial> FichajeRevisionHistorial { get; set; }
         public DbSet<AtletaFederacionTutor> AtletasTutores { get; set; }
         public DbSet<RolFederacion> Roles { get; set; }
         public DbSet<DocumentacionFederacionPersona> DocumentacionPersonas { get; set; }
@@ -119,6 +120,16 @@ namespace SportTrack_Sigdef.AccesoDatos
             });
             modelBuilder.Entity<RolFederacion>(entity => { entity.ToTable("Roles", "federacion"); });
             modelBuilder.Entity<DocumentacionFederacionPersona>(entity => { entity.ToTable("DocumentacionPersonas", "federacion"); });
+            modelBuilder.Entity<FichajeRevisionHistorial>(entity =>
+            {
+                entity.ToTable("FichajeRevisionHistorial", "federacion");
+                entity.HasKey(e => e.Id);
+                entity.HasOne(e => e.Atleta)
+                    .WithMany(a => a.HistorialFichaje)
+                    .HasForeignKey(e => e.ParticipanteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasIndex(e => e.ParticipanteId);
+            });
             modelBuilder.Entity<PagoFederacionTransaccion>(entity => { entity.ToTable("PagosTransacciones", "federacion"); });
 
             modelBuilder.Entity<PeriodoTraspaso>(entity =>

@@ -2,6 +2,7 @@
 using SIGDEF.DTOs;
 using SportTrack_Sigdef.Entidades.DTOs.AtletaFederacion;
 using SportTrack_Sigdef.Entidades.DTOs.Base;
+using SportTrack_Sigdef.Entidades.Enums;
 
 namespace SportTrack_Sigdef.Controladores.Federaciones
 {
@@ -16,5 +17,14 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
         Task<ActionResult<AtletaDto>> PostAtletaFull(AtletaFullCreateDto atletaFullCreateDto);
         Task<IActionResult> PutAtleta(int id, AtletaCreateDto atletaCreateDto);
         Task<IActionResult> LiberarAtleta(int id);
+
+        Task<ActionResult<IEnumerable<AtletaDetailDto>>> GetFichajesPendientes(EstadoFichaje? estado = null);
+        Task<IActionResult> AprobarFichaje(int id);
+        Task<IActionResult> ObservarFichaje(int id, FichajeRevisionRequestDto dto);
+        Task<IActionResult> RechazarFichaje(int id, FichajeRevisionRequestDto dto);
+        Task<ActionResult<IEnumerable<FichajeHistorialDto>>> GetHistorialFichaje(int id);
+
+        Task<ActionResult<IEnumerable<PadronAtletaDto>>> GetPadron(PadronFiltroDto filtro);
+        Task<ActionResult<ReporteAdminResumenDto>> GetReporteResumen();
     }
 }

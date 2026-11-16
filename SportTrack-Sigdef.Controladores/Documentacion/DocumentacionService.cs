@@ -10,7 +10,7 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
 {
     public interface IDocumentacionService
     {
-        Task<object> UploadAsync(IFormFile file, int personaId, int tipoDocumento);
+        Task<object> UploadAsync(IFormFile file, int personaId, int tipoDocumento, DateTime? fechaVencimiento = null);
         Task<IEnumerable<object>> GetByPersonaAsync(int personaId);
         Task<bool> DeleteAsync(int id);
     }
@@ -37,7 +37,7 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
             }
         }
 
-        public async Task<object> UploadAsync(IFormFile file, int personaId, int tipoDocumento)
+        public async Task<object> UploadAsync(IFormFile file, int personaId, int tipoDocumento, DateTime? fechaVencimiento = null)
         {
             FileUploadRules.Validate(file);
 
@@ -121,10 +121,28 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
                 TipoDocumento = tipoDocumento,
                 UrlArchivo = urlArchivo,
                 PublicId = publicId,
-                FechaCarga = DateTime.UtcNow
+                FechaCarga = DateTime.UtcNow,
+                FechaVencimiento = fechaVencimiento.HasValue
+                    ? DateTime.SpecifyKind(fechaVencimiento.Value, DateTimeKind.Utc)
+                    : null,
+                EstadoRevision = SportTrack_Sigdef.Entidades.Enums.EstadoRevisionDocumento.Pendiente
             };
 
             _context.DocumentacionPersonas.Add(entity);
+
+            // Si es apto médico con vencimiento, sincronizar ficha del atleta
+            if (tipoDocumento == (int)SportTrack_Sigdef.Entidades.Enums.TipoDocumentoFederacion.AptoMedico
+                && entity.FechaVencimiento.HasValue)
+            {
+                var atleta = await _context.AtletasFederados.FindAsync(personaId);
+                if (atleta != null)
+                {
+                    atleta.PresentoAptoMedico = true;
+                    atleta.FechaAptoMedico ??= DateTime.UtcNow;
+                    atleta.FechaVencimientoApto = entity.FechaVencimiento;
+                }
+            }
+
             await _context.SaveChangesAsync();
 
             return MapDoc(entity);
@@ -171,6 +189,9 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
             urlArchivo = d.UrlArchivo,
             publicId = d.PublicId,
             fechaCarga = d.FechaCarga,
+            fechaVencimiento = d.FechaVencimiento,
+            estadoRevision = d.EstadoRevision,
+            observacion = d.Observacion,
             success = true
         };
     }

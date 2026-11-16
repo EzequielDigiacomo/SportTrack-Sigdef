@@ -23,17 +23,20 @@ namespace SportTrack_Sigdef.Controladores.Services
         private readonly SportTrackDbContext _context;
         private readonly ITenantProvider _tenantProvider;
         private readonly IAltaAtletaService _altaAtletaService;
+        private readonly IHabilitacionAtletaService _habilitacionService;
         private readonly SportTrack_Sigdef.Controladores.Audit.IAuditService _auditService;
 
         public AtletaServices(
             SportTrackDbContext context,
             ITenantProvider tenantProvider,
             IAltaAtletaService altaAtletaService,
+            IHabilitacionAtletaService habilitacionService,
             SportTrack_Sigdef.Controladores.Audit.IAuditService auditService)
         {
             _context = context;
             _tenantProvider = tenantProvider;
             _altaAtletaService = altaAtletaService;
+            _habilitacionService = habilitacionService;
             _auditService = auditService;
         }
 
@@ -80,7 +83,12 @@ namespace SportTrack_Sigdef.Controladores.Services
                         MontoBeca = a.MontoBeca,
                         PresentoAptoMedico = a.PresentoAptoMedico,
                         FechaAptoMedico = a.FechaAptoMedico,
+                        FechaVencimientoApto = a.FechaVencimientoApto,
                         FechaCreacion = a.FechaCreacion,
+                        EstadoFichaje = a.EstadoFichaje,
+                        FechaEnvioFichaje = a.FechaEnvioFichaje,
+                        FechaRevision = a.FechaRevision,
+                        MotivoRevision = a.MotivoRevision,
                         Participante = new PersonaDto
                         {
                             ParticipanteId = a.Participante.ParticipanteId,
@@ -114,6 +122,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                     })
                     .ToListAsync();
 
+                await EnrichDetailHabilitacionAsync(AtletasFederados);
                 return new OkObjectResult(AtletasFederados);
             }
             catch (Exception ex)
@@ -179,7 +188,12 @@ namespace SportTrack_Sigdef.Controladores.Services
                         MontoBeca = a.MontoBeca,
                         PresentoAptoMedico = a.PresentoAptoMedico,
                         FechaAptoMedico = a.FechaAptoMedico,
+                        FechaVencimientoApto = a.FechaVencimientoApto,
                         FechaCreacion = a.FechaCreacion,
+                        EstadoFichaje = a.EstadoFichaje,
+                        FechaEnvioFichaje = a.FechaEnvioFichaje,
+                        FechaRevision = a.FechaRevision,
+                        MotivoRevision = a.MotivoRevision,
                         Participante = new PersonaDto
                         {
                             ParticipanteId = a.Participante.ParticipanteId,
@@ -215,6 +229,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                     })
                     .ToListAsync();
 
+                await EnrichDetailHabilitacionAsync(atletas);
                 return new OkObjectResult(atletas);
             }
             catch (Exception)
@@ -286,6 +301,9 @@ namespace SportTrack_Sigdef.Controladores.Services
                         CantidadDocumentos = a.Participante.Documentacion.Count(),
                         Edad = (DateTime.UtcNow.Year - a.Participante.FechaNacimiento.Year) -
                             (DateTime.UtcNow.DayOfYear < a.Participante.FechaNacimiento.DayOfYear ? 1 : 0),
+                        EstadoFichaje = a.EstadoFichaje,
+                        PresentoAptoMedico = a.PresentoAptoMedico,
+                        FechaVencimientoApto = a.FechaVencimientoApto,
                         TutorInfo = a.Tutores.Select(t => new TutorListDto
                         {
                             ParticipanteId = t.IdTutor,
@@ -296,6 +314,8 @@ namespace SportTrack_Sigdef.Controladores.Services
                         }).FirstOrDefault()
                     })
                     .ToListAsync();
+
+                await EnrichListHabilitacionAsync(pagedData);
 
                 return new OkObjectResult(new PagedResponseDto<AtletaListDto>
                 {
@@ -344,7 +364,12 @@ namespace SportTrack_Sigdef.Controladores.Services
                         MontoBeca = a.MontoBeca,
                         PresentoAptoMedico = a.PresentoAptoMedico,
                         FechaAptoMedico = a.FechaAptoMedico,
+                        FechaVencimientoApto = a.FechaVencimientoApto,
                         FechaCreacion = a.FechaCreacion,
+                        EstadoFichaje = a.EstadoFichaje,
+                        FechaEnvioFichaje = a.FechaEnvioFichaje,
+                        FechaRevision = a.FechaRevision,
+                        MotivoRevision = a.MotivoRevision,
 
                         Participante = new PersonaDto
                         {
@@ -385,6 +410,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                     return new NotFoundResult();
                 }
 
+                await EnrichDetailHabilitacionAsync(new List<AtletaDetailDto> { AtletaFederacion });
                 return new OkObjectResult(AtletaFederacion);
             }
             catch (Exception ex)
@@ -655,6 +681,19 @@ namespace SportTrack_Sigdef.Controladores.Services
                 AtletaFederacion.MontoBeca = atletaCreateDto.MontoBeca;
                 AtletaFederacion.PresentoAptoMedico = atletaCreateDto.PresentoAptoMedico;
                 AtletaFederacion.FechaAptoMedico = fechaAptoMedicoUtc;
+                if (atletaCreateDto.FechaVencimientoApto.HasValue)
+                {
+                    AtletaFederacion.FechaVencimientoApto = DateTime.SpecifyKind(
+                        atletaCreateDto.FechaVencimientoApto.Value, DateTimeKind.Utc);
+                }
+
+                if (esRolClub && (AtletaFederacion.EstadoFichaje == EstadoFichaje.Observado
+                    || AtletaFederacion.EstadoFichaje == EstadoFichaje.Rechazado))
+                {
+                    AtletaFederacion.EstadoFichaje = EstadoFichaje.PendienteRevision;
+                    AtletaFederacion.FechaEnvioFichaje = DateTime.UtcNow;
+                    AtletaFederacion.MotivoRevision = null;
+                }
 
                 if (cambiaClub)
                 {
@@ -896,6 +935,435 @@ namespace SportTrack_Sigdef.Controladores.Services
                 throw new InvalidOperationException(
                     $"La federación alcanzó el límite de {plan.MaxAtletas} atletas del plan {plan.Nombre}.");
             }
+        }
+
+        public async Task<ActionResult<IEnumerable<AtletaDetailDto>>> GetFichajesPendientes(EstadoFichaje? estado = null)
+        {
+            try
+            {
+                var query = _context.AtletasFederados.AsQueryable();
+                var fedId = _tenantProvider.GetFederacionId();
+                if (fedId.HasValue)
+                    query = query.Where(a => a.IdFederacion == fedId.Value);
+
+                var clubId = _tenantProvider.GetClubId();
+                if (clubId.HasValue)
+                    query = query.Where(a => a.IdClub == clubId.Value);
+
+                if (estado.HasValue)
+                    query = query.Where(a => a.EstadoFichaje == estado.Value);
+                else
+                    query = query.Where(a => a.EstadoFichaje == EstadoFichaje.PendienteRevision
+                        || a.EstadoFichaje == EstadoFichaje.Observado);
+
+                var list = await query
+                    .AsNoTracking()
+                    .Include(a => a.Participante)
+                    .Include(a => a.Club)
+                    .OrderByDescending(a => a.FechaEnvioFichaje ?? a.FechaCreacion)
+                    .Select(a => new AtletaDetailDto
+                    {
+                        ParticipanteId = a.ParticipanteId,
+                        IdClub = a.IdClub,
+                        EstadoPago = a.EstadoPago,
+                        PerteneceSeleccion = a.PerteneceSeleccion,
+                        Categoria = a.Categoria,
+                        PresentoAptoMedico = a.PresentoAptoMedico,
+                        FechaAptoMedico = a.FechaAptoMedico,
+                        FechaVencimientoApto = a.FechaVencimientoApto,
+                        FechaCreacion = a.FechaCreacion,
+                        EstadoFichaje = a.EstadoFichaje,
+                        FechaEnvioFichaje = a.FechaEnvioFichaje,
+                        FechaRevision = a.FechaRevision,
+                        MotivoRevision = a.MotivoRevision,
+                        Participante = new PersonaDto
+                        {
+                            ParticipanteId = a.Participante.ParticipanteId,
+                            Nombre = a.Participante.Nombre,
+                            Apellido = a.Participante.Apellido,
+                            Documento = a.Participante.Dni,
+                            FechaNacimiento = a.Participante.FechaNacimiento,
+                            Email = a.Participante.Email,
+                            Telefono = a.Participante.Telefono,
+                            Direccion = a.Participante.Direccion
+                        },
+                        Club = a.Club != null ? new ClubDto
+                        {
+                            IdClub = a.Club.IdClub,
+                            Nombre = a.Club.Nombre,
+                            Siglas = a.Club.Siglas
+                        } : null
+                    })
+                    .ToListAsync();
+
+                await EnrichDetailHabilitacionAsync(list);
+                return new OkObjectResult(list);
+            }
+            catch
+            {
+                return new StatusCodeResult(500);
+            }
+        }
+
+        public async Task<IActionResult> AprobarFichaje(int id)
+        {
+            try
+            {
+                if (!EsRolFederacion())
+                    return new UnauthorizedObjectResult(new { error = "Solo la federación puede aprobar fichajes." });
+
+                var atleta = await _context.AtletasFederados
+                    .Include(a => a.Participante)
+                    .FirstOrDefaultAsync(a => a.ParticipanteId == id);
+                if (atleta == null)
+                    return new NotFoundObjectResult(new { error = "Atleta no encontrado." });
+
+                var docs = await _context.DocumentacionPersonas
+                    .Where(d => d.PersonaId == id)
+                    .ToListAsync();
+
+                var faltantes = _habilitacionService.ChecklistDocsFaltantes(atleta, docs);
+                var estadoApto = _habilitacionService.EvaluarEstadoApto(atleta, docs);
+                if (faltantes.Count > 0 || estadoApto == "Faltante")
+                {
+                    return new BadRequestObjectResult(new
+                    {
+                        error = "No se puede aprobar: faltan requisitos documentales o apto médico.",
+                        docsFaltantes = faltantes,
+                        estadoApto
+                    });
+                }
+
+                await CambiarEstadoFichajeAsync(atleta, EstadoFichaje.Aprobado, null);
+                return new OkObjectResult(new { message = "Fichaje aprobado.", participanteId = id, estadoFichaje = EstadoFichaje.Aprobado });
+            }
+            catch (Exception ex)
+            {
+                return new ObjectResult(new { error = ex.Message }) { StatusCode = 500 };
+            }
+        }
+
+        public async Task<IActionResult> ObservarFichaje(int id, FichajeRevisionRequestDto dto)
+        {
+            try
+            {
+                if (!EsRolFederacion())
+                    return new UnauthorizedObjectResult(new { error = "Solo la federación puede observar fichajes." });
+
+                if (string.IsNullOrWhiteSpace(dto?.Motivo))
+                    return new BadRequestObjectResult(new { error = "El motivo es obligatorio al observar." });
+
+                var atleta = await _context.AtletasFederados.FindAsync(id);
+                if (atleta == null)
+                    return new NotFoundObjectResult(new { error = "Atleta no encontrado." });
+
+                await CambiarEstadoFichajeAsync(atleta, EstadoFichaje.Observado, dto.Motivo.Trim());
+                return new OkObjectResult(new { message = "Fichaje observado.", participanteId = id, estadoFichaje = EstadoFichaje.Observado });
+            }
+            catch (Exception ex)
+            {
+                return new ObjectResult(new { error = ex.Message }) { StatusCode = 500 };
+            }
+        }
+
+        public async Task<IActionResult> RechazarFichaje(int id, FichajeRevisionRequestDto dto)
+        {
+            try
+            {
+                if (!EsRolFederacion())
+                    return new UnauthorizedObjectResult(new { error = "Solo la federación puede rechazar fichajes." });
+
+                if (string.IsNullOrWhiteSpace(dto?.Motivo))
+                    return new BadRequestObjectResult(new { error = "El motivo es obligatorio al rechazar." });
+
+                var atleta = await _context.AtletasFederados.FindAsync(id);
+                if (atleta == null)
+                    return new NotFoundObjectResult(new { error = "Atleta no encontrado." });
+
+                await CambiarEstadoFichajeAsync(atleta, EstadoFichaje.Rechazado, dto.Motivo.Trim());
+                return new OkObjectResult(new { message = "Fichaje rechazado.", participanteId = id, estadoFichaje = EstadoFichaje.Rechazado });
+            }
+            catch (Exception ex)
+            {
+                return new ObjectResult(new { error = ex.Message }) { StatusCode = 500 };
+            }
+        }
+
+        public async Task<ActionResult<IEnumerable<FichajeHistorialDto>>> GetHistorialFichaje(int id)
+        {
+            var items = await _context.Set<FichajeRevisionHistorial>()
+                .AsNoTracking()
+                .Where(h => h.ParticipanteId == id)
+                .OrderByDescending(h => h.Fecha)
+                .Select(h => new FichajeHistorialDto
+                {
+                    Id = h.Id,
+                    ParticipanteId = h.ParticipanteId,
+                    EstadoAnterior = h.EstadoAnterior,
+                    EstadoNuevo = h.EstadoNuevo,
+                    Motivo = h.Motivo,
+                    RevisadoPorUsername = h.RevisadoPorUsername,
+                    Fecha = h.Fecha
+                })
+                .ToListAsync();
+
+            return new OkObjectResult(items);
+        }
+
+        public async Task<ActionResult<IEnumerable<PadronAtletaDto>>> GetPadron(PadronFiltroDto filtro)
+        {
+            try
+            {
+                filtro ??= new PadronFiltroDto();
+                var query = _context.AtletasFederados.AsNoTracking()
+                    .Include(a => a.Participante)
+                    .Include(a => a.Club)
+                    .AsQueryable();
+
+                var fedId = _tenantProvider.GetFederacionId();
+                if (fedId.HasValue)
+                    query = query.Where(a => a.IdFederacion == fedId.Value);
+
+                var clubScope = _tenantProvider.GetClubId();
+                if (clubScope.HasValue)
+                    query = query.Where(a => a.IdClub == clubScope.Value);
+                else if (filtro.ClubId.HasValue)
+                    query = query.Where(a => a.IdClub == filtro.ClubId.Value);
+
+                if (filtro.Categoria.HasValue)
+                    query = query.Where(a => a.Categoria == filtro.Categoria.Value);
+
+                if (filtro.EstadoFichaje.HasValue)
+                    query = query.Where(a => a.EstadoFichaje == filtro.EstadoFichaje.Value);
+
+                if (!string.IsNullOrWhiteSpace(filtro.Busqueda))
+                {
+                    var s = filtro.Busqueda.Trim().ToLower();
+                    query = query.Where(a =>
+                        a.Participante.Nombre.ToLower().Contains(s)
+                        || a.Participante.Apellido.ToLower().Contains(s)
+                        || a.Participante.Dni.ToLower().Contains(s)
+                        || (a.Club != null && a.Club.Nombre.ToLower().Contains(s)));
+                }
+
+                var atletas = await query.OrderBy(a => a.Participante.Apellido).ThenBy(a => a.Participante.Nombre).ToListAsync();
+                var ids = atletas.Select(a => a.ParticipanteId).ToList();
+                var docs = await _context.DocumentacionPersonas.AsNoTracking()
+                    .Where(d => d.PersonaId.HasValue && ids.Contains(d.PersonaId.Value))
+                    .ToListAsync();
+                var docsByPersona = docs.GroupBy(d => d.PersonaId!.Value).ToDictionary(g => g.Key, g => g.ToList());
+
+                var result = new List<PadronAtletaDto>();
+                foreach (var a in atletas)
+                {
+                    docsByPersona.TryGetValue(a.ParticipanteId, out var docsAtleta);
+                    docsAtleta ??= new List<DocumentacionFederacionPersona>();
+                    var hab = _habilitacionService.Evaluar(a, docsAtleta);
+                    if (filtro.SoloHabilitados == true && !hab.EstaHabilitado)
+                        continue;
+
+                    var edad = DateTime.UtcNow.Year - a.Participante.FechaNacimiento.Year;
+                    if (DateTime.UtcNow.DayOfYear < a.Participante.FechaNacimiento.DayOfYear) edad--;
+
+                    result.Add(new PadronAtletaDto
+                    {
+                        ParticipanteId = a.ParticipanteId,
+                        NombrePersona = $"{a.Participante.Nombre} {a.Participante.Apellido}".Trim(),
+                        Documento = a.Participante.Dni,
+                        FechaNacimiento = a.Participante.FechaNacimiento,
+                        Edad = edad,
+                        IdClub = a.IdClub,
+                        NombreClub = a.Club?.Nombre ?? "Agente Libre",
+                        Categoria = a.Categoria,
+                        EstadoPago = a.EstadoPago,
+                        EstadoFichaje = a.EstadoFichaje,
+                        PresentoAptoMedico = a.PresentoAptoMedico,
+                        FechaVencimientoApto = a.FechaVencimientoApto,
+                        EstadoApto = hab.EstadoApto,
+                        EstaHabilitado = hab.EstaHabilitado,
+                        EstadoHabilitacion = hab.EstadoHabilitacion,
+                        MotivosBloqueo = hab.MotivosBloqueo,
+                        DocsFaltantes = hab.DocsFaltantes
+                    });
+                }
+
+                return new OkObjectResult(result);
+            }
+            catch (Exception ex)
+            {
+                return new ObjectResult(new { error = ex.Message }) { StatusCode = 500 };
+            }
+        }
+
+        public async Task<ActionResult<ReporteAdminResumenDto>> GetReporteResumen()
+        {
+            try
+            {
+                var query = _context.AtletasFederados.AsNoTracking()
+                    .Include(a => a.Participante)
+                    .AsQueryable();
+
+                var fedId = _tenantProvider.GetFederacionId();
+                if (fedId.HasValue)
+                    query = query.Where(a => a.IdFederacion == fedId.Value);
+
+                var clubId = _tenantProvider.GetClubId();
+                if (clubId.HasValue)
+                    query = query.Where(a => a.IdClub == clubId.Value);
+
+                var atletas = await query.ToListAsync();
+                var ids = atletas.Select(a => a.ParticipanteId).ToList();
+                var docs = await _context.DocumentacionPersonas.AsNoTracking()
+                    .Where(d => d.PersonaId.HasValue && ids.Contains(d.PersonaId.Value))
+                    .ToListAsync();
+                var docsByPersona = docs.GroupBy(d => d.PersonaId!.Value).ToDictionary(g => g.Key, g => g.ToList());
+
+                var resumen = new ReporteAdminResumenDto { TotalAtletas = atletas.Count };
+                foreach (var a in atletas)
+                {
+                    if (a.EstadoFichaje == EstadoFichaje.PendienteRevision) resumen.PendientesFichaje++;
+                    if (a.EstadoFichaje == EstadoFichaje.Observado) resumen.Observados++;
+                    if (a.EstadoPago == EstadoPago.Pendiente || a.EstadoPago == EstadoPago.Vencido || a.EstadoPago == EstadoPago.Parcial)
+                        resumen.Deudores++;
+
+                    docsByPersona.TryGetValue(a.ParticipanteId, out var docsAtleta);
+                    docsAtleta ??= new List<DocumentacionFederacionPersona>();
+                    var hab = _habilitacionService.Evaluar(a, docsAtleta);
+                    if (hab.EstaHabilitado) resumen.Habilitados++;
+                    else resumen.NoHabilitados++;
+
+                    switch (hab.EstadoApto)
+                    {
+                        case "PorVencer": resumen.AptosPorVencer++; break;
+                        case "Vencido": resumen.AptosVencidos++; break;
+                        case "Faltante": resumen.AptosFaltantes++; break;
+                    }
+
+                    if (!hab.ChecklistDocsOk) resumen.DocsIncompletos++;
+                }
+
+                return new OkObjectResult(resumen);
+            }
+            catch (Exception ex)
+            {
+                return new ObjectResult(new { error = ex.Message }) { StatusCode = 500 };
+            }
+        }
+
+        private async Task CambiarEstadoFichajeAsync(AtletaFederacion atleta, EstadoFichaje nuevo, string? motivo)
+        {
+            var anterior = atleta.EstadoFichaje;
+            atleta.EstadoFichaje = nuevo;
+            atleta.FechaRevision = DateTime.UtcNow;
+            atleta.MotivoRevision = motivo;
+            atleta.RevisadoPorUserId = GetCurrentUserId();
+
+            _context.Set<FichajeRevisionHistorial>().Add(new FichajeRevisionHistorial
+            {
+                ParticipanteId = atleta.ParticipanteId,
+                EstadoAnterior = anterior,
+                EstadoNuevo = nuevo,
+                Motivo = motivo,
+                RevisadoPorUserId = atleta.RevisadoPorUserId,
+                RevisadoPorUsername = _tenantProvider.GetUser()?.Identity?.Name,
+                Fecha = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+            await _auditService.RegistrarAccionAsync(
+                $"FICHAJE_{nuevo.ToString().ToUpperInvariant()}",
+                $"Fichaje atleta {atleta.ParticipanteId}: {anterior} → {nuevo}" + (string.IsNullOrWhiteSpace(motivo) ? "" : $" ({motivo})"),
+                null,
+                "Fichajes");
+        }
+
+        private async Task EnrichDetailHabilitacionAsync(List<AtletaDetailDto> list)
+        {
+            if (list.Count == 0) return;
+            var ids = list.Select(a => a.ParticipanteId).ToList();
+            var docs = await _context.DocumentacionPersonas.AsNoTracking()
+                .Where(d => d.PersonaId.HasValue && ids.Contains(d.PersonaId.Value))
+                .ToListAsync();
+            var byPersona = docs.GroupBy(d => d.PersonaId!.Value).ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var dto in list)
+            {
+                byPersona.TryGetValue(dto.ParticipanteId, out var docsAtleta);
+                docsAtleta ??= new List<DocumentacionFederacionPersona>();
+                var proxy = new AtletaFederacion
+                {
+                    ParticipanteId = dto.ParticipanteId,
+                    EstadoFichaje = dto.EstadoFichaje,
+                    EstadoPago = dto.EstadoPago,
+                    PresentoAptoMedico = dto.PresentoAptoMedico,
+                    FechaAptoMedico = dto.FechaAptoMedico,
+                    FechaVencimientoApto = dto.FechaVencimientoApto,
+                    Participante = dto.Participante == null ? null! : new Entidades.Entidades.Participante
+                    {
+                        ParticipanteId = dto.ParticipanteId,
+                        FechaNacimiento = dto.Participante.FechaNacimiento
+                    }
+                };
+                var hab = _habilitacionService.Evaluar(proxy, docsAtleta);
+                dto.EstaHabilitado = hab.EstaHabilitado;
+                dto.EstadoHabilitacion = hab.EstadoHabilitacion;
+                dto.EstadoApto = hab.EstadoApto;
+                dto.MotivosBloqueo = hab.MotivosBloqueo;
+                dto.DocsFaltantes = hab.DocsFaltantes;
+            }
+        }
+
+        private async Task EnrichListHabilitacionAsync(List<AtletaListDto> list)
+        {
+            if (list.Count == 0) return;
+            var ids = list.Select(a => a.ParticipanteId).ToList();
+            var docs = await _context.DocumentacionPersonas.AsNoTracking()
+                .Where(d => d.PersonaId.HasValue && ids.Contains(d.PersonaId.Value))
+                .ToListAsync();
+            var byPersona = docs.GroupBy(d => d.PersonaId!.Value).ToDictionary(g => g.Key, g => g.ToList());
+            var fechas = await _context.AtletasFederados.AsNoTracking()
+                .Where(a => ids.Contains(a.ParticipanteId))
+                .Select(a => new { a.ParticipanteId, a.Participante.FechaNacimiento })
+                .ToListAsync();
+            var fechaById = fechas.ToDictionary(x => x.ParticipanteId, x => x.FechaNacimiento);
+
+            foreach (var dto in list)
+            {
+                byPersona.TryGetValue(dto.ParticipanteId, out var docsAtleta);
+                docsAtleta ??= new List<DocumentacionFederacionPersona>();
+                fechaById.TryGetValue(dto.ParticipanteId, out var fechaNac);
+                var proxy = new AtletaFederacion
+                {
+                    ParticipanteId = dto.ParticipanteId,
+                    EstadoFichaje = dto.EstadoFichaje,
+                    EstadoPago = dto.EstadoPago,
+                    PresentoAptoMedico = dto.PresentoAptoMedico,
+                    FechaVencimientoApto = dto.FechaVencimientoApto,
+                    Participante = new Entidades.Entidades.Participante { ParticipanteId = dto.ParticipanteId, FechaNacimiento = fechaNac }
+                };
+                var hab = _habilitacionService.Evaluar(proxy, docsAtleta);
+                dto.EstaHabilitado = hab.EstaHabilitado;
+                dto.EstadoHabilitacion = hab.EstadoHabilitacion;
+                dto.EstadoApto = hab.EstadoApto;
+                dto.MotivosBloqueo = hab.MotivosBloqueo;
+            }
+        }
+
+        private bool EsRolFederacion()
+        {
+            var rol = _tenantProvider.GetRol();
+            return string.Equals(rol, "Admin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(rol, "SuperAdmin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(rol, "soporte_tecnico", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private int? GetCurrentUserId()
+        {
+            var user = _tenantProvider.GetUser();
+            var claim = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? user?.FindFirst("sub")?.Value
+                ?? user?.FindFirst("UserId")?.Value;
+            return int.TryParse(claim, out var id) ? id : null;
         }
 
         private async Task<bool> AtletaExistsAsync(int id)

@@ -37,6 +37,8 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
         public decimal MontoBeca { get; set; }
         public bool PresentoAptoMedico { get; set; }
         public DateTime? FechaAptoMedico { get; set; }
+        public DateTime? FechaVencimientoApto { get; set; }
+        public EstadoFichaje? EstadoFichaje { get; set; }
     }
 
     public class AltaAtletaResult

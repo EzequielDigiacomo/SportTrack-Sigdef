@@ -33,9 +33,12 @@ namespace SIGDEF.DTOs
         public bool PresentoAptoMedico { get; set; }
 
         public DateTime? FechaAptoMedico { get; set; }
+        public DateTime? FechaVencimientoApto { get; set; }
         public DateTime FechaCreacion { get; set; }
 
-        // ?? NUEVAS PROPIEDADES PARA INFORMACIÓN RELACIONADA
+        /// <summary>Si null, el servicio asigna según rol (Club=Pendiente, Admin=Aprobado).</summary>
+        public EstadoFichaje? EstadoFichaje { get; set; }
+
         public string? NombrePersona { get; set; }
         public string? NombreClub { get; set; }
     }

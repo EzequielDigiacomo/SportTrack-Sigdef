@@ -254,6 +254,7 @@ builder.Services.AddScoped<IPagoService, PagoService>();
 // Inyección de Dependencias (SIGDEF / Federaciones / Multi-tenant)
 builder.Services.AddScoped<ITenantProvider, TenantProvider>();
 builder.Services.AddScoped<IAltaAtletaService, AltaAtletaService>();
+builder.Services.AddScoped<IHabilitacionAtletaService, HabilitacionAtletaService>();
 builder.Services.AddScoped<IAtletaServices, AtletaServices>();
 builder.Services.AddScoped<IAtletaTutorServices, AtletaTutorServices>();
 builder.Services.AddScoped<IClubServices, ClubServices>();

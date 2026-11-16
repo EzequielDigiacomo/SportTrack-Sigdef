@@ -1,5 +1,6 @@
 using SportTrack_Sigdef.Entidades.Enums;
 using System;
+using System.Collections.Generic;
 
 namespace SportTrack_Sigdef.Entidades.DTOs.AtletaFederacion
 {
@@ -22,6 +23,14 @@ namespace SportTrack_Sigdef.Entidades.DTOs.AtletaFederacion
         public DateTime? FechaCreacion { get; set; }
         public int? CantidadDocumentos { get; set; }
         public TutorListDto? TutorInfo { get; set; }
+
+        public EstadoFichaje EstadoFichaje { get; set; }
+        public bool PresentoAptoMedico { get; set; }
+        public DateTime? FechaVencimientoApto { get; set; }
+        public bool EstaHabilitado { get; set; }
+        public string EstadoHabilitacion { get; set; } = "NoHabilitado";
+        public string EstadoApto { get; set; } = "Faltante";
+        public List<string> MotivosBloqueo { get; set; } = new();
     }
 
     public class TutorListDto

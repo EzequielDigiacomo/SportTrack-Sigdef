@@ -3,10 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Text;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 
 namespace SportTrack_Sigdef.Entidades.Entidades
 {
@@ -31,7 +28,6 @@ namespace SportTrack_Sigdef.Entidades.Entidades
 
         public bool PerteneceSeleccion { get; set; }
 
-        // ðŸ‘‡ Renombrado: CategoriaSeleccion â†’ Categoria
         public CategoriaEdad? Categoria { get; set; }
 
         public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
@@ -41,10 +37,23 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public decimal MontoBeca { get; set; }
         public bool PresentoAptoMedico { get; set; }
         public DateTime? FechaAptoMedico { get; set; }
+        public DateTime? FechaVencimientoApto { get; set; }
+
+        /// <summary>Estado del fichaje administrativo (revisión federativa).</summary>
+        public EstadoFichaje EstadoFichaje { get; set; } = EstadoFichaje.PendienteRevision;
+
+        public DateTime? FechaEnvioFichaje { get; set; }
+        public DateTime? FechaRevision { get; set; }
+        public int? RevisadoPorUserId { get; set; }
+
+        [MaxLength(1000)]
+        public string? MotivoRevision { get; set; }
 
         [JsonIgnore]
         public virtual ICollection<Inscripcion> Inscripciones { get; set; } = new List<Inscripcion>();
         [JsonIgnore]
         public virtual ICollection<AtletaFederacionTutor> Tutores { get; set; } = new List<AtletaFederacionTutor>();
+        [JsonIgnore]
+        public virtual ICollection<FichajeRevisionHistorial> HistorialFichaje { get; set; } = new List<FichajeRevisionHistorial>();
     }
 }

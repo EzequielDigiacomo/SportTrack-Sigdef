@@ -35,5 +35,11 @@ namespace SportTrack_Sigdef.Entidades.Entidades
         public bool? BecadoSdn { get; set; }
         public decimal? MontoBeca { get; set; }
         public bool? PresentoAptoMedico { get; set; }
+
+        public bool Activo { get; set; } = true;
+        public DateTime? FechaBaja { get; set; }
+
+        [MaxLength(500)]
+        public string? MotivoBaja { get; set; }
     }
 }

@@ -121,7 +121,9 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                 BecadoSdn = dto.BecadoSdn,
                 MontoBeca = dto.MontoBeca,
                 PresentoAptoMedico = dto.PresentoAptoMedico,
-                FechaAptoMedico = dto.FechaAptoMedico
+                FechaAptoMedico = dto.FechaAptoMedico,
+                FechaVencimientoApto = dto.FechaVencimientoApto,
+                EstadoFichaje = dto.EstadoFichaje
             };
         }
 
@@ -211,6 +213,11 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
             DateTime? fechaAptoUtc = input.FechaAptoMedico.HasValue
                 ? DateTime.SpecifyKind(input.FechaAptoMedico.Value, DateTimeKind.Utc)
                 : null;
+            DateTime? fechaVencAptoUtc = input.FechaVencimientoApto.HasValue
+                ? DateTime.SpecifyKind(input.FechaVencimientoApto.Value, DateTimeKind.Utc)
+                : null;
+
+            var estadoFichaje = ResolverEstadoFichajeAlta(input.EstadoFichaje);
 
             var atleta = await _context.AtletasFederados.FindAsync(participanteId);
             if (atleta == null)
@@ -227,7 +234,11 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                     BecadoSdn = input.BecadoSdn,
                     MontoBeca = input.MontoBeca,
                     PresentoAptoMedico = input.PresentoAptoMedico,
-                    FechaAptoMedico = fechaAptoUtc
+                    FechaAptoMedico = fechaAptoUtc,
+                    FechaVencimientoApto = fechaVencAptoUtc,
+                    EstadoFichaje = estadoFichaje,
+                    FechaEnvioFichaje = DateTime.UtcNow,
+                    FechaRevision = estadoFichaje == EstadoFichaje.Aprobado ? DateTime.UtcNow : null
                 };
                 _context.AtletasFederados.Add(atleta);
             }
@@ -245,6 +256,16 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
                 atleta.MontoBeca = input.MontoBeca;
                 atleta.PresentoAptoMedico = input.PresentoAptoMedico;
                 atleta.FechaAptoMedico = fechaAptoUtc;
+                if (fechaVencAptoUtc.HasValue)
+                    atleta.FechaVencimientoApto = fechaVencAptoUtc;
+
+                // Reenvío a revisión si el club edita un observado/rechazado
+                if (EsRolClub() && (atleta.EstadoFichaje == EstadoFichaje.Observado || atleta.EstadoFichaje == EstadoFichaje.Rechazado))
+                {
+                    atleta.EstadoFichaje = EstadoFichaje.PendienteRevision;
+                    atleta.FechaEnvioFichaje = DateTime.UtcNow;
+                    atleta.MotivoRevision = null;
+                }
             }
 
             // Mantener club sincronizado en Participante
@@ -320,6 +341,18 @@ namespace SportTrack_Sigdef.Controladores.Federaciones
             }
 
             return 1;
+        }
+
+        private EstadoFichaje ResolverEstadoFichajeAlta(EstadoFichaje? solicitado)
+        {
+            if (solicitado.HasValue) return solicitado.Value;
+            return EsRolClub() ? EstadoFichaje.PendienteRevision : EstadoFichaje.Aprobado;
+        }
+
+        private bool EsRolClub()
+        {
+            var rol = _tenantProvider.GetRol();
+            return string.Equals(rol, "Club", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

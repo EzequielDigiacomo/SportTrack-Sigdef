@@ -32,7 +32,7 @@ namespace SportTrack_Sigdef.Controladores.Services
         {
             try
             {
-                var query = _context.Entrenadores.AsQueryable();
+                var query = _context.Entrenadores.Where(e => e.Activo).AsQueryable();
                 var fedId = _tenantProvider.GetFederacionId();
                 if (fedId.HasValue)
                 {
@@ -135,7 +135,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                 var entrenadores = await _context.Entrenadores
                     .Include(e => e.Participante)
                     .Include(e => e.Club)
-                    .Where(e => e.IdClub == idClub)
+                    .Where(e => e.Activo && e.IdClub == idClub)
                     .Select(e => new EntrenadorDto
                     {
                         ParticipanteId = e.ParticipanteId,
@@ -168,7 +168,7 @@ namespace SportTrack_Sigdef.Controladores.Services
         {
             try
             {
-                var query = _context.Entrenadores.AsQueryable();
+                var query = _context.Entrenadores.Where(e => e.Activo).AsQueryable();
                 var fedId = _tenantProvider.GetFederacionId();
                 if (fedId.HasValue)
                 {
@@ -221,7 +221,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                     return new BadRequestResult();
                 }
 
-                var query = _context.Entrenadores.AsQueryable();
+                var query = _context.Entrenadores.Where(e => e.Activo).AsQueryable();
                 var fedId = _tenantProvider.GetFederacionId();
                 if (fedId.HasValue)
                 {
@@ -432,7 +432,9 @@ namespace SportTrack_Sigdef.Controladores.Services
                     return new NotFoundResult();
                 }
 
-                _context.Entrenadores.Remove(entrenador);
+                entrenador.Activo = false;
+                entrenador.FechaBaja = DateTime.UtcNow;
+                entrenador.MotivoBaja ??= "Baja administrativa";
                 await _context.SaveChangesAsync();
 
                 return new NoContentResult();

@@ -36,6 +36,9 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.Property<int?>("Categoria")
                         .HasColumnType("integer");
 
+                    b.Property<int>("EstadoFichaje")
+                        .HasColumnType("integer");
+
                     b.Property<int>("EstadoPago")
                         .HasColumnType("integer");
 
@@ -43,6 +46,15 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaEnvioFichaje")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaRevision")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaVencimientoApto")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("IdClub")
@@ -54,11 +66,18 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.Property<decimal>("MontoBeca")
                         .HasColumnType("numeric");
 
+                    b.Property<string>("MotivoRevision")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<bool>("PerteneceSeleccion")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("PresentoAptoMedico")
                         .HasColumnType("boolean");
+
+                    b.Property<int?>("RevisadoPorUserId")
+                        .HasColumnType("integer");
 
                     b.HasKey("ParticipanteId");
 
@@ -654,8 +673,18 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("EstadoRevision")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("FechaCarga")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaVencimiento")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Observacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<int?>("PersonaId")
                         .HasColumnType("integer");
@@ -683,6 +712,9 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.Property<int>("ParticipanteId")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean");
+
                     b.Property<bool?>("BecadoEnard")
                         .HasColumnType("boolean");
 
@@ -692,6 +724,9 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.Property<string>("CategoriaSeleccion")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("FechaBaja")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("IdClub")
                         .HasColumnType("integer");
@@ -705,6 +740,10 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
 
                     b.Property<decimal?>("MontoBeca")
                         .HasColumnType("numeric");
+
+                    b.Property<string>("MotivoBaja")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<bool?>("PerteneceSeleccion")
                         .HasColumnType("boolean");
@@ -1117,6 +1156,44 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.HasIndex("PlanSaaSId");
 
                     b.ToTable("Federaciones", "federacion");
+                });
+
+            modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.FichajeRevisionHistorial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("EstadoAnterior")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EstadoNuevo")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("ParticipanteId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RevisadoPorUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RevisadoPorUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParticipanteId");
+
+                    b.ToTable("FichajeRevisionHistorial", "federacion");
                 });
 
             modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.Hilo", b =>
@@ -2482,6 +2559,17 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
                     b.Navigation("PlanSaaS");
                 });
 
+            modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.FichajeRevisionHistorial", b =>
+                {
+                    b.HasOne("SportTrack_Sigdef.Entidades.Entidades.AtletaFederacion", "Atleta")
+                        .WithMany("HistorialFichaje")
+                        .HasForeignKey("ParticipanteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Atleta");
+                });
+
             modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.Hilo", b =>
                 {
                     b.HasOne("SportTrack_Sigdef.Entidades.Entidades.CampanaEnvio", "Campana")
@@ -2844,6 +2932,8 @@ namespace SportTrack_Sigdef.AccesoDatos.Migrations
 
             modelBuilder.Entity("SportTrack_Sigdef.Entidades.Entidades.AtletaFederacion", b =>
                 {
+                    b.Navigation("HistorialFichaje");
+
                     b.Navigation("Inscripciones");
 
                     b.Navigation("Tutores");
