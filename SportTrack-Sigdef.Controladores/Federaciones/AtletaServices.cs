@@ -518,70 +518,85 @@ namespace SportTrack_Sigdef.Controladores.Services
         // -------------------------------------------------
         public async Task<ActionResult<AtletaDto>> PostAtletaFull(AtletaFullCreateDto dto)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                await EnsureMaxAtletasAsync(dto.DatosDeportivos.IdClub);
+                // NpgsqlRetryingExecutionStrategy no permite BeginTransaction directo.
+                var strategy = _context.Database.CreateExecutionStrategy();
+                AltaAtletaResult? altaResult = null;
 
-                var participanteInput = _altaAtletaService.FromPersonaCreateDto(dto.PersonaAtleta, dto.DatosDeportivos.IdClub);
-                var fedInput = _altaAtletaService.FromAtletaCreateDto(dto.DatosDeportivos);
-                var altaResult = await _altaAtletaService.AltaAtletaCompletaAsync(participanteInput, fedInput);
-                var AtletaFederacion = altaResult.AtletaFederacion;
-
-                // Manejar TutorFederacion si es menor
-                if (dto.EsMenor && dto.TutorFederacion != null)
+                await strategy.ExecuteAsync(async () =>
                 {
-                    int idPersonaTutor;
-                    if (dto.TutorFederacion.IdPersonaTutor.HasValue)
+                    await using var transaction = await _context.Database.BeginTransactionAsync();
+                    try
                     {
-                        idPersonaTutor = dto.TutorFederacion.IdPersonaTutor.Value;
-                    }
-                    else if (dto.TutorFederacion.PersonaTutor != null)
-                    {
-                        var tutorInput = _altaAtletaService.FromPersonaCreateDto(dto.TutorFederacion.PersonaTutor);
-                        var tutorResult = await _altaAtletaService.UpsertParticipanteAsync(tutorInput);
-                        idPersonaTutor = tutorResult.ParticipanteId;
-                    }
-                    else
-                    {
-                        throw new Exception("Datos del tutor incompletos para registro de menor.");
-                    }
+                        await EnsureMaxAtletasAsync(dto.DatosDeportivos.IdClub);
 
-                    // Asegurar registro de TutorFederacion
-                    var tutor = await _context.Tutores.FindAsync(idPersonaTutor);
-                    if (tutor == null)
-                    {
-                        tutor = new TutorFederacion 
-                        { 
-                            ParticipanteId = idPersonaTutor, 
-                            TipoTutor = "Registrado vía AtletaFederacion" 
-                        };
-                        _context.Tutores.Add(tutor);
-                        await _context.SaveChangesAsync();
-                    }
+                        var participanteInput = _altaAtletaService.FromPersonaCreateDto(dto.PersonaAtleta, dto.DatosDeportivos.IdClub);
+                        var fedInput = _altaAtletaService.FromAtletaCreateDto(dto.DatosDeportivos);
+                        altaResult = await _altaAtletaService.AltaAtletaCompletaAsync(participanteInput, fedInput);
+                        var AtletaFederacion = altaResult.AtletaFederacion;
 
-                    // Relación AtletaFederacionTutor
-                    var relacion = await _context.AtletasTutores
-                        .FirstOrDefaultAsync(at => at.IdAtleta == AtletaFederacion.ParticipanteId && at.IdTutor == idPersonaTutor);
-                    
-                    if (relacion == null)
-                    {
-                        relacion = new AtletaFederacionTutor
+                        if (dto.EsMenor && dto.TutorFederacion != null)
                         {
-                            IdAtleta = AtletaFederacion.ParticipanteId,
-                            IdTutor = idPersonaTutor,
-                            Parentesco = (SportTrack_Sigdef.Entidades.Enums.Parentesco)dto.TutorFederacion.Parentesco
-                        };
-                        _context.AtletasTutores.Add(relacion);
-                    }
-                    else
-                    {
-                        relacion.Parentesco = (SportTrack_Sigdef.Entidades.Enums.Parentesco)dto.TutorFederacion.Parentesco;
-                    }
-                    await _context.SaveChangesAsync();
-                }
+                            int idPersonaTutor;
+                            if (dto.TutorFederacion.IdPersonaTutor.HasValue)
+                            {
+                                idPersonaTutor = dto.TutorFederacion.IdPersonaTutor.Value;
+                            }
+                            else if (dto.TutorFederacion.PersonaTutor != null)
+                            {
+                                var tutorInput = _altaAtletaService.FromPersonaCreateDto(dto.TutorFederacion.PersonaTutor);
+                                var tutorResult = await _altaAtletaService.UpsertParticipanteAsync(tutorInput);
+                                idPersonaTutor = tutorResult.ParticipanteId;
+                            }
+                            else
+                            {
+                                throw new InvalidOperationException("Datos del tutor incompletos para registro de menor.");
+                            }
 
-                await transaction.CommitAsync();
+                            var tutor = await _context.Tutores.FindAsync(idPersonaTutor);
+                            if (tutor == null)
+                            {
+                                tutor = new TutorFederacion
+                                {
+                                    ParticipanteId = idPersonaTutor,
+                                    TipoTutor = "Registrado vía AtletaFederacion"
+                                };
+                                _context.Tutores.Add(tutor);
+                                await _context.SaveChangesAsync();
+                            }
+
+                            var relacion = await _context.AtletasTutores
+                                .FirstOrDefaultAsync(at => at.IdAtleta == AtletaFederacion.ParticipanteId && at.IdTutor == idPersonaTutor);
+
+                            if (relacion == null)
+                            {
+                                relacion = new AtletaFederacionTutor
+                                {
+                                    IdAtleta = AtletaFederacion.ParticipanteId,
+                                    IdTutor = idPersonaTutor,
+                                    Parentesco = (SportTrack_Sigdef.Entidades.Enums.Parentesco)dto.TutorFederacion.Parentesco
+                                };
+                                _context.AtletasTutores.Add(relacion);
+                            }
+                            else
+                            {
+                                relacion.Parentesco = (SportTrack_Sigdef.Entidades.Enums.Parentesco)dto.TutorFederacion.Parentesco;
+                            }
+                            await _context.SaveChangesAsync();
+                        }
+
+                        await transaction.CommitAsync();
+                    }
+                    catch
+                    {
+                        await transaction.RollbackAsync();
+                        throw;
+                    }
+                });
+
+                if (altaResult == null)
+                    return new ObjectResult(new { error = "Fallo el registro atómico" }) { StatusCode = 500 };
 
                 var nombreAtleta = $"{altaResult.Participante.Nombre} {altaResult.Participante.Apellido}".Trim();
                 await _auditService.RegistrarAccionAsync(
@@ -590,10 +605,8 @@ namespace SportTrack_Sigdef.Controladores.Services
                     null,
                     "Atletas");
 
-                // Reutilizar lógica de respuesta de GetAtleta por consistencia
-                var response = await GetAtleta(AtletaFederacion.ParticipanteId);
-                
-                // Mapear AtletaDetailDto a AtletaDto para coincidir con la firma
+                var response = await GetAtleta(altaResult.ParticipanteId);
+
                 if (response.Value is AtletaDetailDto detail)
                 {
                     return new OkObjectResult(new AtletaDto
@@ -604,8 +617,8 @@ namespace SportTrack_Sigdef.Controladores.Services
                         NombrePersona = detail.Participante.Nombre + " " + detail.Participante.Apellido,
                         NombreClub = detail.Club?.Nombre ?? "Agente Libre",
                         Categoria = detail.Categoria,
-                        FechaCreacion = detail.FechaCreacion
-                        // ... completar campos si es necesario
+                        FechaCreacion = detail.FechaCreacion,
+                        EstadoFichaje = detail.EstadoFichaje
                     });
                 }
 
@@ -613,12 +626,10 @@ namespace SportTrack_Sigdef.Controladores.Services
             }
             catch (InvalidOperationException ex)
             {
-                await transaction.RollbackAsync();
                 return new BadRequestObjectResult(new { error = ex.Message });
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 return new ObjectResult(new { error = "Fallo el registro atómico", detail = ex.Message }) { StatusCode = 500 };
             }
         }
@@ -819,58 +830,55 @@ namespace SportTrack_Sigdef.Controladores.Services
                     return new NotFoundResult();
                 }
 
-                using var transaction = await _context.Database.BeginTransactionAsync();
-
-                try
+                var strategy = _context.Database.CreateExecutionStrategy();
+                await strategy.ExecuteAsync(async () =>
                 {
-                    // 1?? Eliminar relaciones AtletaFederacion-TutorFederacion (solo la tabla intermedia)
-                    if (AtletaFederacion.Tutores.Any())
+                    await using var transaction = await _context.Database.BeginTransactionAsync();
+                    try
                     {
-                        _context.AtletasTutores.RemoveRange(AtletaFederacion.Tutores);
-                    }
-
-                    // 2?? Eliminar inscripciones del AtletaFederacion
-                    if (AtletaFederacion.Inscripciones.Any())
-                    {
-                        _context.Inscripciones.RemoveRange(AtletaFederacion.Inscripciones);
-                    }
-
-                    // 3?? Eliminar el registro de AtletaFederacion
-                    _context.AtletasFederados.Remove(AtletaFederacion);
-
-                    // 4?? Verificar si la Participante tiene otros roles antes de borrarla
-                    var Participante = AtletaFederacion.Participante;
-                    var tieneOtrosRoles = await _context.Usuarios.AnyAsync(u => u.ParticipanteId == id) ||
-                                         await _context.Entrenadores.AnyAsync(e => e.ParticipanteId == id) ||
-                                         await _context.DelegadosClub.AnyAsync(d => d.IdParticipante == id) ||
-                                         await _context.Tutores.AnyAsync(t => t.ParticipanteId == id);
-
-                    // 5?? Eliminar la Participante SOLO si no tiene otros roles
-                    if (!tieneOtrosRoles)
-                    {
-                        // Eliminar pagos asociados a la Participante (si existen)
-                        var pagosPersona = await _context.PagosTransacciones
-                            .Where(p => p.IdParticipante == id)
-                            .ToListAsync();
-
-                        if (pagosPersona.Any())
+                        if (AtletaFederacion.Tutores.Any())
                         {
-                            _context.PagosTransacciones.RemoveRange(pagosPersona);
+                            _context.AtletasTutores.RemoveRange(AtletaFederacion.Tutores);
                         }
 
-                        _context.Participantes.Remove(Participante);
+                        if (AtletaFederacion.Inscripciones.Any())
+                        {
+                            _context.Inscripciones.RemoveRange(AtletaFederacion.Inscripciones);
+                        }
+
+                        _context.AtletasFederados.Remove(AtletaFederacion);
+
+                        var Participante = AtletaFederacion.Participante;
+                        var tieneOtrosRoles = await _context.Usuarios.AnyAsync(u => u.ParticipanteId == id) ||
+                                             await _context.Entrenadores.AnyAsync(e => e.ParticipanteId == id) ||
+                                             await _context.DelegadosClub.AnyAsync(d => d.IdParticipante == id) ||
+                                             await _context.Tutores.AnyAsync(t => t.ParticipanteId == id);
+
+                        if (!tieneOtrosRoles)
+                        {
+                            var pagosPersona = await _context.PagosTransacciones
+                                .Where(p => p.IdParticipante == id)
+                                .ToListAsync();
+
+                            if (pagosPersona.Any())
+                            {
+                                _context.PagosTransacciones.RemoveRange(pagosPersona);
+                            }
+
+                            _context.Participantes.Remove(Participante);
+                        }
+
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
                     }
+                    catch
+                    {
+                        await transaction.RollbackAsync();
+                        throw;
+                    }
+                });
 
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
-                    return new OkResult();
-                }
-                catch
-                {
-                    await transaction.RollbackAsync();
-                    throw;
-                }
+                return new OkResult();
             }
             catch (DbUpdateException)
             {
