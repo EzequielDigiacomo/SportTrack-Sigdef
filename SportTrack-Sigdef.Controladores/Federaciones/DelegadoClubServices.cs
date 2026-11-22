@@ -64,7 +64,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                         TipoRol = d.RolFederacion.Tipo,
                         NombreFederacion = d.Federacion.Nombre,
                         NombreClub = d.Club.Nombre,
-                        Documento = d.Participante.Dni,
+                        Documento = d.Participante.Documento,
                         Email = d.Participante.Email,
                         Telefono = d.Participante.Telefono
                     })
@@ -99,11 +99,11 @@ namespace SportTrack_Sigdef.Controladores.Services
                             ParticipanteId = d.Participante.ParticipanteId,
                             Nombre = d.Participante.Nombre,
                             Apellido = d.Participante.Apellido,
-                            Documento = d.Participante.Dni,
+                            Documento = d.Participante.Documento,
                             FechaNacimiento = d.Participante.FechaNacimiento,
                             Email = d.Participante.Email,
                             Telefono = d.Participante.Telefono,
-                            Direccion = d.Participante.Direccion
+                            Direccion = d.Participante.Direccion,
                         },
                         RolFederacion = new RolDto
                         {
@@ -162,7 +162,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                         TipoRol = d.RolFederacion.Tipo,
                         NombreFederacion = d.Federacion.Nombre,
                         NombreClub = d.Club.Nombre,
-                        Documento = d.Participante.Dni,
+                        Documento = d.Participante.Documento,
                         Email = d.Participante.Email,
                         Telefono = d.Participante.Telefono
                     })

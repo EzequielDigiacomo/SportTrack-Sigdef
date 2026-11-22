@@ -52,6 +52,8 @@
         public string? Nombre { get; set; }
         public string? Apellido { get; set; }
         public string? Dni { get; set; }
+        public string? Telefono { get; set; }
+        public int? ParticipanteId { get; set; }
         // Subscription details for frontend sidebar
         public string? FrecuenciaPago { get; set; }
         public System.DateTime? FechaVencimientoPlan { get; set; }
