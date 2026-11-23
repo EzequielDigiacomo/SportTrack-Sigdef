@@ -217,16 +217,21 @@ namespace SportTrack_Sigdef.Controladores.Services
         {
             try
             {
+                if (tutorCreateDto.ParticipanteId <= 0)
+                {
+                    return new BadRequestObjectResult(new { message = "Falta el identificador de la persona del tutor." });
+                }
+
                 var personaExists = await _context.Participantes.AnyAsync(p => p.ParticipanteId == tutorCreateDto.ParticipanteId);
                 if (!personaExists)
                 {
-                    return new BadRequestResult();
+                    return new BadRequestObjectResult(new { message = "No se encontró la persona. Revisá el documento e intentá nuevamente." });
                 }
 
                 var tutorExists = await _context.Tutores.AnyAsync(t => t.ParticipanteId == tutorCreateDto.ParticipanteId);
                 if (tutorExists)
                 {
-                    return new BadRequestResult();
+                    return new BadRequestObjectResult(new { message = "Esta persona ya está registrada como tutor." });
                 }
 
                 var tieneOtroRol = await _context.AtletasFederados.AnyAsync(a => a.ParticipanteId == tutorCreateDto.ParticipanteId) ||
@@ -235,7 +240,7 @@ namespace SportTrack_Sigdef.Controladores.Services
 
                 if (tieneOtroRol)
                 {
-                    return new BadRequestResult();
+                    return new BadRequestObjectResult(new { message = "Esta persona ya tiene otro rol asignado. Una persona no puede tener múltiples roles en el sistema." });
                 }
 
                 var tutor = new TutorFederacion
@@ -289,9 +294,9 @@ namespace SportTrack_Sigdef.Controladores.Services
         {
             try
             {
-                if (id != tutorCreateDto.ParticipanteId)
+                if (tutorCreateDto.ParticipanteId > 0 && id != tutorCreateDto.ParticipanteId)
                 {
-                    return new BadRequestResult();
+                    return new BadRequestObjectResult(new { message = "El identificador del tutor no coincide." });
                 }
 
                 var tutor = await _context.Tutores.FindAsync(id);
