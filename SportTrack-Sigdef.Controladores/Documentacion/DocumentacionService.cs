@@ -48,13 +48,30 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
                         .ThenInclude(f => f.PlanSaaS)
                 .Include(p => p.Club!)
                     .ThenInclude(c => c.PlanSaaS)
+                .Include(p => p.AtletaFederacion)
                 .FirstOrDefaultAsync(p => p.ParticipanteId == personaId)
                 ?? throw new KeyNotFoundException($"No se encontró la persona con ID {personaId}.");
+
+            // Resolver club: preferir el de Participante; si falta, el de la ficha de atleta.
+            Club? club = persona.Club;
+            if (club == null)
+            {
+                var clubId = persona.AtletaFederacion?.IdClub ?? persona.IdClub;
+                if (clubId.HasValue)
+                {
+                    club = await _context.Clubes
+                        .AsNoTracking()
+                        .Include(c => c.Federacion!)
+                            .ThenInclude(f => f.PlanSaaS)
+                        .Include(c => c.PlanSaaS)
+                        .FirstOrDefaultAsync(c => c.IdClub == clubId.Value);
+                }
+            }
 
             var isImage = file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
             if (isImage)
             {
-                var plan = persona.Club?.Federacion?.PlanSaaS ?? persona.Club?.PlanSaaS;
+                var plan = club?.Federacion?.PlanSaaS ?? club?.PlanSaaS;
                 if (plan != null && !plan.PermitirCargaImagenes)
                 {
                     throw new ArgumentException(
@@ -69,7 +86,7 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
             {
                 await using var stream = file.OpenReadStream();
                 var publicIdValue = $"{tipoDocumento}_{DateTime.UtcNow:yyyyMMddHHmmss}";
-                var folder = $"sigdef/documentacion/{personaId}";
+                var folder = BuildCloudinaryFolder(persona, club);
 
                 if (file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
                 {
@@ -194,5 +211,64 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
             observacion = d.Observacion,
             success = true
         };
+
+        /// <summary>
+        /// Carpeta Cloudinary: sigdef/{federacion}/{club}/{persona}
+        /// Ej: sigdef/fed-7-fac/club-12-rcn/persona-341-perez-juan
+        /// </summary>
+        private static string BuildCloudinaryFolder(Participante persona, Club? club)
+        {
+            var fed = club?.Federacion;
+
+            var fedSegment = fed != null
+                ? $"fed-{fed.IdFederacion}-{Slug(fed.Sigla ?? fed.Nombre)}"
+                : "sin-federacion";
+
+            var clubSegment = club != null
+                ? $"club-{club.IdClub}-{Slug(club.Siglas ?? club.Nombre)}"
+                : "sin-club";
+
+            var personaLabel = $"{persona.Apellido}-{persona.Nombre}".Trim('-');
+            var personaSegment = $"persona-{persona.ParticipanteId}-{Slug(personaLabel)}";
+
+            return $"sigdef/{fedSegment}/{clubSegment}/{personaSegment}";
+        }
+
+        private static string Slug(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "sin-nombre";
+
+            var normalized = value.Trim().ToLowerInvariant()
+                .Replace('á', 'a').Replace('à', 'a').Replace('ä', 'a').Replace('â', 'a')
+                .Replace('é', 'e').Replace('è', 'e').Replace('ë', 'e').Replace('ê', 'e')
+                .Replace('í', 'i').Replace('ì', 'i').Replace('ï', 'i').Replace('î', 'i')
+                .Replace('ó', 'o').Replace('ò', 'o').Replace('ö', 'o').Replace('ô', 'o')
+                .Replace('ú', 'u').Replace('ù', 'u').Replace('ü', 'u').Replace('û', 'u')
+                .Replace('ñ', 'n').Replace('ç', 'c');
+
+            var sb = new System.Text.StringBuilder(normalized.Length);
+            var lastWasDash = false;
+
+            foreach (var ch in normalized)
+            {
+                if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9'))
+                {
+                    sb.Append(ch);
+                    lastWasDash = false;
+                }
+                else if (ch is ' ' or '_' or '-' or '.')
+                {
+                    if (!lastWasDash && sb.Length > 0)
+                    {
+                        sb.Append('-');
+                        lastWasDash = true;
+                    }
+                }
+            }
+
+            var slug = sb.ToString().Trim('-');
+            if (string.IsNullOrEmpty(slug)) return "sin-nombre";
+            return slug.Length <= 40 ? slug : slug[..40].TrimEnd('-');
+        }
     }
 }
