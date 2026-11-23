@@ -11,5 +11,9 @@ namespace SportTrack_Sigdef.Controladores.Audit
         Task<int> PurgeOlderThanAsync(int days, CancellationToken ct = default);
         Task<int> PurgeFederacionAsync(FederacionAuditPurgeRequest request, CancellationToken ct = default);
         Task RunAutomaticPurgesAsync(CancellationToken ct = default);
+        /// <summary>TRUNCATE: vacía la tabla y libera espacio en disco de inmediato.</summary>
+        Task TruncateAllAsync(CancellationToken ct = default);
+        /// <summary>VACUUM FULL sobre Auditoria: reclama disco tras DELETEs previos.</summary>
+        Task VacuumAsync(CancellationToken ct = default);
     }
 }

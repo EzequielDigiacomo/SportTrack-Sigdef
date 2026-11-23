@@ -264,6 +264,64 @@ namespace SportTrack_Sigdef.Controllers
         }
 
         /// <summary>
+        /// Vacía por completo la tabla Auditoria (TRUNCATE) y libera espacio en disco.
+        /// Solo SuperAdmin.
+        /// </summary>
+        [HttpPost("audit-retention/truncate-all")]
+        public async Task<IActionResult> TruncateAllAudit()
+        {
+            if (!CanAccessSupportLogs()) return SupportForbidden();
+
+            var countBefore = await _context.Auditoria.CountAsync();
+            await _auditRetention.TruncateAllAsync();
+
+            // Primer registro post-vaciado: queda trazabilidad de quién lo hizo.
+            await _auditService.RegistrarAccionAsync(
+                "AUDIT_TRUNCATE_ALL",
+                $"TRUNCATE Auditoria ejecutado. Registros eliminados: {countBefore}. Espacio liberado.",
+                User.Identity?.Name,
+                "Soporte");
+
+            return Ok(new
+            {
+                deleted = countBefore,
+                message = $"Auditoría vaciada por completo ({countBefore} registro(s)). Espacio liberado con TRUNCATE.",
+            });
+        }
+
+        /// <summary>
+        /// Reclama espacio en disco tras DELETEs previos (VACUUM FULL de Auditoria).
+        /// </summary>
+        [HttpPost("audit-retention/vacuum")]
+        public async Task<IActionResult> VacuumAudit()
+        {
+            if (!CanAccessSupportLogs()) return SupportForbidden();
+
+            try
+            {
+                await _auditRetention.VacuumAsync();
+                await _auditService.RegistrarAccionAsync(
+                    "AUDIT_VACUUM",
+                    "VACUUM FULL ANALYZE ejecutado sobre tabla Auditoria (reclamo de espacio).",
+                    User.Identity?.Name,
+                    "Soporte");
+
+                return Ok(new
+                {
+                    message = "Espacio liberado. Se ejecutó VACUUM FULL sobre Auditoria.",
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    message = "No se pudo ejecutar VACUUM. Probá desde psql o el panel de la DB.",
+                    detail = ex.Message,
+                });
+            }
+        }
+
+        /// <summary>
         /// Configuración de retención automática de auditoría (solo SuperAdmin / soporte).
         /// </summary>
         [HttpGet("audit-retention")]

@@ -173,6 +173,37 @@ namespace SportTrack_Sigdef.Controladores.Audit
             }
         }
 
+        public async Task TruncateAllAsync(CancellationToken ct = default)
+        {
+            // TRUNCATE libera el espacio en disco de inmediato (a diferencia de DELETE).
+            await _db.Database.ExecuteSqlRawAsync(
+                @"TRUNCATE TABLE ""Auditoria"" RESTART IDENTITY;");
+            _db.ChangeTracker.Clear();
+        }
+
+        public async Task VacuumAsync(CancellationToken ct = default)
+        {
+            // VACUUM no puede correr dentro de una transacción de EF.
+            var connection = _db.Database.GetDbConnection();
+            var shouldClose = connection.State != System.Data.ConnectionState.Open;
+            if (shouldClose)
+                await connection.OpenAsync(ct);
+
+            try
+            {
+                await using var cmd = connection.CreateCommand();
+                // FULL reclama espacio al SO; puede bloquear la tabla unos segundos.
+                cmd.CommandText = @"VACUUM (FULL, ANALYZE) ""Auditoria"";";
+                cmd.CommandTimeout = 600;
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+            finally
+            {
+                if (shouldClose)
+                    await connection.CloseAsync();
+            }
+        }
+
         private async Task<HashSet<string>> GetFederacionUsernamesAsync(int federacionId, CancellationToken ct)
         {
             var clubIds = await _db.Clubes
