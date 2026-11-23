@@ -131,7 +131,12 @@ namespace SportTrack_Sigdef.Controllers
         }
 
         [HttpGet("logs")]
-        public async Task<IActionResult> GetLogs([FromQuery] string modulo = null, [FromQuery] int limit = 100)
+        public async Task<IActionResult> GetLogs(
+            [FromQuery] string modulo = null,
+            [FromQuery] int limit = 100,
+            [FromQuery] int? pageNumber = null,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string search = null)
         {
             // Solo permitir a usuarios específicos o con el rol SuperAdmin
             var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
@@ -153,11 +158,45 @@ namespace SportTrack_Sigdef.Controllers
                 query = query.Where(a => a.Modulo == modulo);
             }
 
-            var logs = await query
-                .OrderByDescending(a => a.Fecha)
-                .Take(limit)
-                .ToListAsync();
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var q = search.Trim();
+                // ILike (PostgreSQL) para coincidencias case-insensitive en usuario/detalle/acción/etc.
+                query = query.Where(a =>
+                    EF.Functions.ILike(a.Usuario ?? string.Empty, $"%{q}%")
+                    || EF.Functions.ILike(a.Accion ?? string.Empty, $"%{q}%")
+                    || EF.Functions.ILike(a.Detalle ?? string.Empty, $"%{q}%")
+                    || EF.Functions.ILike(a.Modulo ?? string.Empty, $"%{q}%")
+                    || EF.Functions.ILike(a.IP ?? string.Empty, $"%{q}%"));
+            }
 
+            var ordered = query.OrderByDescending(a => a.Fecha);
+
+            if (pageNumber.HasValue || Request.Query.ContainsKey("pageSize"))
+            {
+                pageSize = Math.Clamp(pageSize, 1, 100);
+                var page = Math.Max(1, pageNumber ?? 1);
+                var totalCount = await query.CountAsync();
+                var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+                if (page > totalPages) page = totalPages;
+
+                var items = await ordered
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    items,
+                    totalCount,
+                    pageNumber = page,
+                    pageSize,
+                    totalPages,
+                });
+            }
+
+            limit = Math.Clamp(limit, 1, 2000);
+            var logs = await ordered.Take(limit).ToListAsync();
             return Ok(logs);
         }
 

@@ -34,12 +34,16 @@ namespace SportTrack_Sigdef.Controllers
         /// <summary>
         /// Actividad reciente del sistema.
         /// SuperAdmin: global. Admin/Federacion: solo usuarios de su federación.
+        /// Con pageNumber/pageSize devuelve página + totalCount (para recorrer todo).
+        /// Sin pageNumber mantiene el modo legacy con limit.
         /// </summary>
         [HttpGet]
-        public async Task<IActionResult> GetActividad([FromQuery] int limit = 100, [FromQuery] int? eventoId = null)
+        public async Task<IActionResult> GetActividad(
+            [FromQuery] int limit = 100,
+            [FromQuery] int? pageNumber = null,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] int? eventoId = null)
         {
-            limit = Math.Clamp(limit, 1, 500);
-
             var query = BuildScopedQuery();
 
             if (eventoId.HasValue && eventoId.Value > 0)
@@ -47,23 +51,46 @@ namespace SportTrack_Sigdef.Controllers
                 query = query.Where(a => a.IdEvento == eventoId.Value);
             }
 
-            var logs = await query
-                .OrderByDescending(a => a.Fecha)
-                .Take(limit)
-                .Select(a => new
-                {
-                    id = a.Id,
-                    fecha = a.Fecha,
-                    accion = a.Accion,
-                    detalle = a.Detalle,
-                    usuario = a.Usuario,
-                    modulo = a.Modulo,
-                    ip = a.IP,
-                    idEvento = a.IdEvento,
-                    idEventoPrueba = a.IdEventoPrueba,
-                })
-                .ToListAsync();
+            var ordered = query.OrderByDescending(a => a.Fecha);
 
+            var projection = ordered.Select(a => new
+            {
+                id = a.Id,
+                fecha = a.Fecha,
+                accion = a.Accion,
+                detalle = a.Detalle,
+                usuario = a.Usuario,
+                modulo = a.Modulo,
+                ip = a.IP,
+                idEvento = a.IdEvento,
+                idEventoPrueba = a.IdEventoPrueba,
+            });
+
+            if (pageNumber.HasValue || Request.Query.ContainsKey("pageSize"))
+            {
+                pageSize = Math.Clamp(pageSize, 1, 100);
+                var page = Math.Max(1, pageNumber ?? 1);
+                var totalCount = await query.CountAsync();
+                var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+                if (page > totalPages) page = totalPages;
+
+                var items = await projection
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    items,
+                    totalCount,
+                    pageNumber = page,
+                    pageSize,
+                    totalPages,
+                });
+            }
+
+            limit = Math.Clamp(limit, 1, 500);
+            var logs = await projection.Take(limit).ToListAsync();
             return Ok(logs);
         }
 
