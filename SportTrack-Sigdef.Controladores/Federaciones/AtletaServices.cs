@@ -268,13 +268,23 @@ namespace SportTrack_Sigdef.Controladores.Services
 
                 if (!string.IsNullOrWhiteSpace(parameters.SearchTerm))
                 {
-                    var search = parameters.SearchTerm.ToLower();
-                    query = query.Where(a =>
-                        a.Participante.Nombre.ToLower().Contains(search) ||
-                        a.Participante.Apellido.ToLower().Contains(search) ||
-                        a.Participante.Dni.ToLower().Contains(search) ||
-                        (a.Club != null && a.Club.Nombre.ToLower().Contains(search))
-                    );
+                    // Tokens independientes: "acosta facu" debe matchear "Facundo Acosta"
+                    // (orden y mayúsculas/minúsculas no importan).
+                    var tokens = parameters.SearchTerm
+                        .Trim()
+                        .ToLower()
+                        .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+
+                    foreach (var token in tokens)
+                    {
+                        var t = token;
+                        query = query.Where(a =>
+                            a.Participante.Nombre.ToLower().Contains(t) ||
+                            a.Participante.Apellido.ToLower().Contains(t) ||
+                            a.Participante.Dni.ToLower().Contains(t) ||
+                            (a.Club != null && a.Club.Nombre.ToLower().Contains(t))
+                        );
+                    }
                 }
 
                 var totalRecords = await query.CountAsync();
@@ -1149,12 +1159,20 @@ namespace SportTrack_Sigdef.Controladores.Services
 
                 if (!string.IsNullOrWhiteSpace(filtro.Busqueda))
                 {
-                    var s = filtro.Busqueda.Trim().ToLower();
-                    query = query.Where(a =>
-                        a.Participante.Nombre.ToLower().Contains(s)
-                        || a.Participante.Apellido.ToLower().Contains(s)
-                        || a.Participante.Dni.ToLower().Contains(s)
-                        || (a.Club != null && a.Club.Nombre.ToLower().Contains(s)));
+                    var tokens = filtro.Busqueda
+                        .Trim()
+                        .ToLower()
+                        .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+
+                    foreach (var token in tokens)
+                    {
+                        var t = token;
+                        query = query.Where(a =>
+                            a.Participante.Nombre.ToLower().Contains(t)
+                            || a.Participante.Apellido.ToLower().Contains(t)
+                            || a.Participante.Dni.ToLower().Contains(t)
+                            || (a.Club != null && a.Club.Nombre.ToLower().Contains(t)));
+                    }
                 }
 
                 var atletas = await query.OrderBy(a => a.Participante.Apellido).ThenBy(a => a.Participante.Nombre).ToListAsync();
