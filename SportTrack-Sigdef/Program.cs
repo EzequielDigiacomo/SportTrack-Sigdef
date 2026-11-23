@@ -242,6 +242,8 @@ builder.Services.AddScoped<ISaaSService, SaaSService>();
 // Auditoria
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<IAuditRetentionService, AuditRetentionService>();
+builder.Services.AddHostedService<AuditRetentionBackgroundService>();
 // Backups DB (SuperAdmin)
 builder.Services.AddScoped<IBackupService, BackupService>();
 // Mensajería privada

@@ -17,15 +17,18 @@ namespace SportTrack_Sigdef.Controllers
     {
         private readonly SportTrackDbContext _context;
         private readonly IAuditService _auditService;
+        private readonly IAuditRetentionService _auditRetention;
         private readonly ITimingOutboxService _timingOutboxService;
 
         public SupportController(
             SportTrackDbContext context,
             IAuditService auditService,
+            IAuditRetentionService auditRetention,
             ITimingOutboxService timingOutboxService)
         {
             _context = context;
             _auditService = auditService;
+            _auditRetention = auditRetention;
             _timingOutboxService = timingOutboxService;
         }
 
@@ -219,6 +222,128 @@ namespace SportTrack_Sigdef.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Logs de error eliminados." });
+        }
+
+        /// <summary>
+        /// Configuración de retención automática de auditoría (solo SuperAdmin / soporte).
+        /// </summary>
+        [HttpGet("audit-retention")]
+        public async Task<IActionResult> GetAuditRetention()
+        {
+            if (!CanAccessSupportLogs()) return SupportForbidden();
+            var opts = await _auditRetention.GetAsync();
+            return Ok(opts);
+        }
+
+        [HttpPut("audit-retention")]
+        public async Task<IActionResult> PutAuditRetention([FromBody] AuditRetentionOptions dto)
+        {
+            if (!CanAccessSupportLogs()) return SupportForbidden();
+            if (dto == null) return BadRequest(new { message = "Configuración requerida." });
+
+            // Preservar configs por federación si el payload global no las trae.
+            var current = await _auditRetention.GetAsync();
+            if (dto.Federaciones == null || dto.Federaciones.Count == 0)
+            {
+                dto.Federaciones = current.Federaciones;
+            }
+
+            var saved = await _auditRetention.SaveAsync(dto);
+            await _auditService.RegistrarAccionAsync(
+                "AUDIT_RETENTION_UPDATE",
+                $"Retención auditoría: enabled={saved.Enabled}, days={saved.Days}",
+                User.Identity?.Name,
+                "Soporte");
+
+            return Ok(saved);
+        }
+
+        /// <summary>
+        /// Ejecuta purga inmediata de registros más viejos que N días.
+        /// </summary>
+        [HttpPost("audit-retention/purge")]
+        public async Task<IActionResult> PurgeAuditRetention([FromBody] AuditRetentionOptions? dto = null)
+        {
+            if (!CanAccessSupportLogs()) return SupportForbidden();
+
+            var opts = dto ?? await _auditRetention.GetAsync();
+            var days = opts.Days > 0 ? opts.Days : 90;
+            var deleted = await _auditRetention.PurgeOlderThanAsync(days);
+
+            await _auditService.RegistrarAccionAsync(
+                "AUDIT_RETENTION_PURGE",
+                $"Purga manual auditoría: deleted={deleted}, days={days}",
+                User.Identity?.Name,
+                "Soporte");
+
+            return Ok(new { deleted, days, message = $"Se eliminaron {deleted} registro(s) anteriores a {days} días." });
+        }
+
+        /// <summary>
+        /// Guarda retención automática de una federación (independiente).
+        /// </summary>
+        [HttpPut("audit-retention/federacion")]
+        public async Task<IActionResult> PutFederacionAuditRetention([FromBody] FederacionAuditRetentionOptions dto)
+        {
+            if (!CanAccessSupportLogs()) return SupportForbidden();
+            if (dto == null || dto.FederacionId <= 0)
+                return BadRequest(new { message = "FederacionId requerido." });
+
+            var saved = await _auditRetention.UpsertFederacionAsync(dto);
+            await _auditService.RegistrarAccionAsync(
+                "AUDIT_RETENTION_FED_UPDATE",
+                $"Retención fed #{saved.FederacionId}: enabled={saved.Enabled}, days={saved.Days}",
+                User.Identity?.Name,
+                "Soporte");
+
+            return Ok(saved);
+        }
+
+        /// <summary>
+        /// Purga auditoría de una federación: todo, o rango desde/hasta.
+        /// </summary>
+        [HttpPost("audit-retention/purge-federacion")]
+        public async Task<IActionResult> PurgeFederacionAudit([FromBody] FederacionAuditPurgeRequest dto)
+        {
+            if (!CanAccessSupportLogs()) return SupportForbidden();
+            if (dto == null || dto.FederacionId <= 0)
+                return BadRequest(new { message = "FederacionId requerido." });
+
+            if (!dto.DeleteAll && !dto.From.HasValue && !dto.To.HasValue)
+                return BadRequest(new { message = "Indicá DeleteAll o un rango From/To." });
+
+            if (!dto.DeleteAll && dto.From.HasValue && dto.To.HasValue && dto.From.Value.Date > dto.To.Value.Date)
+                return BadRequest(new { message = "La fecha desde no puede ser posterior a hasta." });
+
+            try
+            {
+                var deleted = await _auditRetention.PurgeFederacionAsync(dto);
+                var detail = dto.DeleteAll
+                    ? $"Purga total fed #{dto.FederacionId}: deleted={deleted}"
+                    : $"Purga rango fed #{dto.FederacionId}: {dto.From:yyyy-MM-dd}→{dto.To:yyyy-MM-dd}, deleted={deleted}";
+
+                await _auditService.RegistrarAccionAsync(
+                    "AUDIT_RETENTION_FED_PURGE",
+                    detail,
+                    User.Identity?.Name,
+                    "Soporte");
+
+                return Ok(new
+                {
+                    deleted,
+                    federacionId = dto.FederacionId,
+                    deleteAll = dto.DeleteAll,
+                    from = dto.From,
+                    to = dto.To,
+                    message = dto.DeleteAll
+                        ? $"Se eliminaron {deleted} registro(s) de la federación."
+                        : $"Se eliminaron {deleted} registro(s) entre {dto.From:dd/MM/yyyy} y {dto.To:dd/MM/yyyy}.",
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         private async Task PurgeForbidSchemeNoiseAsync()
