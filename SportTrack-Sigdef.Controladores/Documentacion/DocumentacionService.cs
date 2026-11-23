@@ -53,7 +53,7 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
                 ?? throw new KeyNotFoundException($"No se encontró la persona con ID {personaId}.");
 
             // Resolver club: preferir el de Participante; si falta, el de la ficha de atleta.
-            Club? club = persona.Club;
+            SportTrack_Sigdef.Entidades.Entidades.Club? club = persona.Club;
             if (club == null)
             {
                 var clubId = persona.AtletaFederacion?.IdClub ?? persona.IdClub;
@@ -216,7 +216,9 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
         /// Carpeta Cloudinary: sigdef/{federacion}/{club}/{persona}
         /// Ej: sigdef/fed-7-fac/club-12-rcn/persona-341-perez-juan
         /// </summary>
-        private static string BuildCloudinaryFolder(Participante persona, Club? club)
+        private static string BuildCloudinaryFolder(
+            SportTrack_Sigdef.Entidades.Entidades.Participante persona,
+            SportTrack_Sigdef.Entidades.Entidades.Club? club)
         {
             var fed = club?.Federacion;
 
