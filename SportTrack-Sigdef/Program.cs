@@ -272,21 +272,38 @@ builder.Services.AddScoped<ITraspasoService, TraspasoService>();
 builder.Services.AddScoped<ITraspasoNotificacionService, TraspasoNotificacionService>();
 
 // Documentación (Cloudinary + fallback local)
+// Importante: appsettings puede traer CloudName/ApiKey/ApiSecret = "" y eso
+// bloquea el ?? hacia env vars. Hay que ignorar strings vacíos.
+static string FirstNonEmpty(params string?[] values)
+{
+    foreach (var v in values)
+    {
+        if (!string.IsNullOrWhiteSpace(v)) return v.Trim();
+    }
+    return string.Empty;
+}
+
 builder.Services.Configure<CloudinarySettings>(options =>
 {
     var section = builder.Configuration.GetSection("CloudinarySettings");
-    options.CloudName = section["CloudName"]
-        ?? builder.Configuration["CLOUDINARY_CLOUD_NAME"]
-        ?? Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME")
-        ?? string.Empty;
-    options.ApiKey = section["ApiKey"]
-        ?? builder.Configuration["CLOUDINARY_API_KEY"]
-        ?? Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY")
-        ?? string.Empty;
-    options.ApiSecret = section["ApiSecret"]
-        ?? builder.Configuration["CLOUDINARY_API_SECRET"]
-        ?? Environment.GetEnvironmentVariable("CLOUDINARY_API_SECRET")
-        ?? string.Empty;
+    options.CloudName = FirstNonEmpty(
+        section["CloudName"],
+        builder.Configuration["CloudinarySettings:CloudName"],
+        builder.Configuration["CloudinarySettings__CloudName"],
+        builder.Configuration["CLOUDINARY_CLOUD_NAME"],
+        Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME"));
+    options.ApiKey = FirstNonEmpty(
+        section["ApiKey"],
+        builder.Configuration["CloudinarySettings:ApiKey"],
+        builder.Configuration["CloudinarySettings__ApiKey"],
+        builder.Configuration["CLOUDINARY_API_KEY"],
+        Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY"));
+    options.ApiSecret = FirstNonEmpty(
+        section["ApiSecret"],
+        builder.Configuration["CloudinarySettings:ApiSecret"],
+        builder.Configuration["CloudinarySettings__ApiSecret"],
+        builder.Configuration["CLOUDINARY_API_SECRET"],
+        Environment.GetEnvironmentVariable("CLOUDINARY_API_SECRET"));
 });
 builder.Services.AddScoped<IDocumentacionService, DocumentacionService>();
 
