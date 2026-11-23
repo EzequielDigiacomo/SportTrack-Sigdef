@@ -2,6 +2,7 @@ using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SportTrack_Sigdef.AccesoDatos;
 using SportTrack_Sigdef.Entidades.Entidades;
@@ -20,11 +21,18 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
         private readonly SportTrackDbContext _context;
         private readonly Cloudinary? _cloudinary;
         private readonly bool _cloudinaryConfigured;
+        private readonly string _cloudName;
+        private readonly ILogger<DocumentacionService> _logger;
 
-        public DocumentacionService(SportTrackDbContext context, IOptions<CloudinarySettings> options)
+        public DocumentacionService(
+            SportTrackDbContext context,
+            IOptions<CloudinarySettings> options,
+            ILogger<DocumentacionService> logger)
         {
             _context = context;
+            _logger = logger;
             var settings = options.Value;
+            _cloudName = settings.CloudName?.Trim() ?? string.Empty;
             _cloudinaryConfigured =
                 !string.IsNullOrWhiteSpace(settings.CloudName)
                 && !string.IsNullOrWhiteSpace(settings.ApiKey)
@@ -34,6 +42,13 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
             {
                 _cloudinary = new Cloudinary(new Account(settings.CloudName, settings.ApiKey, settings.ApiSecret));
                 _cloudinary.Api.Secure = true;
+                _logger.LogInformation("Cloudinary configurado (cloud: {CloudName}).", _cloudName);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Cloudinary NO configurado. Los uploads se guardarán como base64 en la BD. " +
+                    "Definí CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET (o CloudinarySettings__*).");
             }
         }
 
@@ -120,10 +135,18 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
                         ?? throw new InvalidOperationException("Cloudinary no devolvió URL.");
                     publicId = rawResult.PublicId;
                 }
+
+                _logger.LogInformation(
+                    "Upload Cloudinary OK. cloud={CloudName} folder={Folder} publicId={PublicId} personaId={PersonaId}",
+                    _cloudName, folder, publicId, personaId);
             }
             else
             {
                 // Fallback local (dev sin Cloudinary): data URL en BD
+                _logger.LogWarning(
+                    "Upload SIN Cloudinary (fallback BD). personaId={PersonaId} tipo={TipoDocumento}",
+                    personaId, tipoDocumento);
+
                 await using var ms = new MemoryStream();
                 await file.CopyToAsync(ms);
                 var base64 = Convert.ToBase64String(ms.ToArray());
@@ -198,19 +221,28 @@ namespace SportTrack_Sigdef.Controladores.Documentacion
             return true;
         }
 
-        private static object MapDoc(DocumentacionFederacionPersona d) => new
+        private static object MapDoc(DocumentacionFederacionPersona d)
         {
-            id = d.Id,
-            personaId = d.PersonaId,
-            tipoDocumento = d.TipoDocumento,
-            urlArchivo = d.UrlArchivo,
-            publicId = d.PublicId,
-            fechaCarga = d.FechaCarga,
-            fechaVencimiento = d.FechaVencimiento,
-            estadoRevision = d.EstadoRevision,
-            observacion = d.Observacion,
-            success = true
-        };
+            var url = d.UrlArchivo ?? string.Empty;
+            var storage = !string.IsNullOrEmpty(d.PublicId) && url.Contains("cloudinary", StringComparison.OrdinalIgnoreCase)
+                ? "cloudinary"
+                : (url.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ? "database" : "unknown");
+
+            return new
+            {
+                id = d.Id,
+                personaId = d.PersonaId,
+                tipoDocumento = d.TipoDocumento,
+                urlArchivo = d.UrlArchivo,
+                publicId = d.PublicId,
+                fechaCarga = d.FechaCarga,
+                fechaVencimiento = d.FechaVencimiento,
+                estadoRevision = d.EstadoRevision,
+                observacion = d.Observacion,
+                storage,
+                success = true
+            };
+        }
 
         /// <summary>
         /// Carpeta Cloudinary: sigdef/{federacion}/{club}/{persona}
