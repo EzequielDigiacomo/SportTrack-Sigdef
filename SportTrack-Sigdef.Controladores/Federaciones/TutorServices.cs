@@ -40,6 +40,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                         Documento = t.Participante.Dni,
                         Telefono = t.Participante.Telefono,
                         Email = t.Participante.Email,
+                        Direccion = t.Participante.Direccion,
                         CantidadAtletas = t.AtletasTutores.Count
                     })
                     .ToListAsync();
@@ -120,6 +121,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                         Documento = t.Participante.Dni,
                         Telefono = t.Participante.Telefono,
                         Email = t.Participante.Email,
+                        Direccion = t.Participante.Direccion,
                         CantidadAtletas = t.AtletasTutores.Count
                     })
                     .ToListAsync();
@@ -148,6 +150,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                         Documento = t.Participante.Dni,
                         Telefono = t.Participante.Telefono,
                         Email = t.Participante.Email,
+                        Direccion = t.Participante.Direccion,
                         CantidadAtletas = 0
                     })
                     .ToListAsync();
@@ -184,6 +187,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                         Documento = t.Participante.Dni,
                         Telefono = t.Participante.Telefono,
                         Email = t.Participante.Email,
+                        Direccion = t.Participante.Direccion,
                         CantidadAtletas = t.AtletasTutores.Count
                     })
                     .ToListAsync();
@@ -271,6 +275,7 @@ namespace SportTrack_Sigdef.Controladores.Services
                     Documento = tutor.Participante.Dni,
                     Telefono = tutor.Participante.Telefono,
                     Email = tutor.Participante.Email,
+                    Direccion = tutor.Participante.Direccion,
                     CantidadAtletas = 0
                 };
 

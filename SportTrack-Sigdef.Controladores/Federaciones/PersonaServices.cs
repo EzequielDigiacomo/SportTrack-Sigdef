@@ -191,13 +191,11 @@ namespace SportTrack_Sigdef.Controladores.Services
                 }
 
                 // Busca a cualquier persona (atleta, entrenador, tutor, delegado, etc.)
+                // 204 = lookup vacío (no es error de negocio; el front puede crear la persona).
                 var p = await _altaAtletaService.BuscarPorDocumentoAsync(documento);
                 if (p == null)
                 {
-                    return new NotFoundObjectResult(new
-                    {
-                        message = "No se encontró una persona con ese DNI."
-                    });
+                    return new NoContentResult();
                 }
 
                 // Bloquear también si el Participante está vinculado a un usuario privilegiado
