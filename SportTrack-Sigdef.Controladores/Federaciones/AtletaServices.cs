@@ -1026,24 +1026,27 @@ namespace SportTrack_Sigdef.Controladores.Services
                 if (atleta == null)
                     return new NotFoundObjectResult(new { error = "Atleta no encontrado." });
 
+                // La documentación/apto condicionan la habilitación para competir,
+                // no bloquean la aprobación del alta (solicitud de fichaje).
                 var docs = await _context.DocumentacionPersonas
                     .Where(d => d.PersonaId == id)
                     .ToListAsync();
-
                 var faltantes = _habilitacionService.ChecklistDocsFaltantes(atleta, docs);
                 var estadoApto = _habilitacionService.EvaluarEstadoApto(atleta, docs);
-                if (faltantes.Count > 0 || estadoApto == "Faltante")
-                {
-                    return new BadRequestObjectResult(new
-                    {
-                        error = "No se puede aprobar: faltan requisitos documentales o apto médico.",
-                        docsFaltantes = faltantes,
-                        estadoApto
-                    });
-                }
 
                 await CambiarEstadoFichajeAsync(atleta, EstadoFichaje.Aprobado, null);
-                return new OkObjectResult(new { message = "Fichaje aprobado.", participanteId = id, estadoFichaje = EstadoFichaje.Aprobado });
+
+                var incompleto = faltantes.Count > 0 || estadoApto == "Faltante";
+                return new OkObjectResult(new
+                {
+                    message = incompleto
+                        ? "Alta aprobada. Atención: aún faltan requisitos para habilitación."
+                        : "Fichaje aprobado.",
+                    participanteId = id,
+                    estadoFichaje = EstadoFichaje.Aprobado,
+                    docsFaltantes = faltantes,
+                    estadoApto
+                });
             }
             catch (Exception ex)
             {
@@ -1361,6 +1364,7 @@ namespace SportTrack_Sigdef.Controladores.Services
         {
             var rol = _tenantProvider.GetRol();
             return string.Equals(rol, "Admin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(rol, "Federacion", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(rol, "SuperAdmin", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(rol, "soporte_tecnico", StringComparison.OrdinalIgnoreCase);
         }
